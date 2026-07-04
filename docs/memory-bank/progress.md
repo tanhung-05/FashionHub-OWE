@@ -5,6 +5,8 @@ Dự án đã hoàn thành bước phân tích project ASP.NET MVC 5 hiện tạ
 
 Bước khởi tạo project migrate rỗng đã hoàn tất trong `FashionHub2/`. Project cũ `FashionHub/` chưa bị copy/chỉnh sửa trong bước này.
 
+Bước Database First ban đầu cho project mới đã hoàn tất: EF Core đã scaffold entity và `ApplicationDbContext` từ database SQL Server hiện có vào `FashionHub2/FashionHub.Web`.
+
 ## Đã hoàn thành
 - [x] Phân tích project cũ `FashionHub/`.
 - [x] Xác định stack hiện tại:
@@ -38,9 +40,16 @@ Bước khởi tạo project migrate rỗng đã hoàn tất trong `FashionHub2/
 - [x] Build solution `FashionHub2/FashionHub2.slnx` thành công.
 - [x] Chạy test project `FashionHub.Tests` thành công.
 - [x] Chạy thử `FashionHub.Web` bằng `dotnet run` và xác nhận trang mặc định trả HTTP 200 tại `http://localhost:5099/`.
+- [x] Cài `dotnet-ef` global tool version `10.0.9`.
+- [x] Đọc connection string từ `FashionHub/Web.config`.
+- [x] Scaffold EF Core entity vào `FashionHub2/FashionHub.Web/Models/Generated`.
+- [x] Scaffold `ApplicationDbContext` vào `FashionHub2/FashionHub.Web/Data/ApplicationDbContext.cs`.
+- [x] Thêm connection string `DefaultConnection` vào `FashionHub2/FashionHub.Web/appsettings.Development.json`.
+- [x] Đăng ký `ApplicationDbContext` trong `FashionHub2/FashionHub.Web/Program.cs`.
+- [x] Đối chiếu sơ bộ model scaffold với EF6 model cũ và ghi nhận khác biệt chính.
 
 ## Đang làm
-- Chuẩn bị giai đoạn Database First cho project mới `FashionHub2/FashionHub.Web`.
+- Chuẩn bị commit riêng cho task Database First.
 
 ## Việc cần làm tiếp theo
 
@@ -58,10 +67,13 @@ Bước khởi tạo project migrate rỗng đã hoàn tất trong `FashionHub2/
 - [x] Chạy thử project rỗng.
 
 ### Giai đoạn 2 — Database First
-- [ ] Nhận connection string SQL Server từ người dùng.
-- [ ] Scaffold entity vào `FashionHub.Web/Models/Generated`.
-- [ ] Scaffold `ApplicationDbContext` vào `FashionHub.Web/Data`.
-- [ ] Đối chiếu model scaffold với model cũ.
+- [x] Nhận/đọc connection string SQL Server từ project cũ.
+- [x] Scaffold entity vào `FashionHub.Web/Models/Generated`.
+- [x] Scaffold `ApplicationDbContext` vào `FashionHub.Web/Data`.
+- [x] Đăng ký `ApplicationDbContext` trong `Program.cs`.
+- [x] Đối chiếu model scaffold với model cũ.
+- [x] Build/verify solution sau scaffold.
+- [ ] Commit riêng cho task Database First.
 
 ### Giai đoạn 3 — Authentication
 - [ ] Cấu hình Cookie Authentication trong `Program.cs`.
@@ -90,6 +102,18 @@ Bước khởi tạo project migrate rỗng đã hoàn tất trong `FashionHub2/
 - [ ] Dockerize.
 - [ ] Deploy.
 - [ ] Hoàn thiện README/demo/CV.
+
+## Ghi chú kỹ thuật Database First
+- Các entity scaffold chính: `BienTheSanPham`, `ChiTietDonHang`, `DanhMuc`, `DiaChi`, `DonHang`, `GioHang`, `HinhAnh`, `HinhAnhBienThe`, `KichThuoc`, `MaGiamGium`, `MauSac`, `NguoiDung`, `PhuongThucThanhToan`, `SanPham`, `ThuongHieu`, `TrangThaiDonHang`, `VaiTro`.
+- Khác biệt tên đáng chú ý:
+  - `IDSanPham`/`IDDanhMuc`/`IDBienThe` trong EF6 thành `IdsanPham`/`IddanhMuc`/`IdbienThe` trong EF Core.
+  - Navigation property EF Core có hậu tố `Navigation`.
+  - `HinhAnh_BienThe` thành `HinhAnhBienThe`.
+  - `MaGiamGia` thành `MaGiamGium`.
+- Cột mới/khác so với EF6 model cũ:
+  - `BienTheSanPham.Gia`
+  - `SanPham.VectorDacTrung`
+  - `DiaChi.PhuongXa`, `DiaChi.QuanHuyen`, `DiaChi.TinhThanh`
 
 ## Lưu ý
 - Không xoá project cũ `FashionHub/` khi chưa hoàn tất migration.

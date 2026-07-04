@@ -1,0 +1,13 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace FashionHub.Web.Models.Generated;
+
+public partial class PhuongThucThanhToan
+{
+    public int IdphuongThucThanhToan { get; set; }
+
+    public string TenPhuongThuc { get; set; } = null!;
+
+    public virtual ICollection<DonHang> DonHangs { get; set; } = new List<DonHang>();
+}
