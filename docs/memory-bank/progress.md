@@ -7,6 +7,8 @@ Bước khởi tạo project migrate rỗng đã hoàn tất trong `FashionHub2/
 
 Bước Database First ban đầu cho project mới đã hoàn tất: EF Core đã scaffold entity và `ApplicationDbContext` từ database SQL Server hiện có vào `FashionHub2/FashionHub.Web`.
 
+Bước Authentication nền tảng cho project mới đã hoàn tất: đã cấu hình Cookie Authentication, thêm `AccountController` ASP.NET Core MVC, thêm `LoginViewModel`/`RegisterViewModel`, dùng EF Core + BCrypt.Net-Next và xác thực bằng claims cookie.
+
 ## Đã hoàn thành
 - [x] Phân tích project cũ `FashionHub/`.
 - [x] Xác định stack hiện tại:
@@ -47,9 +49,14 @@ Bước Database First ban đầu cho project mới đã hoàn tất: EF Core đ
 - [x] Thêm connection string `DefaultConnection` vào `FashionHub2/FashionHub.Web/appsettings.Development.json`.
 - [x] Đăng ký `ApplicationDbContext` trong `FashionHub2/FashionHub.Web/Program.cs`.
 - [x] Đối chiếu sơ bộ model scaffold với EF6 model cũ và ghi nhận khác biệt chính.
+- [x] Cấu hình Cookie Authentication trong `FashionHub2/FashionHub.Web/Program.cs`.
+- [x] Dựng lại `AccountController` theo ASP.NET Core MVC.
+- [x] Thêm `LoginViewModel` và `RegisterViewModel` cho project mới.
+- [x] Giữ BCrypt.Net-Next cho login/register với mật khẩu BCrypt hiện có.
+- [x] Chạy `dotnet test FashionHub2\FashionHub.Tests\FashionHub.Tests.csproj --no-restore` thành công sau bước Authentication.
 
 ## Đang làm
-- Chuẩn bị commit riêng cho task Database First.
+- Chuẩn bị commit riêng cho task Authentication nền tảng.
 
 ## Việc cần làm tiếp theo
 
@@ -76,9 +83,11 @@ Bước Database First ban đầu cho project mới đã hoàn tất: EF Core đ
 - [ ] Commit riêng cho task Database First.
 
 ### Giai đoạn 3 — Authentication
-- [ ] Cấu hình Cookie Authentication trong `Program.cs`.
-- [ ] Dựng lại AccountController.
-- [ ] Giữ BCrypt.Net-Next.
+- [x] Cấu hình Cookie Authentication trong `Program.cs`.
+- [x] Dựng lại AccountController.
+- [x] Giữ BCrypt.Net-Next.
+- [ ] Migrate Account Views cho Login/Register/AccessDenied.
+- [ ] Bổ sung các action/màn hình tài khoản còn lại: hồ sơ, địa chỉ, đổi mật khẩu.
 - [ ] Thêm Authorize/Role cho khu vực cần bảo vệ.
 
 ### Giai đoạn 4 — Services

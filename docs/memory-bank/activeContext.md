@@ -28,6 +28,14 @@ Project cũ `FashionHub/` vẫn được giữ nguyên để tham chiếu trong 
 - Thêm connection string `DefaultConnection` vào `FashionHub2/FashionHub.Web/appsettings.Development.json`.
 - Đăng ký `ApplicationDbContext` trong `FashionHub2/FashionHub.Web/Program.cs` bằng `AddDbContext` và `UseSqlServer`.
 
+Đã hoàn thành bước Authentication nền tảng cho project mới:
+- Cấu hình Cookie Authentication trong `FashionHub2/FashionHub.Web/Program.cs`.
+- Thêm `AccountController` mới theo ASP.NET Core MVC trong `FashionHub2/FashionHub.Web/Controllers/AccountController.cs`.
+- Thêm `LoginViewModel` và `RegisterViewModel` trong `FashionHub2/FashionHub.Web/ViewModels/Account/`.
+- Login/Register dùng EF Core `ApplicationDbContext`, entity `NguoiDung`/`VaiTro`, BCrypt.Net-Next và claims-based cookie.
+- Logout dùng `HttpContext.SignOutAsync`.
+- Đã chạy `dotnet test FashionHub2\FashionHub.Tests\FashionHub.Tests.csproj --no-restore` thành công.
+
 ## Quyết định kỹ thuật hiện tại
 - Ưu tiên migrate trước, UI/UX sau.
 - Tạo project mới `FashionHub2/FashionHub.Web` thay vì chỉnh trực tiếp project cũ.
@@ -81,13 +89,17 @@ Khác biệt đáng chú ý so với EF6 model cũ:
 - `FashionHub2/FashionHub.Web/Models/Generated/**`: entity scaffold từ database.
 
 ## Việc cần làm tiếp theo
-1. Build/verify lại solution sau khi scaffold EF Core.
-2. Nếu build ổn định, commit riêng cho task Database First.
-3. Sau đó chuyển sang giai đoạn Authentication:
-   - cấu hình Cookie Authentication,
-   - dựng lại AccountController theo ASP.NET Core MVC,
-   - dùng `NguoiDung`/`VaiTro` từ EF Core,
-   - giữ BCrypt.Net-Next nếu mật khẩu database đang dùng BCrypt.
+1. Commit riêng cho task Authentication nền tảng nếu diff đã đúng phạm vi.
+2. Bắt đầu migrate Account Views:
+   - `Login.cshtml`
+   - `Register.cshtml`
+   - layout auth nếu cần
+   - chuyển sang Tag Helpers và static paths `~/css/...`, `~/js/...`.
+3. Sau đó bổ sung các màn hình tài khoản còn lại:
+   - hồ sơ người dùng,
+   - địa chỉ,
+   - đổi mật khẩu,
+   - AccessDenied.
 
 ## Lưu ý quan trọng cho các task sau
 - Không xoá, di chuyển hoặc refactor project cũ `FashionHub/` khi chưa có yêu cầu rõ ràng.
@@ -97,3 +109,4 @@ Khác biệt đáng chú ý so với EF6 model cũ:
 - Khi migrate View, cần chuyển dần sang Tag Helpers của ASP.NET Core.
 - UI/UX guidelines cũ vẫn có giá trị, nhưng áp dụng sau khi migration ổn định.
 - Cần đặc biệt chú ý khác biệt tên property scaffold (`Id...`, `...Navigation`, `MaGiamGium`) khi port controller/service/viewmodel từ project cũ.
+- Authentication mới chưa có Razor Views tương ứng trong project mới; cần migrate view trước khi chạy luồng login/register trên browser.
