@@ -1,0 +1,44 @@
+@model List<FashionHub.Web.ViewModels.Cart.CartItemViewModel>
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="cartOffcanvas" aria-labelledby="cartOffcanvasLabel">
+    <div class="offcanvas-header">
+        <h5 id="cartOffcanvasLabel">Giỏ hàng của bạn</h5>
+        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Đóng"></button>
+    </div>
+    <div class="offcanvas-body" id="cartOffcanvasBody">
+        @if (Model != null && Model.Any())
+        {
+            <div class="d-flex flex-column gap-3">
+                @foreach (var item in Model)
+                {
+                    <div class="d-flex gap-3">
+                        <img src="@item.AnhDaiDien" class="img-fluid rounded" alt="@item.TenSanPham" style="width: 72px; height: 72px; object-fit: cover;">
+                        <div class="flex-grow-1">
+                            <p class="fw-semibold mb-1">@item.TenSanPham</p>
+                            <p class="text-muted small mb-1">@item.TenMau / @item.TenKichThuoc</p>
+                            <p class="mb-0">@item.SoLuong x @item.DonGia.ToString("N0") VNĐ</p>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="border-top mt-4 pt-3">
+                <div class="d-flex justify-content-between fw-bold mb-3">
+                    <span>Tổng tiền</span>
+                    <span>@Model.Sum(item => item.ThanhTien).ToString("N0") VNĐ</span>
+                </div>
+                <div class="d-grid gap-2">
+                    <a asp-controller="Cart" asp-action="Index" class="btn btn-outline-dark">Xem giỏ hàng</a>
+                    <a asp-controller="Order" asp-action="Checkout" class="btn btn-dark">Thanh toán</a>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-4">
+                <p class="mb-3">Giỏ hàng của bạn đang trống.</p>
+                <a asp-controller="Products" asp-action="Index" class="btn btn-dark">Tiếp tục mua sắm</a>
+            </div>
+        }
+    </div>
+</div>
