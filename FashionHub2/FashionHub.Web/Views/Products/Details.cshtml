@@ -1,0 +1,308 @@
+@model FashionHub.Web.ViewModels.Products.ProductDetailViewModel
+@{
+    ViewBag.Title = Model.TenSanPham;
+}
+
+<div class="product-detail-page">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Trang chủ</a></li>
+            <li class="breadcrumb-item"><a asp-controller="Products" asp-action="Index">Sản phẩm</a></li>
+            <li class="breadcrumb-item"><a asp-controller="Products" asp-action="Index" asp-route-categoryId="@Model.IDDanhMuc">@Model.TenDanhMuc</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@Model.TenSanPham</li>
+        </ol>
+    </nav>
+
+    <div class="row g-4 mb-5">
+        <div class="col-lg-6">
+            <div class="product-gallery">
+                <div class="main-image-container mb-3">
+                    @if (Model.IsSaleActive)
+                    {
+                        <span class="sale-badge">
+                            <i class="bi bi-tag-fill me-1"></i>SALE
+                        </span>
+                    }
+                    @if (Model.IsOutStock)
+                    {
+                        <span class="stock-badge out-of-stock">Hết hàng</span>
+                    }
+                    <img id="main-product-image"
+                         src="@(Model.AllImages.FirstOrDefault()?.DuongDan ?? "/images/placeholder.png")"
+                         alt="@Model.TenSanPham"
+                         class="img-fluid rounded shadow-sm" />
+                </div>
+                <div class="thumbnail-carousel">
+                    @foreach (var img in Model.AllImages)
+                    {
+                        <img src="@img.DuongDan"
+                             alt="@Model.TenSanPham"
+                             class="thumbnail-image"
+                             data-image-id="@img.IdhinhAnh"
+                             onclick="$('#main-product-image').attr('src', '@img.DuongDan')" />
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="product-info">
+                <p class="text-uppercase small fw-bold text-muted mb-2">@Model.TenThuongHieu</p>
+                <h1 class="product-title mb-3">@Model.TenSanPham</h1>
+
+                <div class="product-price mb-4">
+                    @if (Model.IsSaleActive)
+                    {
+                        <span class="current-price sale-price">@Model.GiaKhuyenMai?.ToString("N0") đ</span>
+                        <span class="original-price">@Model.Gia.ToString("N0") đ</span>
+                        <span class="discount-percent">
+                            -@(((Model.Gia - (Model.GiaKhuyenMai ?? 0)) / Model.Gia * 100).ToString("0"))%
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="current-price">@Model.Gia.ToString("N0") đ</span>
+                    }
+                </div>
+
+                <div class="variant-selector mb-4">
+                    <div class="variant-group mb-3">
+                        <label class="variant-label d-flex align-items-center justify-content-between mb-2">
+                            <span>Màu sắc</span>
+                            <span id="selected-color-name" class="text-muted small"></span>
+                        </label>
+                        <div class="variant-options">
+                            @foreach (var color in Model.AvailableColors)
+                            {
+                                <button type="button" class="color-option"
+                                        data-color-id="@color.IdmauSac"
+                                        style="background-color: @(color.MaMauHex ?? "#ccc");"
+                                        title="@color.TenMau">
+                                    <span class="visually-hidden">@color.TenMau</span>
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="variant-group mb-3">
+                        <label class="variant-label d-flex align-items-center justify-content-between mb-2">
+                            <span>Kích thước</span>
+                            <span id="selected-size-name" class="text-muted small"></span>
+                        </label>
+                        <div class="variant-options">
+                            @foreach (var size in Model.AvailableSizes)
+                            {
+                                <button type="button" class="size-option" data-size-id="@size.IdkichThuoc">
+                                    @size.TenKichThuoc
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stock-info mb-3">
+                    <i class="bi bi-box-seam me-2"></i>
+                    <span id="stock-info" class="text-muted"></span>
+                </div>
+
+                <div class="quantity-selector mb-4">
+                    <label class="form-label">Số lượng</label>
+                    <div class="input-group quantity-control">
+                        <button class="btn btn-outline-secondary" type="button" id="btn-minus">
+                            <i class="bi bi-dash"></i>
+                        </button>
+                        <input type="number" class="form-control text-center" id="quantity" value="1" min="1" max="999">
+                        <button class="btn btn-outline-secondary" type="button" id="btn-plus">
+                            <i class="bi bi-plus"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button id="add-to-cart-btn" class="btn btn-outline-dark flex-fill" disabled data-action-type="add-to-cart">
+                        <i class="bi bi-cart-plus me-2"></i> Thêm vào giỏ
+                    </button>
+                    <button id="buy-now-btn" class="btn btn-dark flex-fill" disabled data-action-type="buy-now">
+                        <i class="bi bi-lightning-fill me-2"></i> Mua ngay
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-12">
+            <ul class="nav nav-tabs" id="productTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active fw-bold" id="description-tab" data-bs-toggle="tab" data-bs-target="#description" type="button" role="tab">Mô tả sản phẩm</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold" id="reviews-tab" data-bs-toggle="tab" data-bs-target="#reviews" type="button" role="tab">Đánh giá</button>
+                </li>
+            </ul>
+            <div class="tab-content p-4 border border-top-0 bg-white rounded-bottom shadow-sm" id="productTabContent">
+                <div class="tab-pane fade show active" id="description" role="tabpanel">
+                    @Html.Raw(Model.MoTa)
+                </div>
+                <div class="tab-pane fade" id="reviews" role="tabpanel">
+                    <p class="text-muted fst-italic">Chưa có đánh giá nào cho sản phẩm này.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.RelatedProducts.Any())
+    {
+        <div class="row mt-5 mb-5">
+            <div class="col-12">
+                <h4 class="mb-4 fw-bold text-uppercase border-bottom pb-2">Sản phẩm liên quan</h4>
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-4">
+                    @foreach (var product in Model.RelatedProducts)
+                    {
+                        <div class="col">
+                            <partial name="_ProductCardPartial" model="product" />
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section scripts {
+    <script>
+        $(document).ready(function () {
+            const variants = JSON.parse('@Html.Raw(Model.VariantsJson)');
+            let selectedColorId = null;
+            let selectedSizeId = null;
+
+            function checkAvailability() {
+                $('.color-option').each(function() {
+                    const colorId = parseInt($(this).data('color-id'));
+                    let isAvailable = false;
+                    if (selectedSizeId) {
+                        isAvailable = variants.some(v => v.IDMauSac === colorId && v.IDKichThuoc === selectedSizeId && v.SoLuongTon > 0);
+                    } else {
+                        isAvailable = variants.some(v => v.IDMauSac === colorId && v.SoLuongTon > 0);
+                    }
+                    $(this).prop('disabled', !isAvailable);
+                });
+
+                $('.size-option').each(function() {
+                    const sizeId = parseInt($(this).data('size-id'));
+                    let isAvailable = false;
+                    if (selectedColorId) {
+                        isAvailable = variants.some(v => v.IDKichThuoc === sizeId && v.IDMauSac === selectedColorId && v.SoLuongTon > 0);
+                    } else {
+                        isAvailable = variants.some(v => v.IDKichThuoc === sizeId && v.SoLuongTon > 0);
+                    }
+                    $(this).prop('disabled', !isAvailable);
+                });
+            }
+
+            function updateFinalState() {
+                const variant = variants.find(v => v.IDMauSac === selectedColorId && v.IDKichThuoc === selectedSizeId);
+                if (variant && variant.SoLuongTon > 0) {
+                    $('#stock-info').text(`Còn lại: ${variant.SoLuongTon} sản phẩm`).removeClass('text-danger').addClass('text-muted');
+                    $('#quantity').attr('max', variant.SoLuongTon);
+                    $('#add-to-cart-btn, #buy-now-btn').prop('disabled', false);
+                } else {
+                    $('#add-to-cart-btn, #buy-now-btn').prop('disabled', true);
+                    if (selectedColorId && selectedSizeId) {
+                         $('#stock-info').text('Sản phẩm này tạm hết hàng').addClass('text-danger');
+                    } else {
+                         $('#stock-info').text('');
+                    }
+                }
+            }
+
+            $('.color-option').click(function() {
+                const clickedId = parseInt($(this).data('color-id'));
+                if (selectedColorId === clickedId) {
+                    selectedColorId = null;
+                    $(this).removeClass('active');
+                    $('#selected-color-name').text('');
+                } else {
+                    selectedColorId = clickedId;
+                    $('.color-option').removeClass('active');
+                    $(this).addClass('active');
+                    $('#selected-color-name').text($(this).attr('title'));
+                    const variantImg = variants.find(v => v.IDMauSac === selectedColorId);
+                    if (variantImg && variantImg.HinhAnhIDs.length > 0) {
+                        const imgId = variantImg.HinhAnhIDs[0];
+                        const src = $(`[data-image-id=${imgId}]`).attr('src');
+                        if (src) $('#main-product-image').attr('src', src);
+                    }
+                }
+                if (selectedSizeId) {
+                    const isValidCombination = variants.some(v => v.IDMauSac === selectedColorId && v.IDKichThuoc === selectedSizeId && v.SoLuongTon > 0);
+                    if (!isValidCombination && selectedColorId !== null) {
+                        selectedSizeId = null;
+                        $('.size-option').removeClass('active');
+                        $('#selected-size-name').text('');
+                    }
+                }
+                checkAvailability();
+                updateFinalState();
+            });
+
+            $('.size-option').click(function() {
+                const clickedId = parseInt($(this).data('size-id'));
+                if (selectedSizeId === clickedId) {
+                    selectedSizeId = null;
+                    $(this).removeClass('active');
+                    $('#selected-size-name').text('');
+                } else {
+                    selectedSizeId = clickedId;
+                    $('.size-option').removeClass('active');
+                    $(this).addClass('active');
+                    $('#selected-size-name').text($(this).text());
+                }
+                if (selectedColorId) {
+                    const isValidCombination = variants.some(v => v.IDMauSac === selectedColorId && v.IDKichThuoc === selectedSizeId && v.SoLuongTon > 0);
+                    if (!isValidCombination && selectedSizeId !== null) {
+                        selectedColorId = null;
+                        $('.color-option').removeClass('active');
+                        $('#selected-color-name').text('');
+                    }
+                }
+                checkAvailability();
+                updateFinalState();
+            });
+
+            $('#btn-plus').click(function () {
+                let qty = parseInt($('#quantity').val());
+                let max = parseInt($('#quantity').attr('max')) || 999;
+                if (qty < max) $('#quantity').val(qty + 1);
+            });
+
+            $('#btn-minus').click(function () {
+                let qty = parseInt($('#quantity').val());
+                if (qty > 1) $('#quantity').val(qty - 1);
+            });
+
+            $('#add-to-cart-btn, #buy-now-btn').click(function () {
+                const variant = variants.find(v => v.IDMauSac === selectedColorId && v.IDKichThuoc === selectedSizeId);
+                if (!variant) return;
+                const quantity = parseInt($('#quantity').val());
+                const url = $(this).data('action-type') === 'buy-now' ? '/Cart/BuyNow' : '/Cart/AddToCart';
+                const btn = $(this);
+                const originalText = btn.html();
+                btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+                $.post(url, { variantId: variant.IDBienThe, quantity: quantity }, function (res) {
+                    if (res.success) {
+                        if (res.redirectUrl) window.location.href = res.redirectUrl;
+                        else {
+                            $('#cart-count').text(res.cartCount);
+                            alert(res.message);
+                        }
+                    } else {
+                        alert(res.message);
+                    }
+                }).always(() => btn.prop('disabled', false).html(originalText));
+            });
+
+            checkAvailability();
+        });
+    </script>
+}
