@@ -1,0 +1,125 @@
+﻿@model IEnumerable<FashionHub.Models.DonHang>
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>In danh sách đơn hàng</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Times New Roman', serif;
+            color: #000;
+        }
+
+        /* Mỗi hóa đơn là một trang */
+        .invoice-page {
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+            page-break-after: always; /* QUAN TRỌNG: Ngắt trang sau mỗi hóa đơn */
+            border-bottom: 1px dashed #ccc; /* Đường cắt khi xem trên web */
+        }
+
+        /* Ẩn đường cắt khi in thật */
+        @@media print {
+            .invoice-page {
+                border-bottom: none;
+                margin: 0;
+                width: 100%;
+                max-width: none;
+            }
+
+            .no-print {
+                display: none;
+            }
+
+            body {
+                padding: 0;
+                margin: 0;
+            }
+        }
+
+        .invoice-header {
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .table th {
+            border-top: 1px solid #000 !important;
+            border-bottom: 1px solid #000 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="text-center py-3 no-print bg-light sticky-top border-bottom">
+        <button onclick="window.print()" class="btn btn-primary btn-lg">
+            <i class="bi bi-printer"></i> XÁC NHẬN IN (@Model.Count() ĐƠN)
+        </button>
+        <button onclick="window.close()" class="btn btn-secondary btn-lg">Đóng</button>
+    </div>
+
+    @foreach (var order in Model)
+    {
+        <div class="invoice-page">
+            <!-- Header Hóa Đơn -->
+            <div class="row invoice-header">
+                <div class="col-6">
+                    <h4 class="fw-bold">FASHION HUB</h4>
+                    <small>Hotline: 1900 1000</small>
+                </div>
+                <div class="col-6 text-end">
+                    <h4 class="fw-bold">HÓA ĐƠN #@order.IDDonHang</h4>
+                    <small>Ngày: @order.NgayTao.Value.ToString("dd/MM/yyyy")</small>
+                </div>
+            </div>
+
+            <!-- Thông tin khách -->
+            <div class="mb-3">
+                <div><strong>Khách hàng:</strong> @order.TenNguoiNhan - @order.SoDienThoai</div>
+                <div><strong>Địa chỉ:</strong> @order.DiaChiGiao</div>
+                <div><strong>Ghi chú:</strong> @(order.PhuongThucThanhToan?.TenPhuongThuc)</div>
+            </div>
+
+            <!-- Bảng sản phẩm -->
+            <table class="table table-sm mb-3">
+                <thead>
+                    <tr>
+                        <th>SP</th>
+                        <th class="text-center">SL</th>
+                        <th class="text-end">Đơn giá</th>
+                        <th class="text-end">Thành tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in order.ChiTietDonHangs)
+                    {
+                        <tr>
+                            <td>
+                                @item.TenSanPham
+                                <br /><small class="text-muted">(@item.TenMau - @item.TenKichThuoc)</small>
+                            </td>
+                            <td class="text-center">@item.SoLuong</td>
+                            <td class="text-end">@item.DonGia.ToString("N0")</td>
+                            <td class="text-end">@((item.DonGia * item.SoLuong).ToString("N0"))</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-end fw-bold">Tổng cộng:</td>
+                        <td class="text-end fw-bold">@order.TongThanhToan.ToString("N0") đ</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div class="text-center fst-italic small mt-4">
+                Cảm ơn quý khách! (Vui lòng kiểm tra kỹ hàng hóa trước khi nhận)
+            </div>
+        </div>
+    }
+</body>
+</html>

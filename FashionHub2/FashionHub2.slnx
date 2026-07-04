@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="FashionHub.Tests/FashionHub.Tests.csproj" />
+  <Project Path="FashionHub.Web/FashionHub.Web.csproj" />
+</Solution>

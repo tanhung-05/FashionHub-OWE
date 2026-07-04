@@ -1,0 +1,124 @@
+﻿@model FashionHub.Models.DonHang
+@{
+    ViewBag.Title = "Chi tiết đơn hàng #" + Model.IDDonHang;
+    Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0">Đơn hàng #@Model.IDDonHang</h4>
+        <small class="text-muted">Đặt ngày: @Model.NgayTao.Value.ToString("dd/MM/yyyy HH:mm")</small>
+    </div>
+    <div>
+        <!-- NÚT IN HÓA ĐƠN -->
+        <a href="@Url.Action("Invoice", new { id = Model.IDDonHang })" target="_blank" class="btn btn-secondary me-2">
+            <i class="bi bi-printer"></i> In hóa đơn
+        </a>
+        <a href="@Url.Action("Index")" class="btn btn-outline-dark">Quay lại</a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- CỘT TRÁI: DANH SÁCH SẢN PHẨM -->
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white py-3">
+                <h6 class="mb-0 fw-bold">Sản phẩm đã đặt</h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Sản phẩm</th>
+                            <th class="text-center">Đơn giá</th>
+                            <th class="text-center">SL</th>
+                            <th class="text-end">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.ChiTietDonHangs)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-bold">@item.TenSanPham</div>
+                                    <div class="small text-muted">
+                                        Màu: @item.TenMau | Size: @item.TenKichThuoc
+                                    </div>
+                                </td>
+                                <td class="text-center">@item.DonGia.ToString("N0")</td>
+                                <td class="text-center">x @item.SoLuong</td>
+                                <td class="text-end fw-bold">@((item.DonGia * item.SoLuong).ToString("N0"))</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot class="bg-light">
+                        <tr>
+                            <td colspan="3" class="text-end">Tạm tính:</td>
+                            <td class="text-end">@Model.TongTienHang.ToString("N0")</td>
+                        </tr>
+                        <tr>
+                            <td colspan="3" class="text-end">Phí vận chuyển:</td>
+                            <td class="text-end">@((Model.PhiVanChuyen ?? 0).ToString("N0"))</td>
+                        </tr>
+                        @if (Model.TienGiamGia > 0)
+                        {
+                            <tr>
+                                <td colspan="3" class="text-end text-success">Giảm giá:</td>
+                                <td class="text-end text-success">-@((Model.TienGiamGia ?? 0).ToString("N0"))</td>
+                            </tr>
+                        }
+                        <tr>
+                            <td colspan="3" class="text-end fw-bold fs-5">TỔNG CỘNG:</td>
+                            <td class="text-end fw-bold fs-5 text-primary">@Model.TongThanhToan.ToString("N0") đ</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- CỘT PHẢI: THÔNG TIN & XỬ LÝ -->
+    <div class="col-md-4">
+        <!-- FORM CẬP NHẬT TRẠNG THÁI -->
+        <div class="card shadow-sm mb-4 border-primary">
+            <div class="card-header bg-primary text-white py-3">
+                <h6 class="mb-0 fw-bold">Xử lý đơn hàng</h6>
+            </div>
+            <div class="card-body">
+                @using (Html.BeginForm("UpdateStatus", "Orders", FormMethod.Post))
+                {
+                    @Html.AntiForgeryToken()
+                    @Html.Hidden("id", Model.IDDonHang)
+
+                    <div class="mb-3">
+                        <label class="form-label">Trạng thái hiện tại:</label>
+                        @Html.DropDownList("idTrangThai", ViewBag.StatusList as SelectList, new { @class = "form-select form-select-lg" })
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Cập nhật trạng thái</button>
+                    <div class="form-text mt-2 text-muted small">
+                        <i class="bi bi-info-circle"></i> Nếu chọn "Đã hủy", hệ thống sẽ tự động hoàn trả tồn kho.
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- THÔNG TIN KHÁCH HÀNG -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h6 class="mb-0 fw-bold">Thông tin giao hàng</h6>
+            </div>
+            <div class="card-body">
+                <h6 class="fw-bold">@Model.TenNguoiNhan</h6>
+                <p class="mb-1"><i class="bi bi-telephone me-2"></i> @Model.SoDienThoai</p>
+                <p class="mb-1"><i class="bi bi-geo-alt me-2"></i> @Model.DiaChiGiao</p>
+                <hr />
+                <p class="mb-1"><strong>Thanh toán:</strong> @(Model.PhuongThucThanhToan?.TenPhuongThuc)</p>
+                @if (Model.MaGiamGia != null)
+                {
+                    <p class="mb-0 text-success"><strong>Mã giảm giá:</strong> @Model.MaGiamGia.MaCode</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,180 @@
+﻿@model IEnumerable<FashionHub.Models.DanhMuc>
+@{
+    ViewBag.Title = "Quản lý Danh mục";
+    Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
+
+    var parentCategories = Model.Where(d => d.IDDanhMucCha == null).ToList();
+    int sttCha = 1; // Biến đếm cho cha
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="fw-bold text-uppercase">Danh mục sản phẩm</h4>
+    <div>
+        <a href="@Url.Action("Export")" class="btn btn-success me-2"><i class="bi bi-file-earmark-spreadsheet"></i> Xuất Excel</a>
+        <a href="@Url.Action("Create")" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Thêm mới</a>
+    </div>
+</div>
+
+<!-- Thanh tìm kiếm (Giữ nguyên) -->
+<div class="card mb-4 shadow-sm">
+    <div class="card-body py-2">
+        @using (Html.BeginForm("Index", "Categories", FormMethod.Get, new { @class = "row g-3 align-items-center" }))
+        {
+            <div class="col-auto"><label class="col-form-label fw-bold">Tìm kiếm:</label></div>
+            <div class="col-auto"><input type="text" name="searchString" class="form-control" placeholder="Nhập tên danh mục..." value="@Request.QueryString["searchString"]"></div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Tìm</button>
+                <a href="@Url.Action("Index")" class="btn btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i></a>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 50px;">ID</th>
+                    <th>Tên danh mục</th>
+                    <th>Cấp độ</th>
+                    <th>Tổng sản phẩm</th>
+                    <th class="text-end">Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+            @if (!parentCategories.Any())
+            {
+                <tr><td colspan="5" class="text-center py-4">Không tìm thấy danh mục nào.</td></tr>
+            }
+            else
+            {
+                foreach (var parent in parentCategories)
+                {
+                    var childCategories = Model.Where(d => d.IDDanhMucCha == parent.IDDanhMuc).ToList();
+                    bool hasChild = childCategories.Any();
+
+                    // TÍNH TỔNG SỐ LƯỢNG SẢN PHẨM (CHA + CON)
+                    int countDirect = parent.SanPhams?.Count ?? 0;
+                    int countChild = childCategories.Sum(c => c.SanPhams?.Count ?? 0);
+                    int totalCount = countDirect + countChild;
+
+                    <!-- DÒNG CHA -->
+                    <tr class="bg-light parent-row" data-id="@parent.IDDanhMuc" style="cursor: pointer;">
+                        <td class="fw-bold text-center">@sttCha</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                @if (hasChild)
+                                {
+                                    <button class="btn btn-sm btn-link text-decoration-none p-0 me-2 toggle-btn" data-target=".child-of-@parent.IDDanhMuc">
+                                        <i class="bi bi-chevron-right icon-state"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="me-2" style="width: 18px; display:inline-block;"></span>
+                                }
+                                <span class="fw-bold text-uppercase text-primary">@parent.TenDanhMuc</span>
+                            </div>
+                        </td>
+                        <td><span class="badge bg-primary">Gốc</span></td>
+                        <td>
+                            <span class="badge bg-white text-dark border">@totalCount SP</span>
+                            @if (countChild > 0)
+                            {<small class="text-muted ms-1">(Gồm @countChild SP con)</small>}
+                        </td>
+                        <td class="text-end">
+                            <a href="@Url.Action("Edit", new { id = parent.IDDanhMuc })" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                            <button class="btn btn-sm btn-outline-danger btn-delete" data-id="@parent.IDDanhMuc"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>
+
+                    <!-- DÒNG CON -->
+                    int sttCon = 1; // Reset STT con về 1
+                    foreach (var child in childCategories)
+                    {
+                        <tr class="child-row child-of-@parent.IDDanhMuc" style="display: none; background-color: #fff;">
+                            <td class="text-center text-muted">@sttCha.@sttCon</td> <!-- Đánh số kiểu 1.1, 1.2 -->
+                            <td>
+                                <div class="ms-4 border-start ps-3">
+                                    @child.TenDanhMuc
+                                </div>
+                            </td>
+                            <td><span class="badge bg-secondary">Con</span></td>
+                            <td><span class="badge bg-light text-dark border">@(child.SanPhams?.Count ?? 0) SP</span></td>
+                            <td class="text-end">
+                                <a href="@Url.Action("Edit", new { id = child.IDDanhMuc })" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                                <button class="btn btn-sm btn-outline-danger btn-delete" data-id="@child.IDDanhMuc"><i class="bi bi-trash"></i></button>
+                            </td>
+                        </tr>
+                        sttCon++;
+                    }
+                    sttCha++;
+                }
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Form xóa ẩn -->
+@using (Html.BeginForm("Delete", "Categories", FormMethod.Post, new { id = "deleteForm" }))
+{
+    @Html.AntiForgeryToken()
+}
+
+@section scripts {
+    <script>
+        $(document).ready(function () {
+            // 1. XỬ LÝ TOGGLE (MỞ RỘNG / THU GỌN)
+            $('.toggle-btn').click(function (e) {
+                e.stopPropagation(); // Ngăn sự kiện click lan ra tr
+                var btn = $(this);
+                var targetClass = btn.data('target'); // Lấy class của các dòng con (vd: .child-of-1)
+                var icon = btn.find('.icon-state');
+
+                // Toggle hiển thị các dòng con
+                $(targetClass).toggle();
+
+                // Đổi icon (Mũi tên phải <-> Mũi tên xuống)
+                if (icon.hasClass('bi-chevron-right')) {
+                    icon.removeClass('bi-chevron-right').addClass('bi-chevron-down');
+                } else {
+                    icon.removeClass('bi-chevron-down').addClass('bi-chevron-right');
+                }
+            });
+
+            // Cho phép click vào cả dòng cha để mở (UX tốt hơn)
+            $('.parent-row').click(function () {
+                $(this).find('.toggle-btn').trigger('click');
+            });
+
+            // Ngăn click vào nút Sửa/Xóa mà lại kích hoạt mở dòng
+            $('.parent-row a, .parent-row button.btn-delete').click(function (e) {
+                e.stopPropagation();
+            });
+
+            // 2. XỬ LÝ XÓA (Giữ nguyên logic cũ)
+            $('.btn-delete').click(function (e) {
+                e.preventDefault();
+                var id = $(this).data('id');
+                // ... (Code xóa giữ nguyên như bài trước) ...
+                if (confirm('Bạn có chắc chắn muốn xóa danh mục này?')) {
+                    var token = $('input[name="__RequestVerificationToken"]').val();
+                    $.ajax({
+                        url: '@Url.Action("Delete")',
+                        type: 'POST',
+                        data: { id: id, __RequestVerificationToken: token },
+                        success: function (res) {
+                            if (res.success) {
+                                location.reload(); // Reload lại trang để cập nhật cây
+                            } else {
+                                alert(res.message);
+                            }
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+}

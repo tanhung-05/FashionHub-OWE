@@ -1,0 +1,258 @@
+﻿@model FashionHub.ViewModels.CheckoutViewModel
+@{
+    ViewBag.Title = "Thanh toán";
+}
+<div class="container my-5">
+    <h2 class="text-center mb-4">Thanh toán đơn hàng</h2>
+    @using (Html.BeginForm("PlaceOrder", "Order", FormMethod.Post))
+    {
+        @Html.AntiForgeryToken()
+        @Html.Hidden("cartType", (string)ViewBag.CartType) 
+        <div class="row">
+            <!-- Cột thông tin giao hàng -->
+            <div class="col-lg-7">
+                <h4>Thông tin giao hàng</h4>
+                <div class="card">
+                    <div class="card-body" id="address-list-container">
+                        @if (Model.UserAddresses.Any())
+                        {
+                            foreach (var addr in Model.UserAddresses)
+                            {
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="radio" name="addressId" id="addr-@addr.IDDiaChi" value="@addr.IDDiaChi" @(addr.LaMacDinh ? "checked" : "")>
+                                    <label class="form-check-label" for="addr-@addr.IDDiaChi">
+                                        <strong>@addr.TenNguoiNhan</strong> - @addr.SoDienThoai <br />
+                                        @addr.FullAddress
+                                    </label>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted">Bạn chưa có địa chỉ nào được lưu.</p>
+                        }
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#addAddressModal">
+                            + Thêm địa chỉ mới
+                        </button>
+                    </div>
+                </div>
+
+                <h4 class="mt-4">Phương thức thanh toán</h4>
+                <div class="card">
+                    <div class="card-body">
+                        @foreach (var method in Model.PaymentMethods)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="paymentMethodId" id="pm-@method.IDPhuongThucThanhToan" value="@method.IDPhuongThucThanhToan" @(method.IDPhuongThucThanhToan == 1 ? "checked" : "")>
+                                <label class="form-check-label" for="pm-@method.IDPhuongThucThanhToan">
+                                    @method.TenPhuongThuc
+                                </label>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cột tóm tắt đơn hàng -->
+            <div class="col-lg-5">
+                <h4>Tóm tắt đơn hàng</h4>
+                <div class="card">
+                    <div class="card-body">
+                        @foreach (var item in Model.CartItems)
+                        {
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>@item.TenSanPham (@item.SoLuong)</span>
+                                <span>@item.ThanhTien.ToString("N0") VNĐ</span>
+                            </div>
+                        }
+                        <hr />
+
+                        <div class="input-group mb-3">
+                            <input type="text" id="coupon-code" class="form-control" placeholder="Nhập mã giảm giá">
+                            <button class="btn btn-outline-secondary" type="button" id="apply-coupon-btn">Áp dụng</button>
+                        </div>
+                        <div id="coupon-message" class="small mb-2"></div>
+
+
+
+                        <div class="d-flex justify-content-between">
+                            <span>Tạm tính</span>
+                            <span>@Model.Subtotal.ToString("N0") VNĐ</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Phí vận chuyển</span>
+                            <span>@Model.ShippingFee.ToString("N0") VNĐ</span>
+                        </div>
+                        <div class="d-flex justify-content-between text-success">
+                            <span>Giảm giá</span>
+                            <span id="discount-amount">- @Model.Discount.ToString("N0") VNĐ</span>
+                        </div>
+                        <hr />
+                        <div class="d-flex justify-content-between fw-bold fs-5">
+                            <span>Tổng cộng</span>
+                            <span id="total-amount">@Model.Total.ToString("N0") VNĐ</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-grid mt-3">
+                    <button type="submit" class="btn btn-dark btn-lg">Đặt hàng</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@Html.Partial("_AddAddressModalPartial", new ViewDataDictionary { { "Provinces", Model.Provinces } })
+
+@section scripts {
+    <script>
+        $(document).ready(function () {
+            // ---  API ĐỊA CHÍNH (ESGOO.NET) ---
+            // Load Tỉnh
+            $.getJSON('https://esgoo.net/api-tinhthanh/1/0.htm', function (data_tinh) {
+                if (data_tinh.error == 0) {
+                    $.each(data_tinh.data, function (key_tinh, val_tinh) {
+                        $("#api_tinh").append('<option value="' + val_tinh.id + '">' + val_tinh.full_name + '</option>');
+                    });
+                }
+            });
+
+            // Chọn Tỉnh -> Load Huyện
+            $("#api_tinh").change(function (e) {
+                var idtinh = $(this).val();
+                var tentinh = $("#api_tinh option:selected").text();
+                $("#hidden_tinh").val(tentinh); // Lưu tên vào input ẩn
+
+                $("#api_huyen").html('<option value="">-- Chọn Quận/Huyện --</option>').prop('disabled', true);
+                $("#api_xa").html('<option value="">-- Chọn Phường/Xã --</option>').prop('disabled', true);
+
+                if (idtinh) {
+                    $.getJSON('https://esgoo.net/api-tinhthanh/2/' + idtinh + '.htm', function (data_huyen) {
+                        if (data_huyen.error == 0) {
+                            $.each(data_huyen.data, function (key_huyen, val_huyen) {
+                                $("#api_huyen").append('<option value="' + val_huyen.id + '">' + val_huyen.full_name + '</option>');
+                            });
+                            $("#api_huyen").prop('disabled', false);
+                        }
+                    });
+                }
+            });
+
+            // Chọn Huyện -> Load Xã
+            $("#api_huyen").change(function (e) {
+                var idhuyen = $(this).val();
+                var tenhuyen = $("#api_huyen option:selected").text();
+                $("#hidden_huyen").val(tenhuyen);
+
+                $("#api_xa").html('<option value="">-- Chọn Phường/Xã --</option>').prop('disabled', true);
+
+                if (idhuyen) {
+                    $.getJSON('https://esgoo.net/api-tinhthanh/3/' + idhuyen + '.htm', function (data_xa) {
+                        if (data_xa.error == 0) {
+                            $.each(data_xa.data, function (key_xa, val_xa) {
+                                $("#api_xa").append('<option value="' + val_xa.id + '">' + val_xa.full_name + '</option>');
+                            });
+                            $("#api_xa").prop('disabled', false);
+                        }
+                    });
+                }
+            });
+
+            // Chọn Xã -> Lưu tên
+            $("#api_xa").change(function (e) {
+                var tenxa = $("#api_xa option:selected").text();
+                $("#hidden_xa").val(tenxa);
+            });
+
+            // --- 2. LOGIC LƯU ĐỊA CHỈ ---
+            var addAddressModal = new bootstrap.Modal(document.getElementById('addAddressModal'));
+
+            $('#save-address-btn').on('click', function () {
+                var form = $('#add-address-form');
+                var btn = $(this);
+
+                if (!form[0].checkValidity()) {
+                    form[0].reportValidity();
+                    return;
+                }
+
+                btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Đang lưu...');
+
+                // Lấy dữ liệu từ form (bao gồm cả các input hidden chứa tên địa danh)
+                var data = {
+                    __RequestVerificationToken: form.find('input[name="__RequestVerificationToken"]').val(),
+                    tenNguoiNhan: $('#tenNguoiNhan').val(),
+                    soDienThoai: $('#soDienThoai').val(),
+                    chiTiet: $('#chiTiet').val(),
+                    tinhThanh: $('#hidden_tinh').val(),
+                    quanHuyen: $('#hidden_huyen').val(),
+                    phuongXa: $('#hidden_xa').val()
+                };
+
+                $.post('/Account/AddAddressAjax', data, function (response) {
+                    if (response.success) {
+                        addAddressModal.hide();
+                        form[0].reset();
+                        // Reset dropdowns
+                        $("#api_huyen").html('<option value="">-- Chọn Quận/Huyện --</option>').prop('disabled', true);
+                        $("#api_xa").html('<option value="">-- Chọn Phường/Xã --</option>').prop('disabled', true);
+                        $("#api_tinh").val("");
+
+                        // Bắn sự kiện để cập nhật giao diện
+                        $(document).trigger('address:added', [response.newAddress]);
+                    } else {
+                        alert(response.message);
+                    }
+                }).always(function () {
+                    btn.prop('disabled', false).text('Lưu địa chỉ');
+                });
+            });
+
+            // --- 3. CẬP NHẬT UI KHI THÊM XONG ---
+            $(document).on('address:added', function (event, newAddress) {
+                const newAddressHtml = `
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="addressId" id="addr-${newAddress.IDDiaChi}" value="${newAddress.IDDiaChi}" checked>
+                                <label class="form-check-label" for="addr-${newAddress.IDDiaChi}">
+                                    <strong>${newAddress.TenNguoiNhan}</strong> - ${newAddress.SoDienThoai} <br />
+                                    ${newAddress.FullAddress}
+                                </label>
+                            </div>`;
+
+                const addressContainer = $('#address-list-container');
+                addressContainer.find('p.text-muted').remove();
+                $(newAddressHtml).insertBefore(addressContainer.find('button[data-bs-target="#addAddressModal"]'));
+            });
+        });
+        // --- XỬ LÝ MÃ GIẢM GIÁ ---
+        $('#apply-coupon-btn').click(function () {
+            var code = $('#coupon-code').val().trim();
+            var cartType = $('input[name="cartType"]').val();
+            var token = $('input[name="__RequestVerificationToken"]').val();
+
+            if (!code) {
+                $('#coupon-message').text('Vui lòng nhập mã').addClass('text-danger');
+                return;
+            }
+
+            var btn = $(this);
+            btn.prop('disabled', true).text('Đang check...');
+
+            $.post('/Order/ApplyCoupon', { couponCode: code, cartType: cartType, __RequestVerificationToken: token }, function (res) {
+                if (res.success) {
+                    $('#coupon-message').text(res.message).removeClass('text-danger').addClass('text-success');
+
+                    // Cập nhật số tiền trên giao diện
+                    $('#discount-amount').text('- ' + res.discount + ' VNĐ');
+                    $('#total-amount').text(res.newTotal + ' VNĐ');
+                } else {
+                    $('#coupon-message').text(res.message).removeClass('text-success').addClass('text-danger');
+                    // Reset về 0 nếu lỗi
+                    $('#discount-amount').text('- 0 VNĐ');
+                }
+            }).always(function () {
+                btn.prop('disabled', false).text('Áp dụng');
+            });
+        });
+    </script>
+}

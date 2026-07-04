@@ -1,0 +1,160 @@
+﻿@model FashionHub.ViewModels.ProductsViewModel
+@{
+    ViewBag.Title = "S&#7843;n ph&#7849;m";
+}
+
+<div class="products-page">
+    <div class="products-hero mb-4">
+        <div>
+            <p class="text-uppercase small fw-bold text-muted mb-2">OWE Collection</p>
+            <h1 class="fw-bold mb-1">S&#7843;n ph&#7849;m</h1>
+            <p class="text-muted mb-0">Kh&#225;m ph&#225; c&#225;c thi&#7871;t k&#7871; th&#7901;i trang t&#7889;i gi&#7843;n, hi&#7879;n &#273;&#7841;i.</p>
+        </div>
+        <span class="products-count-badge">@Model.Products.Count s&#7843;n ph&#7849;m</span>
+    </div>
+
+    <div class="row g-4">
+        <aside class="col-lg-3">
+            <form id="filter-form" method="get" action="@Url.Action("Index", "Products")" class="filter-panel">
+                <input type="hidden" name="page" id="page-input" value="1" />
+                <input type="hidden" name="searchString" value="@Model.searchString" />
+
+                <div class="filter-panel-header">
+                    <div>
+                        <p class="text-uppercase small fw-bold text-muted mb-1">Refine</p>
+                        <h4 class="mb-0">B&#7897; l&#7885;c</h4>
+                    </div>
+                    <a href="@Url.Action("Index", "Products")" class="filter-reset-link">X&#243;a</a>
+                </div>
+
+                <div class="filter-section">
+                    <h5 class="filter-title">Danh m&#7909;c</h5>
+                    <div class="category-tree modern-category-list">
+                        <a href="@Url.Action("Index", "Products")" class="category-link @(Model.SelectedCategoryId == null ? "active" : "")">
+                            <span>T&#7845;t c&#7843; s&#7843;n ph&#7849;m</span>
+                            <i class="bi bi-arrow-right-short"></i>
+                        </a>
+                        @foreach (var parentCat in Model.Categories.Where(c => c.IDDanhMucCha == null))
+                        {
+                            <a href="@Url.Action("Index", "Products", new { categoryId = parentCat.IDDanhMuc })"
+                               class="category-link parent-category @(Model.SelectedCategoryId == parentCat.IDDanhMuc ? "active" : "")">
+                                <span>@parentCat.TenDanhMuc</span>
+                                <i class="bi bi-arrow-right-short"></i>
+                            </a>
+                            foreach (var childCat in Model.Categories.Where(c => c.IDDanhMucCha == parentCat.IDDanhMuc))
+                            {
+                                <a href="@Url.Action("Index", "Products", new { categoryId = childCat.IDDanhMuc })"
+                                   class="category-link child-category @(Model.SelectedCategoryId == childCat.IDDanhMuc ? "active" : "")">
+                                    <span>@childCat.TenDanhMuc</span>
+                                </a>
+                            }
+                        }
+                    </div>
+
+                    <input type="hidden" name="categoryId" value="@Model.SelectedCategoryId" />
+                </div>
+
+                <div class="filter-section">
+                    <h5 class="filter-title">M&#224;u s&#7855;c</h5>
+                    <div class="filter-option-list">
+                        @foreach (var color in Model.Colors)
+                        {
+                            <input class="filter-check-input visually-hidden" type="checkbox" name="colorIds" value="@color.IDMauSac" id="color-@color.IDMauSac"
+                                   @(Model.SelectedColorIds.Contains(color.IDMauSac) ? "checked" : "")>
+                            <label class="filter-chip color-chip" for="color-@color.IDMauSac">
+                                <span class="color-swatch" style="background-color: @(color.MaMauHex ?? "#ccc");"></span>
+                                <span>@color.TenMau</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <h5 class="filter-title">K&#237;ch th&#432;&#7899;c</h5>
+                    <div class="filter-option-list size-option-list">
+                        @foreach (var size in Model.Sizes)
+                        {
+                            <input class="filter-check-input visually-hidden" type="checkbox" name="sizeIds" value="@size.IDKichThuoc" id="size-@size.IDKichThuoc"
+                                   @(Model.SelectedSizeIds.Contains(size.IDKichThuoc) ? "checked" : "")>
+                            <label class="filter-chip size-chip" for="size-@size.IDKichThuoc">
+                                @size.TenKichThuoc
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-dark w-100 filter-apply-btn" onclick="document.getElementById('page-input').value = 1">
+                    <i class="bi bi-sliders me-2"></i>&#193;p d&#7909;ng b&#7897; l&#7885;c
+                </button>
+            </form>
+        </aside>
+
+        <section class="col-lg-9">
+            <div class="products-toolbar">
+                <div>
+                    <p class="text-uppercase small fw-bold text-muted mb-1">Catalog</p>
+                    <span class="fw-semibold">Hi&#7875;n th&#7883; @Model.Products.Count s&#7843;n ph&#7849;m</span>
+                </div>
+                <div class="sort-control">
+                    <label for="sortBy" class="form-label mb-0">S&#7855;p x&#7871;p</label>
+                    <select class="form-select form-select-sm" id="sortBy" name="sortBy" form="filter-form" onchange="this.form.submit()">
+                        <option value="newest" @(Model.SelectedSortBy == "newest" ? "selected" : "")>M&#7899;i nh&#7845;t</option>
+                        <option value="price_asc" @(Model.SelectedSortBy == "price_asc" ? "selected" : "")>Gi&#225;: T&#259;ng d&#7847;n</option>
+                        <option value="price_desc" @(Model.SelectedSortBy == "price_desc" ? "selected" : "")>Gi&#225;: Gi&#7843;m d&#7847;n</option>
+                    </select>
+                </div>
+            </div>
+
+            @if (Model.Products.Any())
+            {
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+                    @foreach (var product in Model.Products)
+                    {
+                        <div class="col">
+                            @Html.Partial("_ProductCardPartial", product)
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="empty-product-state">
+                    <i class="bi bi-search display-5 mb-3"></i>
+                    <h4>Kh&#244;ng t&#236;m th&#7845;y s&#7843;n ph&#7849;m n&#224;o</h4>
+                    <p>Vui l&#242;ng th&#7917; l&#7841;i v&#7899;i b&#7897; l&#7885;c kh&#225;c ho&#7863;c <a href="@Url.Action("Index")">x&#243;a t&#7845;t c&#7843; b&#7897; l&#7885;c</a>.</p>
+                </div>
+            }
+
+            @if (Model.TotalPages > 1)
+            {
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item @(Model.CurrentPage == 1 ? "disabled" : "")">
+                            <a class="page-link" href="javascript:void(0)" onclick="goToPage(@(Model.CurrentPage - 1))">Tr&#432;&#7899;c</a>
+                        </li>
+
+                        @for (int i = 1; i <= Model.TotalPages; i++)
+                        {
+                            <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                                <a class="page-link" href="javascript:void(0)" onclick="goToPage(@i)">@i</a>
+                            </li>
+                        }
+
+                        <li class="page-item @(Model.CurrentPage == Model.TotalPages ? "disabled" : "")">
+                            <a class="page-link" href="javascript:void(0)" onclick="goToPage(@(Model.CurrentPage + 1))">Sau</a>
+                        </li>
+                    </ul>
+                </nav>
+            }
+        </section>
+    </div>
+</div>
+
+@section scripts {
+    <script>
+        function goToPage(pageNumber) {
+            document.getElementById('page-input').value = pageNumber;
+            document.getElementById('filter-form').submit();
+        }
+    </script>
+}

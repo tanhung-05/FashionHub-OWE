@@ -1,0 +1,57 @@
+﻿<div class="modal fade" id="addAddressModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Thêm địa chỉ mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-address-form">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label class="form-label">Họ và tên</label>
+                        <input type="text" class="form-control" id="tenNguoiNhan" name="tenNguoiNhan" required placeholder="Nguyễn Văn A">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Số điện thoại</label>
+                        <input type="text" class="form-control" id="soDienThoai" name="soDienThoai" required placeholder="0987654321">
+                    </div>
+
+                    <!-- API ĐỊA CHÍNH -->
+                    <div class="mb-3">
+                        <label class="form-label">Tỉnh / Thành phố</label>
+                        <select class="form-select" id="api_tinh" required>
+                            <option value="">-- Chọn Tỉnh/Thành --</option>
+                        </select>
+                        <input type="hidden" name="tinhThanh" id="hidden_tinh">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Quận / Huyện</label>
+                            <select class="form-select" id="api_huyen" required disabled>
+                                <option value="">-- Chọn Quận/Huyện --</option>
+                            </select>
+                            <input type="hidden" name="quanHuyen" id="hidden_huyen">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Phường / Xã</label>
+                            <select class="form-select" id="api_xa" required disabled>
+                                <option value="">-- Chọn Phường/Xã --</option>
+                            </select>
+                            <input type="hidden" name="phuongXa" id="hidden_xa">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Địa chỉ chi tiết</label>
+                        <textarea class="form-control" id="chiTiet" name="chiTiet" rows="2" required placeholder="Số nhà, tên đường..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-dark" id="save-address-btn">Lưu địa chỉ</button>
+            </div>
+        </div>
+    </div>
+</div>

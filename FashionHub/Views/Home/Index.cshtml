@@ -1,0 +1,30 @@
+﻿@model FashionHub.ViewModels.HomeViewModel
+@{
+    ViewBag.Title = "Trang Chủ";
+}
+
+
+<div class="p-5 mb-4 bg-white rounded-3 text-center shadow-sm">
+    <div class="container-fluid py-5">
+        <h1 class="display-5 fw-bold">Chào Mừng Đến OWE</h1>
+        <p class="fs-4">Nơi phong cách của bạn được định hình.</p>
+        <a class="btn btn-primary btn-lg" href="@Url.Action("Index", "Products")">Khám Phá Ngay</a>
+    </div>
+</div>
+
+<!-- Sản phẩm mới -->
+<section class="mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="m-0">Hàng Mới Về</h2>
+        <a href="@Url.Action("Index", "Products", new { sortBy = "newest" })" class="btn btn-outline-dark">Xem tất cả</a>
+    </div>
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+        @foreach (var product in Model.SanPhamMoi)
+        {
+            <div class="col">
+                @* GỌI PARTIAL VIEW Ở ĐÂY *@
+                @Html.Partial("_ProductCardPartial", product)
+            </div>
+        }
+    </div>
+</section>

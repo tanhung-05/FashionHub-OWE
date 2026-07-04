@@ -1,0 +1,178 @@
+﻿@model List<FashionHub.ViewModels.CartItemViewModel>
+@{
+    ViewBag.Title = "Giỏ hàng";
+}
+
+<div class="container my-5">
+    <h2 class="text-center mb-4">Giỏ hàng của bạn</h2>
+
+    @if (Model != null && Model.Any())
+    {
+        <div class="row">
+            <!-- Cột danh sách sản phẩm -->
+            <div class="col-lg-8">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col" colspan="2">Sản phẩm</th>
+                            <th scope="col">Đơn giá</th>
+                            <th scope="col" class="text-center">Số lượng</th>
+                            <th scope="col" class="text-end">Tạm tính</th>
+                            <th scope="col"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr id="row-@item.IDBienThe">
+                                <td style="width: 100px;">
+                                    <img src="@item.AnhDaiDien" class="img-fluid" alt="@item.TenSanPham">
+                                </td>
+                                <td>
+                                    <p class="mb-0 fw-bold">@item.TenSanPham</p>
+                                    <small class="text-muted">@item.TenMau / @item.TenKichThuoc</small>
+                                </td>
+                                <td>@item.DonGia.ToString("N0") VNĐ</td>
+                                <td>
+                                    <div class="input-group justify-content-center" style="width: 120px;">
+                                        <button class="btn btn-outline-secondary btn-sm btn-minus" data-id="@item.IDBienThe" type="button">-</button>
+                                        <input type="text" class="form-control form-control-sm text-center quantity-input" value="@item.SoLuong" min="1" data-id="@item.IDBienThe">
+                                        <button class="btn btn-outline-secondary btn-sm btn-plus" data-id="@item.IDBienThe" type="button">+</button>
+                                    </div>
+                                </td>
+                                <td class="text-end fw-bold" id="item-total-@item.IDBienThe">@item.ThanhTien.ToString("N0") VNĐ</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger btn-remove" data-id="@item.IDBienThe">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Cột tổng kết đơn hàng -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Tổng cộng</h5>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Tạm tính</span>
+                                <span id="cart-subtotal">@Model.Sum(i => i.ThanhTien).ToString("N0") VNĐ</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Giảm giá</span>
+                                <span>0 VNĐ</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between fw-bold">
+                                <span>Tổng tiền</span>
+                                <span id="cart-total">@Model.Sum(i => i.ThanhTien).ToString("N0") VNĐ</span>
+                            </li>
+                        </ul>
+                        <div class="d-grid mt-3">
+                            <a href="@Url.Action("Checkout", "Order")" class="btn btn-dark">Tiến hành thanh toán</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="text-center">
+            <p>Giỏ hàng của bạn đang trống.</p>
+            <a href="@Url.Action("Index", "Products")" class="btn btn-dark">Tiếp tục mua sắm</a>
+        </div>
+    }
+</div>
+
+@section scripts {
+    <script>
+        $(document).ready(function () {
+            // Hàm cập nhật tổng tiền và icon giỏ hàng
+            function updateCartSummary(cartTotal, cartCount) {
+                $('#cart-subtotal').text(cartTotal + ' VNĐ');
+                $('#cart-total').text(cartTotal + ' VNĐ');
+                $('#cart-count').text(cartCount);
+            }
+
+            // Sự kiện tăng/giảm số lượng
+            $('.btn-plus, .btn-minus').on('click', function () {
+                const variantId = $(this).data('id');
+                const input = $(`.quantity-input[data-id=${variantId}]`);
+                let quantity = parseInt(input.val());
+
+                if ($(this).hasClass('btn-plus')) {
+                    quantity++;
+                } else {
+                    if (quantity > 1) {
+                        quantity--;
+                    }
+                }
+                input.val(quantity);
+                updateQuantity(variantId, quantity);
+            });
+
+            // Sự kiện thay đổi số lượng trực tiếp trong input
+            $('.quantity-input').on('change', function () {
+                const variantId = $(this).data('id');
+                let quantity = parseInt($(this).val());
+                if (isNaN(quantity) || quantity < 1) {
+                    quantity = 1;
+                    $(this).val(1);
+                }
+                updateQuantity(variantId, quantity);
+            });
+
+            // Hàm gọi AJAX để cập nhật số lượng
+            function updateQuantity(variantId, quantity) {
+                $.ajax({
+                    url: '@Url.Action("UpdateCart", "Cart")',
+                    type: 'POST',
+                    data: { variantId: variantId, quantity: quantity },
+                    success: function (response) {
+                        if (response.success) {
+                            $('#item-total-' + variantId).text(response.itemTotal + ' VNĐ');
+                            updateCartSummary(response.cartTotal, response.cartCount);
+                        } else {
+                            alert(response.message);
+                            // Có thể reset lại giá trị input về số lượng cũ nếu cần
+                        }
+                    },
+                    error: function () {
+                        alert('Đã xảy ra lỗi khi cập nhật giỏ hàng.');
+                    }
+                });
+            }
+
+            // Sự kiện xóa sản phẩm
+            $('.btn-remove').on('click', function () {
+                if (confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
+                    const variantId = $(this).data('id');
+                    $.ajax({
+                        url: '@Url.Action("RemoveFromCart", "Cart")',
+                        type: 'POST',
+                        data: { variantId: variantId },
+                        success: function (response) {
+                            if (response.success) {
+                                $('#row-' + variantId).fadeOut(300, function () { $(this).remove(); });
+                                updateCartSummary(response.cartTotal, response.cartCount);
+                                if (response.cartCount == 0) {
+                                    // Nếu giỏ hàng rỗng, reload trang để hiển thị thông báo
+                                    location.reload();
+                                }
+                            } else {
+                                alert(response.message);
+                            }
+                        },
+                        error: function () {
+                            alert('Đã xảy ra lỗi khi xóa sản phẩm.');
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+}

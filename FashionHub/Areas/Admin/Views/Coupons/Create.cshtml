@@ -1,0 +1,114 @@
+﻿@model FashionHub.Models.MaGiamGia
+@{
+    ViewBag.Title = "Tạo mã giảm giá";
+    Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold text-uppercase">
+                    <i class="bi bi-ticket-perforated me-2"></i>Tạo mã giảm giá mới
+                </h5>
+                <a href="@Url.Action("Index")" class="btn btn-sm btn-secondary">Quay lại</a>
+            </div>
+            <div class="card-body p-4">
+
+                @using (Html.BeginForm())
+                {
+                    @Html.AntiForgeryToken()
+
+                    <!-- Thông tin cơ bản -->
+                    <h6 class="fw-bold text-primary mb-3 border-bottom pb-2">1. Thông tin chung</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Mã Code (Ví dụ: SALE50) <span class="text-danger">*</span></label>
+                            @Html.EditorFor(model => model.MaCode, new { htmlAttributes = new { @class = "form-control text-uppercase fw-bold", placeholder = "Nhập mã..." } })
+                            @Html.ValidationMessageFor(model => model.MaCode, "", new { @class = "text-danger" })
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Tên chương trình</label>
+                            @Html.EditorFor(model => model.TenChuongTrinh, new { htmlAttributes = new { @class = "form-control", placeholder = "VD: Khuyến mãi mùa hè" } })
+                            @Html.ValidationMessageFor(model => model.TenChuongTrinh, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+
+                    <!-- Cấu hình giá trị -->
+                    <h6 class="fw-bold text-primary mb-3 border-bottom pb-2 mt-4">2. Cấu hình giảm giá</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Loại giảm giá</label>
+                            <select class="form-select" name="LoaiGiamGia" id="LoaiGiamGia">
+                                <option value="1">Giảm theo số tiền (VNĐ)</option>
+                                <option value="2">Giảm theo phần trăm (%)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Giá trị giảm <span class="text-danger">*</span></label>
+                            @Html.EditorFor(model => model.GiaTri, new { htmlAttributes = new { @class = "form-control", type = "number", min = "0" } })
+                            @Html.ValidationMessageFor(model => model.GiaTri, "", new { @class = "text-danger" })
+                            <div class="form-text text-muted" id="giaTriHint">Nhập số tiền (VNĐ)</div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Đơn hàng tối thiểu</label>
+                            @Html.EditorFor(model => model.DonHangToiThieu, new { htmlAttributes = new { @class = "form-control", type = "number", min = "0", Value = "0" } })
+                            <div class="form-text">Giá trị đơn hàng tối thiểu để áp dụng mã.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Giảm tối đa (Chỉ dùng cho %)</label>
+                            @Html.EditorFor(model => model.GiamToiDa, new { htmlAttributes = new { @class = "form-control", type = "number", min = "0", disabled = "disabled", id = "GiamToiDa" } })
+                            <div class="form-text">Ví dụ: Giảm 10% nhưng tối đa 50k.</div>
+                        </div>
+                    </div>
+
+                    <!-- Thời gian & Số lượng -->
+                    <h6 class="fw-bold text-primary mb-3 border-bottom pb-2 mt-4">3. Giới hạn sử dụng</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Số lượng mã</label>
+                            @Html.EditorFor(model => model.SoLuong, new { htmlAttributes = new { @class = "form-control", type = "number", min = "1", Value = "100" } })
+                            @Html.ValidationMessageFor(model => model.SoLuong, "", new { @class = "text-danger" })
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Ngày bắt đầu</label>
+                            <!-- Định dạng yyyy-MM-dd để input date hiểu -->
+                            @Html.TextBoxFor(model => model.NgayBatDau, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date", Value = DateTime.Now.ToString("yyyy-MM-dd") })
+                            @Html.ValidationMessageFor(model => model.NgayBatDau, "", new { @class = "text-danger" })
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Ngày kết thúc</label>
+                            @Html.TextBoxFor(model => model.NgayKetThuc, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date", Value = DateTime.Now.AddDays(30).ToString("yyyy-MM-dd") })
+                            @Html.ValidationMessageFor(model => model.NgayKetThuc, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">Tạo mã giảm giá</button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section scripts {
+    <script>
+        $(document).ready(function () {
+            // Xử lý logic giao diện khi đổi loại giảm giá
+            $('#LoaiGiamGia').change(function () {
+                var type = $(this).val();
+                if (type == "1") { // Tiền mặt
+                    $('#giaTriHint').text('Nhập số tiền (VNĐ)');
+                    $('#GiamToiDa').prop('disabled', true).val('');
+                } else { // Phần trăm
+                    $('#giaTriHint').text('Nhập số phần trăm (1-100)');
+                    $('#GiamToiDa').prop('disabled', false);
+                }
+            });
+        });
+    </script>
+}
