@@ -1,0 +1,26 @@
+@{
+    ViewData["Title"] = "Không có quyền truy cập";
+    Layout = "~/Views/Shared/_AuthLayout.cshtml";
+}
+
+<div class="auth-card">
+    <div class="auth-brand">
+        <a asp-controller="Home" asp-action="Index" class="auth-logo" aria-label="OWE">OWE</a>
+        <p>Thời trang tối giản cho phong cách hiện đại</p>
+    </div>
+
+    <div class="card border-0 shadow-lg">
+        <div class="card-body p-4 p-md-5 text-center">
+            <div class="auth-heading mb-4">
+                <span class="auth-eyebrow">Access denied</span>
+                <h1>Không có quyền truy cập</h1>
+                <p>Tài khoản của bạn không có quyền truy cập trang này.</p>
+            </div>
+
+            <div class="d-grid gap-2">
+                <a class="btn btn-primary auth-submit" asp-controller="Home" asp-action="Index">Về trang chủ</a>
+                <a class="auth-link small" asp-controller="Account" asp-action="Login">Đăng nhập bằng tài khoản khác</a>
+            </div>
+        </div>
+    </div>
+</div>
