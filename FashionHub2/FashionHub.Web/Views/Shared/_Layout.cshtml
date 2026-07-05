@@ -1,50 +1,183 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - FashionHub.Web</title>
-    <script type="importmap"></script>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/FashionHub.Web.styles.css" asp-append-version="true" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] - OWE</title>
+    
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">FashionHub.Web</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
+    <partial name="_GlobalFeedbackPartial" />
+    <partial name="_HeaderPartial" />
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - FashionHub.Web - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-        </div>
-    </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
+    <div class="header-spacer"></div>
+
+    <main role="main" class="container my-4">
+        @RenderBody()
+    </main>
+
+    <partial name="_QuickViewModalPartial" />
+    <partial name="_CartOffcanvasPartial" />
+    <partial name="_FooterPartial" />
+    <partial name="_ChatWidgetPartial" />
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
+
+    <script>
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted) {
+                $.get('/Cart/GetCartItemCount', function (data) {
+                    if (data.success) {
+                        $('#cart-count').text(data.count);
+                    }
+                });
+            }
+        });
+
+        window.addEventListener("scroll", function () {
+            var header = document.getElementById("mainHeader");
+            if (!header) {
+                return;
+            }
+
+            if (window.scrollY > 50) {
+                header.classList.add("scrolled");
+            } else {
+                header.classList.remove("scrolled");
+            }
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const textInput = document.getElementById('main-search-input');
+            const btnCamera = document.getElementById('btn-trigger-image-search');
+            const fileInput = document.getElementById('hidden-file-input');
+            const imageForm = document.getElementById('image-search-form');
+
+            if (!textInput || !btnCamera || !fileInput || !imageForm) {
+                return;
+            }
+
+            btnCamera.addEventListener('click', function () {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', function () {
+                if (fileInput.files.length > 0) {
+                    textInput.value = "Đang phân tích hình ảnh...";
+                    textInput.disabled = true;
+                    imageForm.submit();
+                }
+            });
+
+            textInput.addEventListener('paste', function (e) {
+                const clipboardData = e.clipboardData || e.originalEvent.clipboardData;
+                if (!clipboardData || !clipboardData.items) {
+                    return;
+                }
+
+                const items = clipboardData.items;
+
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf("image") !== -1) {
+                        e.preventDefault();
+
+                        const blob = items[i].getAsFile();
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(blob);
+                        fileInput.files = dataTransfer.files;
+
+                        textInput.value = "Đang tìm kiếm ảnh vừa dán...";
+                        textInput.disabled = true;
+                        imageForm.submit();
+
+                        return;
+                    }
+                }
+            });
+        });
+
+        $(document).ready(function () {
+            $('#chat-toggle-btn, #chat-close-btn').click(function () {
+                $('#chat-box').toggleClass('d-none');
+            });
+
+            function scrollToBottom() {
+                var chatContent = document.getElementById("chat-content");
+                if (chatContent) {
+                    chatContent.scrollTop = chatContent.scrollHeight;
+                }
+            }
+
+            function sendMessage() {
+                var message = $('#chat-input').val().trim();
+                if (message === "") {
+                    return;
+                }
+
+                $('#chat-content').append(`
+                    <div class="d-flex flex-row justify-content-end mb-3">
+                        <div class="p-3 bg-primary text-white rounded-3 shadow-sm chat-message">
+                            ${message}
+                        </div>
+                    </div>
+                `);
+
+                $('#chat-input').val('');
+                scrollToBottom();
+
+                var loadingId = 'loading-' + Date.now();
+                $('#chat-content').append(`
+                    <div id="${loadingId}" class="d-flex flex-row justify-content-start mb-3">
+                        <div class="p-3 bg-white border rounded-3 text-muted fst-italic">
+                            Đang suy nghĩ...
+                        </div>
+                    </div>
+                `);
+                scrollToBottom();
+
+                $.post('/Chat/GetResponse', { userMessage: message }, function (res) {
+                    $(`#${loadingId}`).remove();
+
+                    if (res.success) {
+                        $('#chat-content').append(`
+                            <div class="d-flex flex-row justify-content-start mb-3">
+                                <div class="p-3 bg-white border rounded-3 shadow-sm chat-message">
+                                    ${res.response}
+                                </div>
+                            </div>
+                        `);
+                    } else if (window.AppAlert) {
+                        AppAlert.ShowError("Lỗi: " + res.response);
+                    } else {
+                        alert("Lỗi: " + res.response);
+                    }
+
+                    scrollToBottom();
+                });
+            }
+
+            $('#chat-send-btn').click(function () {
+                sendMessage();
+            });
+
+            $('#chat-input').keypress(function (e) {
+                if (e.which == 13) {
+                    sendMessage();
+                }
+            });
+
+            $(document).on('click', '.quick-reply-btn', function () {
+                var text = $(this).text();
+                $('#chat-input').val(text);
+                $('#chat-send-btn').click();
+            });
+        });
+    </script>
 </body>
 </html>
