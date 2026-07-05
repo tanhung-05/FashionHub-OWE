@@ -1,0 +1,58 @@
+<div class="modal fade" id="addAddressModal" tabindex="-1" aria-labelledby="addAddressModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addAddressModalLabel">Thêm địa chỉ mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-address-form">
+                    @Html.AntiForgeryToken()
+                    
+                    <div class="mb-3">
+                        <label for="tenNguoiNhan" class="form-label">Tên người nhận <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="tenNguoiNhan" name="tenNguoiNhan" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="soDienThoai" class="form-label">Số điện thoại <span class="text-danger">*</span></label>
+                        <input type="tel" class="form-control" id="soDienThoai" name="soDienThoai" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="api_tinh" class="form-label">Tỉnh/Thành phố <span class="text-danger">*</span></label>
+                        <select class="form-select" id="api_tinh" required>
+                            <option value="">-- Chọn Tỉnh/Thành phố --</option>
+                        </select>
+                        <input type="hidden" id="hidden_tinh" name="tinhThanh">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="api_huyen" class="form-label">Quận/Huyện <span class="text-danger">*</span></label>
+                        <select class="form-select" id="api_huyen" disabled required>
+                            <option value="">-- Chọn Quận/Huyện --</option>
+                        </select>
+                        <input type="hidden" id="hidden_huyen" name="quanHuyen">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="api_xa" class="form-label">Phường/Xã <span class="text-danger">*</span></label>
+                        <select class="form-select" id="api_xa" disabled required>
+                            <option value="">-- Chọn Phường/Xã --</option>
+                        </select>
+                        <input type="hidden" id="hidden_xa" name="phuongXa">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="chiTiet" class="form-label">Địa chỉ chi tiết <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="chiTiet" name="chiTiet" rows="2" placeholder="Số nhà, tên đường..." required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" id="save-address-btn">Lưu địa chỉ</button>
+            </div>
+        </div>
+    </div>
+</div>
