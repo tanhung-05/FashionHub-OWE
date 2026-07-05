@@ -1,0 +1,291 @@
+@model FashionHub.Web.Models.Generated.DonHang
+
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hóa đơn #@Model.IddonHang - OWE Fashion</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            padding: 20px;
+            background: #fff;
+        }
+
+        .invoice-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 40px;
+            border: 1px solid #ddd;
+        }
+
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #000;
+        }
+
+        .company-info h1 {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 5px;
+            letter-spacing: 2px;
+        }
+
+        .company-info p {
+            margin: 2px 0;
+            color: #666;
+            font-size: 13px;
+        }
+
+        .invoice-meta {
+            text-align: right;
+        }
+
+        .invoice-meta h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #000;
+        }
+
+        .invoice-meta p {
+            margin: 5px 0;
+            font-size: 13px;
+        }
+
+        .customer-info {
+            margin-bottom: 30px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #000;
+        }
+
+        .customer-info h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            text-transform: uppercase;
+        }
+
+        .customer-info p {
+            margin: 5px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        thead {
+            background: #000;
+            color: #fff;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            font-size: 14px;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .totals {
+            margin-left: auto;
+            width: 350px;
+        }
+
+        .totals tr td {
+            padding: 8px 12px;
+            border-bottom: none;
+        }
+
+        .totals tr:last-child {
+            border-top: 2px solid #000;
+        }
+
+        .totals tr:last-child td {
+            font-size: 18px;
+            font-weight: bold;
+            padding-top: 12px;
+        }
+
+        .invoice-footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .print-button {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .btn-print {
+            background: #000;
+            color: #fff;
+            padding: 12px 30px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-print:hover {
+            background: #333;
+        }
+
+        @@media print {
+            .print-button {
+                display: none;
+            }
+
+            .invoice-container {
+                border: none;
+                padding: 0;
+            }
+
+            body {
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-button">
+        <button onclick="window.print()" class="btn-print">In hóa đơn</button>
+    </div>
+
+    <div class="invoice-container">
+        <div class="invoice-header">
+            <div class="company-info">
+                <h1>OWE</h1>
+                <p>Fashion Store</p>
+                <p>Hotline: 1900 XXXX</p>
+                <p>Email: support@owe.vn</p>
+            </div>
+
+            <div class="invoice-meta">
+                <h2>HÓA ĐƠN</h2>
+                <p><strong>Số:</strong> #@Model.IddonHang</p>
+                <p><strong>Ngày:</strong> @(Model.NgayTao.HasValue ? Model.NgayTao.Value.ToString("dd/MM/yyyy") : "N/A")</p>
+            </div>
+        </div>
+
+        <div class="customer-info">
+            <h3>Thông tin khách hàng</h3>
+            <p><strong>Họ tên:</strong> @Model.TenNguoiNhan</p>
+            <p><strong>Số điện thoại:</strong> @Model.SoDienThoai</p>
+            <p><strong>Địa chỉ giao hàng:</strong> @Model.DiaChiGiao</p>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Sản phẩm</th>
+                    <th class="text-center">Số lượng</th>
+                    <th class="text-right">Đơn giá</th>
+                    <th class="text-right">Thành tiền</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.ChiTietDonHangs)
+                {
+                    <tr>
+                        <td>
+                            <strong>@item.TenSanPham</strong>
+                            @if (!string.IsNullOrEmpty(item.TenMau) || !string.IsNullOrEmpty(item.TenKichThuoc))
+                            {
+                                <br />
+                                <small style="color: #666;">
+                                    @if (!string.IsNullOrEmpty(item.TenMau))
+                                    {
+                                        <span>Màu: @item.TenMau</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(item.TenKichThuoc))
+                                    {
+                                        <span> | Size: @item.TenKichThuoc</span>
+                                    }
+                                </small>
+                            }
+                        </td>
+                        <td class="text-center">@item.SoLuong</td>
+                        <td class="text-right">@item.DonGia.ToString("N0") đ</td>
+                        <td class="text-right"><strong>@((item.SoLuong * item.DonGia).ToString("N0")) đ</strong></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <table class="totals">
+            <tr>
+                <td>Tổng tiền hàng:</td>
+                <td class="text-right"><strong>@Model.TongTienHang.ToString("N0") đ</strong></td>
+            </tr>
+            @if (Model.PhiVanChuyen.HasValue && Model.PhiVanChuyen.Value > 0)
+            {
+                <tr>
+                    <td>Phí vận chuyển:</td>
+                    <td class="text-right"><strong>@Model.PhiVanChuyen.Value.ToString("N0") đ</strong></td>
+                </tr>
+            }
+            @if (Model.TienGiamGia.HasValue && Model.TienGiamGia.Value > 0)
+            {
+                <tr style="color: #28a745;">
+                    <td>Giảm giá:</td>
+                    <td class="text-right"><strong>-@Model.TienGiamGia.Value.ToString("N0") đ</strong></td>
+                </tr>
+            }
+            <tr>
+                <td>TỔNG THANH TOÁN:</td>
+                <td class="text-right">@Model.TongThanhToan.ToString("N0") đ</td>
+            </tr>
+        </table>
+
+        <div class="invoice-footer">
+            <p>Cảm ơn quý khách đã mua hàng tại OWE Fashion!</p>
+            <p>Mọi thắc mắc vui lòng liên hệ hotline 1900 XXXX</p>
+        </div>
+    </div>
+</body>
+</html>
