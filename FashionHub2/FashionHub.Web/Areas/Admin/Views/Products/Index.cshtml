@@ -1,0 +1,340 @@
+@model FashionHub.Web.Areas.Admin.ViewModels.ProductListAdminViewModel
+@{
+    ViewData["Title"] = "Quản lý Sản phẩm";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="fw-bold text-uppercase">Danh sách Sản phẩm</h4>
+    <div>
+        <a asp-action="Export" class="btn btn-success me-2">
+            <i class="bi bi-file-earmark-spreadsheet"></i> Xuất Excel
+        </a>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Thêm mới
+        </a>
+    </div>
+</div>
+
+<!-- THANH CÔNG CỤ TÌM KIẾM & LỌC -->
+<div class="card mb-4 shadow-sm border-0">
+    <div class="card-body bg-light rounded">
+        <form asp-action="Index" method="get" class="row g-2 align-items-center">
+            <div class="col-md-3">
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input type="text" name="searchString" class="form-control" placeholder="Tên sản phẩm..." value="@Model.SearchString">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <select name="categoryId" class="form-select">
+                    <option value="">-- Danh mục --</option>
+                    @foreach (var item in ViewBag.DanhMucs as List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)
+                    {
+                        <option value="@item.Value" selected="@item.Selected">@item.Text</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="brandId" class="form-select">
+                    <option value="">-- Thương hiệu --</option>
+                    @foreach (var item in ViewBag.ThuongHieux as List<FashionHub.Web.Models.Generated.ThuongHieu>)
+                    {
+                        <option value="@item.IdthuongHieu" selected="@(Model.BrandId == item.IdthuongHieu)">@item.TenThuongHieu</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="status" class="form-select">
+                    <option value="">-- Trạng thái --</option>
+                    <option value="1" selected="@(Model.Status == 1)">Đang bán</option>
+                    <option value="0" selected="@(Model.Status == 0)">Ngừng bán</option>
+                </select>
+            </div>
+            <div class="col-md-3 text-end">
+                <button type="submit" class="btn btn-dark w-100"><i class="bi bi-funnel"></i> Lọc dữ liệu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- BẢNG DỮ LIỆU -->
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">ID</th>
+                        <th>Hình ảnh</th>
+                        <th>Tên sản phẩm</th>
+                        <th>Phân loại</th>
+                        <th>Thống kê</th>
+                        <th>Trạng thái</th>
+                        <th class="text-end pe-4">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Products.Any())
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                Không tìm thấy sản phẩm nào phù hợp.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var item in Model.Products)
+                        {
+                            <tr>
+                                <td class="ps-4 fw-bold text-secondary">#@item.IDSanPham</td>
+                                <td>
+                                    <div class="position-relative" style="width: 60px; height: 60px;">
+                                        @if (!string.IsNullOrEmpty(item.MainImageUrl))
+                                        {
+                                            <img src="@Url.Content(item.MainImageUrl)" class="rounded border w-100 h-100" style="object-fit: cover;" alt="@item.TenSanPham">
+                                        }
+                                        else
+                                        {
+                                            <div class="bg-light rounded border w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                                                <i class="bi bi-image"></i>
+                                            </div>
+                                        }
+                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                            @item.VariantCount
+                                            <span class="visually-hidden">biến thể</span>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <a asp-action="Edit" asp-route-id="@item.IDSanPham" class="text-decoration-none fw-bold text-dark">
+                                        @item.TenSanPham
+                                    </a>
+                                    <div class="small text-danger fw-bold mt-1">
+                                        @item.Gia.ToString("N0") đ
+                                    </div>
+                                    @if (item.GiaKhuyenMai.HasValue)
+                                    {
+                                        <div class="small text-muted text-decoration-line-through">
+                                            Sale: @item.GiaKhuyenMai.Value.ToString("N0") đ
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="small"><span class="text-muted">DM:</span> @item.TenDanhMuc</div>
+                                    <div class="small"><span class="text-muted">TH:</span> @item.TenThuongHieu</div>
+                                </td>
+                                <td>
+                                    @if (item.TotalStock > 0)
+                                    {
+                                        <span class="badge bg-light text-dark border">Kho: @item.TotalStock</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">Hết hàng</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (item.TrangThai)
+                                    {
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle">Đang bán</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Ngừng bán</span>
+                                    }
+                                </td>
+                                <td class="text-end pe-4">
+                                    <a asp-action="Edit" asp-route-id="@item.IDSanPham" class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-warning text-dark btn-discount"
+                                            data-id="@item.IDSanPham"
+                                            data-price="@item.Gia"
+                                            data-km-price="@(item.GiaKhuyenMai ?? 0)"
+                                            title="Tạo chương trình khuyến mãi">
+                                        <i class="bi bi-percent"></i> KM
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger btn-delete-product" data-id="@item.IDSanPham" title="Xóa">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL KHUYẾN MÃI -->
+<div class="modal fade" id="discountModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title fw-bold">Thiết lập Khuyến mãi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="discount-product-id">
+                <input type="hidden" id="discount-original-price-hidden">
+
+                <div class="mb-3">
+                    <label class="form-label">Giá gốc:</label>
+                    <input type="text" id="discount-original-price-display" class="form-control fw-bold" disabled>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Giảm giá (%):</label>
+                        <div class="input-group">
+                            <input type="number" id="discount-percent" class="form-control" min="0" max="100" value="0">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Giá sau giảm:</label>
+                        <input type="text" id="discount-new-price" class="form-control fw-bold text-danger" disabled>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Ngày bắt đầu:</label>
+                        <input type="date" id="discount-start-date" class="form-control">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Ngày kết thúc:</label>
+                        <input type="date" id="discount-end-date" class="form-control">
+                    </div>
+                </div>
+
+                <div class="alert alert-info small mb-0">
+                    <i class="bi bi-info-circle"></i> Để hủy khuyến mãi, nhập % = 0 và lưu lại.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-warning" id="btn-save-discount">Lưu khuyến mãi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+$(document).ready(function() {
+    // Xử lý discount modal
+    $('.btn-discount').on('click', function() {
+        const productId = $(this).data('id');
+        const price = parseFloat($(this).data('price'));
+        const kmPrice = parseFloat($(this).data('km-price')) || 0;
+        const startDate = $(this).data('start') || '';
+        const endDate = $(this).data('end') || '';
+
+        $('#discount-product-id').val(productId);
+        $('#discount-original-price-hidden').val(price);
+        $('#discount-original-price-display').val(price.toLocaleString('vi-VN') + ' đ');
+        
+        // Tính % giảm nếu có giá KM
+        let discountPercent = 0;
+        if (kmPrice > 0 && kmPrice < price) {
+            discountPercent = Math.round(((price - kmPrice) / price) * 100);
+        }
+        
+        $('#discount-percent').val(discountPercent);
+        $('#discount-new-price').val(kmPrice > 0 ? kmPrice.toLocaleString('vi-VN') + ' đ' : price.toLocaleString('vi-VN') + ' đ');
+        $('#discount-start-date').val(startDate);
+        $('#discount-end-date').val(endDate);
+
+        $('#discountModal').modal('show');
+    });
+
+    // Tính giá mới khi thay đổi % giảm
+    $('#discount-percent').on('input', function() {
+        const percent = parseFloat($(this).val()) || 0;
+        const originalPrice = parseFloat($('#discount-original-price-hidden').val());
+        const newPrice = originalPrice - (originalPrice * percent / 100);
+        $('#discount-new-price').val(newPrice.toLocaleString('vi-VN') + ' đ');
+    });
+
+    // Lưu khuyến mãi
+    $('#btn-save-discount').on('click', function() {
+        const productId = $('#discount-product-id').val();
+        const discountPercent = parseInt($('#discount-percent').val()) || 0;
+        const startDate = $('#discount-start-date').val();
+        const endDate = $('#discount-end-date').val();
+
+        $.ajax({
+            url: '@Url.Action("ApplyDiscount")',
+            type: 'POST',
+            data: {
+                id: productId,
+                discountPercent: discountPercent,
+                startDate: startDate,
+                endDate: endDate
+            },
+            success: function(response) {
+                if (response.success) {
+                    showToast('success', response.message || 'Cập nhật khuyến mãi thành công!');
+                    $('#discountModal').modal('hide');
+                    location.reload();
+                } else {
+                    showToast('error', response.message || 'Có lỗi xảy ra!');
+                }
+            },
+            error: function() {
+                showToast('error', 'Lỗi kết nối server!');
+            }
+        });
+    });
+
+    // Xóa sản phẩm
+    $('.btn-delete-product').on('click', function() {
+        const productId = $(this).data('id');
+        
+        if (confirm('Bạn có chắc muốn xóa sản phẩm này? Hành động này không thể hoàn tác!')) {
+            $.ajax({
+                url: '@Url.Action("Delete")',
+                type: 'POST',
+                data: { id: productId },
+                success: function(response) {
+                    if (response.success) {
+                        showToast('success', 'Xóa sản phẩm thành công!');
+                        location.reload();
+                    } else {
+                        showToast('error', response.message || 'Có lỗi xảy ra!');
+                    }
+                },
+                error: function() {
+                    showToast('error', 'Lỗi kết nối server!');
+                }
+            });
+        }
+    });
+
+    function showToast(type, message) {
+        const toastClass = type === 'success' ? 'bg-success' : 'bg-danger';
+        const toastHtml = `
+            <div class="toast align-items-center text-white ${toastClass} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+        
+        const toastContainer = $('.toast-container');
+        if (toastContainer.length === 0) {
+            $('body').append('<div class="toast-container position-fixed top-0 end-0 p-3"></div>');
+        }
+        
+        $('.toast-container').append(toastHtml);
+        const toast = new bootstrap.Toast($('.toast:last'));
+        toast.show();
+    }
+});
+</script>
+}
