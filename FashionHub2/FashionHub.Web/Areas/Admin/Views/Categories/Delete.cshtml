@@ -1,0 +1,130 @@
+@model FashionHub.Web.Areas.Admin.ViewModels.CategoryViewModel
+@{
+    ViewData["Title"] = "Xóa danh mục";
+}
+
+<div class="mb-4">
+    <h1 class="h3 mb-0 text-danger">Xóa danh mục</h1>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-action="Index">Danh mục</a></li>
+            <li class="breadcrumb-item active">Xóa</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="alert alert-warning" role="alert">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <strong>Cảnh báo!</strong> Bạn có chắc chắn muốn xóa danh mục này?
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Thông tin danh mục</h5>
+                
+                <dl class="row">
+                    <dt class="col-sm-3">Tên danh mục:</dt>
+                    <dd class="col-sm-9">
+                        <strong>@Model.Name</strong>
+                    </dd>
+
+                    <dt class="col-sm-3">Danh mục cha:</dt>
+                    <dd class="col-sm-9">
+                        @if (!string.IsNullOrEmpty(Model.ParentCategoryName))
+                        {
+                            <span class="badge bg-secondary">@Model.ParentCategoryName</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">Danh mục gốc</span>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3">Số sản phẩm:</dt>
+                    <dd class="col-sm-9">
+                        @if (Model.ProductCount > 0)
+                        {
+                            <span class="badge bg-danger">@Model.ProductCount sản phẩm</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">0 sản phẩm</span>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3">Danh mục con:</dt>
+                    <dd class="col-sm-9">
+                        @if (Model.SubCategories.Any())
+                        {
+                            <span class="badge bg-danger">@Model.SubCategories.Count danh mục</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">Không có</span>
+                        }
+                    </dd>
+                </dl>
+
+                @if (Model.ProductCount > 0 || Model.SubCategories.Any())
+                {
+                    <div class="alert alert-danger mt-3">
+                        <h6 class="alert-heading">
+                            <i class="bi bi-x-circle"></i> Không thể xóa danh mục này
+                        </h6>
+                        <p class="mb-0">
+                            @if (Model.ProductCount > 0)
+                            {
+                                <text>Danh mục này đang chứa <strong>@Model.ProductCount sản phẩm</strong>. </text>
+                            }
+                            @if (Model.SubCategories.Any())
+                            {
+                                <text>Danh mục này có <strong>@Model.SubCategories.Count danh mục con</strong>. </text>
+                            }
+                            Vui lòng xóa hoặc chuyển chúng sang danh mục khác trước.
+                        </p>
+                    </div>
+                }
+
+                <form asp-action="Delete" method="post" class="mt-4">
+                    <input type="hidden" asp-for="Id" />
+                    
+                    @if (Model.ProductCount == 0 && !Model.SubCategories.Any())
+                    {
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Xác nhận xóa
+                            </button>
+                            <a asp-action="Index" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Hủy
+                            </a>
+                        </div>
+                    }
+                    else
+                    {
+                        <a asp-action="Index" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Quay lại
+                        </a>
+                    }
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-danger border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title text-danger">
+                    <i class="bi bi-exclamation-triangle"></i> Lưu ý quan trọng
+                </h5>
+                <ul class="small mb-0">
+                    <li class="mb-2">Hành động này không thể hoàn tác</li>
+                    <li class="mb-2">Danh mục có sản phẩm hoặc danh mục con không thể xóa</li>
+                    <li class="mb-2">Chuyển sản phẩm sang danh mục khác trước khi xóa</li>
+                    <li>Xóa tất cả danh mục con trước nếu có</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

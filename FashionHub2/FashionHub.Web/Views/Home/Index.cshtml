@@ -1,8 +1,75 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@model FashionHub.Web.ViewModels.Home.HomeViewModel
+@{
+    ViewBag.Title = "Trang Chủ";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<!-- Hero Carousel -->
+<div id="heroCarousel" class="carousel slide mb-5" data-bs-ride="carousel">
+    <div class="carousel-indicators">
+        <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
+        <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button>
+    </div>
+    <div class="carousel-inner">
+        <div class="carousel-item active">
+            <div class="p-5 bg-white rounded-3 text-center shadow-sm" style="min-height: 400px; display: flex; align-items: center; justify-content: center;">
+                <div class="container-fluid py-5">
+                    <h1 class="display-5 fw-bold">Chào Mừng Đến OWE</h1>
+                    <p class="fs-4">Nơi phong cách của bạn được định hình.</p>
+                    <a class="btn btn-primary btn-lg" href="@Url.Action("Index", "Products")">Khám Phá Ngay</a>
+                </div>
+            </div>
+        </div>
+        <div class="carousel-item">
+            <div class="p-5 bg-light rounded-3 text-center shadow-sm" style="min-height: 400px; display: flex; align-items: center; justify-content: center;">
+                <div class="container-fluid py-5">
+                    <h1 class="display-5 fw-bold">Ưu Đãi Đặc Biệt</h1>
+                    <p class="fs-4">Giảm giá lên đến 50% cho các sản phẩm khuyến mãi.</p>
+                    <a class="btn btn-danger btn-lg" href="@Url.Action("Index", "Products", new { sale = true })">Mua Ngay</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Previous</span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Next</span>
+    </button>
 </div>
+
+<!-- Sản phẩm mới -->
+<section class="mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="m-0">Hàng Mới Về</h2>
+        <a href="@Url.Action("Index", "Products", new { sortBy = "newest" })" class="btn btn-outline-dark">Xem tất cả</a>
+    </div>
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+        @foreach (var product in Model.SanPhamMoi)
+        {
+            <div class="col">
+                <partial name="_ProductCardPartial" model="product" />
+            </div>
+        }
+    </div>
+</section>
+
+<!-- Sản phẩm khuyến mãi -->
+@if (Model.SanPhamKhuyenMai.Any())
+{
+    <section class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="m-0">Sản Phẩm Khuyến Mãi</h2>
+            <a href="@Url.Action("Index", "Products", new { sale = true })" class="btn btn-outline-danger">Xem tất cả</a>
+        </div>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+            @foreach (var product in Model.SanPhamKhuyenMai)
+            {
+                <div class="col">
+                    <partial name="_ProductCardPartial" model="product" />
+                </div>
+            }
+        </div>
+    </section>
+}

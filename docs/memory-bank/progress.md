@@ -8,10 +8,10 @@
 - **Runtime:** ASP.NET Core MVC on .NET 10
 - **Build status:** ✅ Build succeeded (20 warnings, 0 errors)
 - **App startup:** ✅ Khởi động thành công trên http://localhost:5167
-- **Tiến độ migration:** 58% (11.5/20 prompts hoàn thành)
+- **Tiến độ migration:** 70% (14/20 prompts hoàn thành)
 - **Commit cuối:** `da8a680` (2026-07-23)
 
-✅ **Tiến triển mới:** 5 commits từ 20/07 đến 23/07 — UI fixes và Admin Products Views
+✅ **Tiến triển mới:** 7 commits từ 20/07 đến 23/07 — UI fixes, Admin Products, Admin Dashboard & Categories
 
 ## Hoàn thành
 
@@ -37,17 +37,20 @@
 - ✅ Cart/Index.cshtml
 - ✅ Order: Checkout, OrderSuccess
 
-### 4. Admin (40%)
+### 4. Admin (70%)
 - ✅ Admin/OrdersController: Index, Details, UpdateStatus, Invoice, BulkPrint, ExportExcel
 - ✅ Admin/Orders views: Index, Details, Invoice, BulkPrint
-- ✅ Admin/_Layout.cshtml
+- ✅ Admin/_Layout.cshtml (with Dashboard & Categories links)
 - ✅ Admin/_ViewStart.cshtml
 - ✅ Admin/ProductsController: Index action (stub)
 - ✅ Admin/Products views: Index, Create, Edit (UI only, cần implement actions)
 - ✅ Admin/Products ViewModels: ProductAdminViewModel với variants support
+- ✅ Admin/DashboardController: Stats, recent orders, top products, monthly revenue
+- ✅ Admin/Dashboard views: Index with charts and stats
+- ✅ Admin/CategoriesController: Full CRUD operations
+- ✅ Admin/Categories views: Index, Create, Edit, Delete
+- ✅ Admin/Categories ViewModels: CategoryViewModel
 - ⚠️ Admin/ProductsController: Cần implement 6 actions (Create POST, Edit GET/POST, AddVariant, DeleteVariant, ImportStock, GetVariantImages, UploadImages, DeleteImage)
-- ❌ Admin/DashboardController
-- ❌ Admin/CategoriesController
 - ❌ Admin/UsersController
 
 ### 5. Shared Layout & Components (100%)
@@ -100,9 +103,12 @@
   - ❌ Controller actions còn thiếu: Create POST, Edit GET/POST, AddVariant, DeleteVariant, ImportStock, GetVariantImages, UploadImages, DeleteImage
   - ❌ Image upload handling
   - ❌ Variants AJAX management
-- ❌ **Admin Dashboard & Categories** (Prompt 14)
-  - Dashboard với stats
-  - Categories CRUD
+- ✅ **Admin Dashboard & Categories** (Prompt 14) — Hoàn thành 2026-07-23
+  - ✅ DashboardController with stats, charts, recent orders, top products
+  - ✅ CategoriesController full CRUD
+  - ✅ All views and ViewModels
+  - ✅ Navigation links in admin layout
+  - ✅ Build successful
 - ❌ **Admin Users & Promotions** (Prompt 15)
   - Users list/detail/lock
   - Promotions CRUD
@@ -136,9 +142,9 @@
 
 ## Next Steps
 
-1. **Prompt 13:** Migrate Admin Products — CRUD, variants, image upload
-2. **Prompt 14:** Migrate Admin Dashboard & Categories
-3. **Prompt 15:** Migrate Admin Users & Promotions
+1. **Prompt 13:** Migrate Admin Products — CRUD, variants, image upload (partially done)
+2. ~~**Prompt 14:** Migrate Admin Dashboard & Categories~~ ✅ Complete
+3. **Prompt 15:** Migrate Admin Users & Promotions (next priority)
 4. **Prompt 16:** CSS/JS full review & UI polish
 5. **Prompt 17:** User Profile & Order History
 6. **Prompt 18:** Integration Testing

@@ -1,0 +1,328 @@
+@model FashionHub.Web.Areas.Admin.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Tổng quan";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Tổng quan</h1>
+    <div class="text-muted">
+        <i class="bi bi-calendar3"></i> @DateTime.Now.ToString("dd/MM/yyyy")
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-primary bg-opacity-10 text-primary rounded-3 p-3">
+                            <i class="bi bi-currency-dollar fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="text-muted small">Tổng doanh thu</div>
+                        <div class="h5 mb-0">@Model.Stats.TotalRevenue.ToString("N0") ₫</div>
+                        @if (Model.Stats.RevenueGrowth != 0)
+                        {
+                            <small class="@(Model.Stats.RevenueGrowth > 0 ? "text-success" : "text-danger")">
+                                <i class="bi bi-arrow-@(Model.Stats.RevenueGrowth > 0 ? "up" : "down")"></i>
+                                @Math.Abs(Model.Stats.RevenueGrowth).ToString("F1")% so với tháng trước
+                            </small>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-success bg-opacity-10 text-success rounded-3 p-3">
+                            <i class="bi bi-cart-check fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="text-muted small">Tổng đơn hàng</div>
+                        <div class="h5 mb-0">@Model.Stats.TotalOrders.ToString("N0")</div>
+                        @if (Model.Stats.OrderGrowth != 0)
+                        {
+                            <small class="@(Model.Stats.OrderGrowth > 0 ? "text-success" : "text-danger")">
+                                <i class="bi bi-arrow-@(Model.Stats.OrderGrowth > 0 ? "up" : "down")"></i>
+                                @Math.Abs(Model.Stats.OrderGrowth).ToString("F0")% so với tháng trước
+                            </small>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-info bg-opacity-10 text-info rounded-3 p-3">
+                            <i class="bi bi-box-seam fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="text-muted small">Tổng sản phẩm</div>
+                        <div class="h5 mb-0">@Model.Stats.TotalProducts.ToString("N0")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-warning bg-opacity-10 text-warning rounded-3 p-3">
+                            <i class="bi bi-people fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="text-muted small">Người dùng</div>
+                        <div class="h5 mb-0">@Model.Stats.TotalUsers.ToString("N0")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Order Status Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">Chờ xử lý</div>
+                        <div class="h4 mb-0">@Model.Stats.PendingOrders</div>
+                    </div>
+                    <div class="text-warning">
+                        <i class="bi bi-clock-history fs-2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">Đang xử lý</div>
+                        <div class="h4 mb-0">@Model.Stats.ProcessingOrders</div>
+                    </div>
+                    <div class="text-info">
+                        <i class="bi bi-arrow-repeat fs-2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">Đã giao</div>
+                        <div class="h4 mb-0">@Model.Stats.DeliveredOrders</div>
+                    </div>
+                    <div class="text-success">
+                        <i class="bi bi-check-circle fs-2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Revenue Chart -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pt-3">
+                <h5 class="card-title mb-0">Doanh thu 6 tháng gần đây</h5>
+            </div>
+            <div class="card-body">
+                @if (Model.MonthlyRevenues.Any())
+                {
+                    <canvas id="revenueChart" height="80"></canvas>
+                }
+                else
+                {
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-graph-up fs-1"></i>
+                        <p class="mt-2">Chưa có dữ liệu</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Products -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pt-3">
+                <h5 class="card-title mb-0">Sản phẩm bán chạy</h5>
+            </div>
+            <div class="card-body">
+                @if (Model.TopProducts.Any())
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var product in Model.TopProducts)
+                        {
+                            <div class="list-group-item px-0 border-0">
+                                <div class="d-flex align-items-center">
+                                    <img src="@(product.ImageUrl ?? "/images/placeholder.jpg")" 
+                                         alt="@product.ProductName" 
+                                         class="rounded"
+                                         style="width: 50px; height: 50px; object-fit: cover;">
+                                    <div class="flex-grow-1 ms-3">
+                                        <div class="fw-medium small">@product.ProductName</div>
+                                        <div class="text-muted small">Đã bán: @product.SoldCount</div>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="fw-medium small">@product.Revenue.ToString("N0") ₫</div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-box-seam fs-1"></i>
+                        <p class="mt-2 small">Chưa có sản phẩm nào được bán</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Orders -->
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-header bg-white border-0 pt-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Đơn hàng gần đây</h5>
+            <a asp-area="Admin" asp-controller="Orders" asp-action="Index" class="btn btn-sm btn-outline-primary">
+                Xem tất cả
+            </a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        @if (Model.RecentOrders.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Mã đơn</th>
+                            <th>Khách hàng</th>
+                            <th>Tổng tiền</th>
+                            <th>Trạng thái</th>
+                            <th>Ngày đặt</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in Model.RecentOrders)
+                        {
+                            <tr>
+                                <td class="fw-medium">#@order.OrderId</td>
+                                <td>@order.CustomerName</td>
+                                <td>@order.Total.ToString("N0") ₫</td>
+                                <td>
+                                    <span class="badge bg-secondary">@order.Status</span>
+                                </td>
+                                <td>@order.OrderDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="text-end">
+                                    <a asp-area="Admin" asp-controller="Orders" asp-action="Details" asp-route-id="@order.OrderId" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-cart-x fs-1"></i>
+                <p class="mt-2">Chưa có đơn hàng nào</p>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            @if (Model.MonthlyRevenues.Any())
+            {
+                <text>
+                const ctx = document.getElementById('revenueChart');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: [@Html.Raw(string.Join(",", Model.MonthlyRevenues.Select(m => $"'{m.Month}'")))],
+                        datasets: [{
+                            label: 'Doanh thu (₫)',
+                            data: [@string.Join(",", Model.MonthlyRevenues.Select(m => m.Revenue))],
+                            backgroundColor: 'rgba(13, 110, 253, 0.8)',
+                            borderColor: 'rgba(13, 110, 253, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Doanh thu: ' + context.parsed.y.toLocaleString('vi-VN') + ' ₫';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return (value / 1000000).toFixed(0) + 'tr';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                </text>
+            }
+        });
+    </script>
+}
