@@ -1,112 +1,182 @@
-# Active Context — FashionHub / OWE
+# Active Context — FashionHub Migration
+
+**Cập nhật:** 2026-07-23
 
 ## Trạng thái hiện tại
-Dự án đã được phân tích ở trạng thái ASP.NET MVC 5 (.NET Framework 4.8). Kết luận định hướng mới là không tiếp tục sửa UI/UX trực tiếp trên project cũ trước, mà migrate nền tảng sang ASP.NET Core MVC .NET 10 trước.
 
-Project cũ `FashionHub/` vẫn được giữ nguyên để tham chiếu trong quá trình migrate.
+**Project:** FashionHub2/FashionHub.Web  
+**Framework:** ASP.NET Core MVC on .NET 10  
+**Database:** SQL Server (EF Core)  
+**Build:** ✅ Build succeeded (20 warnings, 0 errors)
+**Tiến độ:** 58% (11.5/20 prompts)
 
-Đã hoàn thành bước khởi tạo project migrate rỗng:
-- Tạo solution mới `FashionHub2/FashionHub2.slnx` nằm cạnh project cũ `FashionHub/`.
-- Tạo project `FashionHub2/FashionHub.Web` bằng template ASP.NET Core MVC target `net10.0`.
-- Tạo project `FashionHub2/FashionHub.Tests` bằng xUnit target `net10.0`.
-- Thêm reference từ `FashionHub.Tests` tới `FashionHub.Web`.
-- Thêm cả hai project vào solution `FashionHub2`.
-- Cài package nền tảng vào `FashionHub.Web`:
-  - `Microsoft.EntityFrameworkCore.SqlServer`
-  - `Microsoft.EntityFrameworkCore.Tools`
-  - `Microsoft.EntityFrameworkCore.Design`
-  - `BCrypt.Net-Next`
-  - `X.PagedList.Mvc.Core`
-- Đã build/test solution thành công.
-- Đã chạy thử `FashionHub.Web` bằng `dotnet run` và xác nhận trang mặc định trả HTTP 200 tại `http://localhost:5099/`.
+✅ **Tiến triển mới:** 5 commits từ 20/07 đến 23/07
 
-Đã hoàn thành bước Database First ban đầu cho project mới:
-- Cài `dotnet-ef` global tool version `10.0.9`.
-- Đọc connection string từ `FashionHub/Web.config`.
-- Scaffold EF Core entity từ database `QL_SHOPQUANAO_PRO` vào `FashionHub2/FashionHub.Web/Models/Generated`.
-- Scaffold `ApplicationDbContext` vào `FashionHub2/FashionHub.Web/Data/ApplicationDbContext.cs`.
-- Thêm connection string `DefaultConnection` vào `FashionHub2/FashionHub.Web/appsettings.Development.json`.
-- Đăng ký `ApplicationDbContext` trong `FashionHub2/FashionHub.Web/Program.cs` bằng `AddDbContext` và `UseSqlServer`.
+## Công việc gần đây (20/07-23/07/2026)
 
-Đã hoàn thành bước Authentication nền tảng cho project mới:
-- Cấu hình Cookie Authentication trong `FashionHub2/FashionHub.Web/Program.cs`.
-- Thêm `AccountController` mới theo ASP.NET Core MVC trong `FashionHub2/FashionHub.Web/Controllers/AccountController.cs`.
-- Thêm `LoginViewModel` và `RegisterViewModel` trong `FashionHub2/FashionHub.Web/ViewModels/Account/`.
-- Login/Register dùng EF Core `ApplicationDbContext`, entity `NguoiDung`/`VaiTro`, BCrypt.Net-Next và claims-based cookie.
-- Logout dùng `HttpContext.SignOutAsync`.
-- Đã chạy `dotnet test FashionHub2\FashionHub.Tests\FashionHub.Tests.csproj --no-restore` thành công.
+### Đã hoàn thành
+1. ✅ Copy complete CSS/JS from original project (commit `c8573c4`)
+2. ✅ Add Bootstrap CSS to _Layout (commit `3ab059b`)
+3. ✅ Redirect homepage to Products (commit `c2cdf59`)
+4. ✅ Fix image paths với SQL script (commit `8ad5590`)
+5. ✅ Admin Products Views: Index, Create, Edit (commit `da8a680`)
+6. ✅ Admin Products ViewModels với variants support (commit `da8a680`)
 
-## Quyết định kỹ thuật hiện tại
-- Ưu tiên migrate trước, UI/UX sau.
-- Tạo project mới `FashionHub2/FashionHub.Web` thay vì chỉnh trực tiếp project cũ.
-- Dùng ASP.NET Core MVC trên .NET 10.
-- Dùng EF Core SQL Server theo hướng Database First từ database hiện có.
-- Dùng Cookie Authentication thay Forms Authentication/Membership cũ.
-- Giữ BCrypt.Net-Next để mật khẩu cũ tiếp tục đăng nhập được nếu database hiện tại đang dùng BCrypt.
-- Sau migration mới áp dụng roadmap UI/UX: cart mobile, offcanvas filter, accessibility, component consistency, toast/modal.
+### Verified
+- ✅ Build: 0 errors, 0 warnings
+- ✅ Runtime: App khởi động clean trên http://localhost:5167
+- ✅ Security: API key không hardcode, SearchByImage vẫn disabled
+- ✅ No regression issues
 
-## Ghi nhận đối chiếu model scaffold
-Các entity nghiệp vụ chính đã được scaffold:
-- `BienTheSanPham`
-- `ChiTietDonHang`
-- `DanhMuc`
-- `DiaChi`
-- `DonHang`
-- `GioHang`
-- `HinhAnh`
-- `HinhAnhBienThe`
-- `KichThuoc`
-- `MaGiamGium`
-- `MauSac`
-- `NguoiDung`
-- `PhuongThucThanhToan`
-- `SanPham`
-- `ThuongHieu`
-- `TrangThaiDonHang`
-- `VaiTro`
+## Những gì đã migrate (Customer-facing)
 
-Khác biệt đáng chú ý so với EF6 model cũ:
-- EF Core scaffold đổi casing tên cột theo kiểu `IdsanPham`, `IddanhMuc`, `IdbienThe` thay vì `IDSanPham`, `IDDanhMuc`, `IDBienThe`.
-- Navigation property được đặt theo pattern EF Core như `IdsanPhamNavigation`, `IddanhMucNavigation`, `IdmaGiamGiaNavigation` thay vì tên domain ngắn hơn như `SanPham`, `DanhMuc`, `MaGiamGia`.
-- Bảng/link entity `HinhAnh_BienThe` được scaffold thành class `HinhAnhBienThe`.
-- Entity `MaGiamGia` bị EF Core singularize thành `MaGiamGium`; cần cân nhắc rename bằng partial/config hoặc chỉnh scaffold nếu muốn giữ tên domain Việt nhất quán.
-- Database hiện tại có một số cột chưa có trong EF6 model cũ:
-  - `BienTheSanPham.Gia`
-  - `SanPham.VectorDacTrung`
-  - `DiaChi.PhuongXa`, `DiaChi.QuanHuyen`, `DiaChi.TinhThanh` thay cho tên EF6 cũ `PhuongXa1`, `QuanHuyen1`, `TinhThanh1`.
-- EF Core bật nullable reference types theo schema/nullability: nhiều property string nullable được biểu diễn bằng `string?`.
+### Controllers ✅
+- HomeController
+- AccountController (Login, Register, Logout, AccessDenied)
+- ProductsController (Index, Details)
+- CartController (full AJAX API)
+- OrderController (Checkout, OrderSuccess, ApplyCoupon, AddAddress)
+- ChatController (SendMessage)
 
-## File/tài liệu đã cập nhật
-- `FashionHub-AI-Agent-Roadmap.md`: roadmap tổng thể v2 theo thứ tự migrate → UI/UX → testing → Docker/deploy.
-- `.clinerules/00-project-context.md`: context mới cho stack ASP.NET Core MVC .NET 10.
-- `.clinerules/01-architecture.md`: architecture rules mới cho project migrate.
-- `docs/memory-bank/projectbrief.md`: cập nhật mục tiêu và ưu tiên mới.
-- `docs/memory-bank/activeContext.md`: context đang làm hiện tại và ghi nhận bước khởi tạo `FashionHub2` + Database First.
-- `docs/memory-bank/progress.md`: cập nhật tiến độ khởi tạo project migrate và Database First.
-- `FashionHub2/FashionHub.Web/appsettings.Development.json`: connection string local development.
-- `FashionHub2/FashionHub.Web/Program.cs`: đăng ký EF Core DbContext.
-- `FashionHub2/FashionHub.Web/Data/ApplicationDbContext.cs`: DbContext scaffold từ database.
-- `FashionHub2/FashionHub.Web/Models/Generated/**`: entity scaffold từ database.
+### Views ✅
+- Home/Index
+- Products: Index (grid + filter), Details
+- Cart/Index
+- Order: Checkout, OrderSuccess
+- Account: Login, Register, AccessDenied, _AuthLayout
+- Shared: _Layout, _Header, _Menu, _Footer, _GlobalFeedback, _CartOffcanvas, _ChatWidget
+- Partials: _ProductCard, _QuickViewModal, _AddAddressModal
 
-## Việc cần làm tiếp theo
-1. Commit riêng cho task Authentication nền tảng nếu diff đã đúng phạm vi.
-2. Bắt đầu migrate Account Views:
-   - `Login.cshtml`
-   - `Register.cshtml`
-   - layout auth nếu cần
-   - chuyển sang Tag Helpers và static paths `~/css/...`, `~/js/...`.
-3. Sau đó bổ sung các màn hình tài khoản còn lại:
-   - hồ sơ người dùng,
-   - địa chỉ,
-   - đổi mật khẩu,
-   - AccessDenied.
+### Services ✅
+- ChatAiService (Gemini API)
+- ImageFeatureService (stub, disabled)
 
-## Lưu ý quan trọng cho các task sau
-- Không xoá, di chuyển hoặc refactor project cũ `FashionHub/` khi chưa có yêu cầu rõ ràng.
-- Mọi code mới phải đi vào `FashionHub2/FashionHub.Web/`.
-- Không dùng `System.Web.Mvc` trong project mới.
-- Không dùng đường dẫn static cũ `~/Content/...`, `~/Scripts/...` trong project mới.
-- Khi migrate View, cần chuyển dần sang Tag Helpers của ASP.NET Core.
-- UI/UX guidelines cũ vẫn có giá trị, nhưng áp dụng sau khi migration ổn định.
-- Cần đặc biệt chú ý khác biệt tên property scaffold (`Id...`, `...Navigation`, `MaGiamGium`) khi port controller/service/viewmodel từ project cũ.
-- Authentication mới chưa có Razor Views tương ứng trong project mới; cần migrate view trước khi chạy luồng login/register trên browser.
+## Những gì đã migrate (Admin)
+
+### Partial (40%)
+- ✅ Admin/OrdersController: full CRUD đơn hàng
+- ✅ Admin/Orders views: Index, Details, Invoice, BulkPrint
+- ✅ Admin/_Layout, Admin/_ViewStart
+- 🔶 Admin/ProductsController: có Index stub, cần implement 8 actions còn lại
+- 🔶 Admin/Products views: Index, Create, Edit (UI ready, chờ backend)
+- 🔶 Admin/Products ViewModels: ProductAdminViewModel, ProductVariantAdminViewModel, etc.
+- ❌ Admin/DashboardController: chưa có
+- ❌ Admin/CategoriesController: chưa có
+- ❌ Admin/UsersController: chưa có
+
+## Những gì chưa migrate / đang dở
+
+### Admin (Đang thực hiện)
+1. **Admin Products CRUD** (Prompt 13) — 🔶 ĐANG LÀM DỞ
+   - ✅ Views: Index, Create, Edit (UI complete với AJAX)
+   - ✅ ViewModels: ProductAdminViewModel, ProductVariantAdminViewModel, ProductListAdminViewModel, ProductItemAdminViewModel, VariantDetailViewModel, VariantImageViewModel
+   - ✅ Controller: Index action (basic stub)
+   - ❌ **CẦN LÀM TIẾP:** Implement 8 actions trong ProductsController:
+     1. Create GET (load dropdowns)
+     2. Create POST (save product)
+     3. Edit GET (load product + variants)
+     4. Edit POST (update product info)
+     5. AddVariant (AJAX - thêm biến thể màu/size)
+     6. DeleteVariant (AJAX - xóa biến thể)
+     7. ImportStock (AJAX - nhập kho)
+     8. GetVariantImages (AJAX - lấy danh sách ảnh)
+     9. UploadImages (AJAX - upload ảnh cho variant)
+     10. DeleteImage (AJAX - xóa ảnh)
+   - ❌ Image upload file handling
+   - ❌ ViewBag data cho dropdowns (DanhMucs, ThuongHieux, Colors, Sizes)
+
+2. **Admin Dashboard & Categories** (Prompt 14)
+   - DashboardController với stats (doanh thu, đơn hàng, sản phẩm)
+   - CategoriesController CRUD
+
+3. **Admin Users & Promotions** (Prompt 15)
+   - UsersController: Index, Details, ToggleLock
+   - Promotions/Coupons CRUD
+
+### Customer Features
+4. **User Profile & Order History** (Prompt 17)
+   - AccountController: Profile, OrderHistory
+   - Views tương ứng
+
+### Quality Assurance
+5. **CSS/JS Review & Polish** (Prompt 16) — chỉ mới fix image paths
+6. **Integration Testing** (Prompt 18) — chưa bắt đầu
+7. **Dockerize** (Prompt 19) — chưa bắt đầu
+8. **Final Review** (Prompt 20) — chưa bắt đầu
+
+## Known Issues & Decisions
+
+### Resolved ✅
+- ✅ API key security: moved to User Secrets
+- ✅ SearchByImage: disabled by design, documented
+- ✅ Image paths: fixed to ~/images/ prefix
+- ✅ Build issues: không còn
+
+### Open Items ⚠️
+- ⚠️ CSS/JS chưa review toàn diện
+- ⚠️ UI/UX chưa polish responsive
+- ⚠️ Chưa có tests
+- ⚠️ Chưa có Docker config
+
+## Next Actions (Priority Order)
+
+1. **[URGENT]** Hoàn thiện Prompt 13: Admin Products Controller
+   - Implement 10 actions còn thiếu trong ProductsController
+   - Test từng action với Views đã có
+   - Handle file upload cho images
+   - Commit khi hoàn tất
+2. **[HIGH]** Prompt 14: Admin Dashboard & Categories
+3. **[HIGH]** Prompt 15: Admin Users & Promotions
+4. **[MEDIUM]** Prompt 16: CSS/JS review & UI polish
+5. **[MEDIUM]** Prompt 17: User Profile & Order History
+6. **[LOW]** Prompt 18: Integration Testing
+7. **[LOW]** Prompt 19: Dockerize
+8. **[LOW]** Prompt 20: Final Review & Cleanup
+
+## Technical Notes
+
+### Architecture Decisions
+- ViewComponents thay partial views có logic (Menu, CartIcon)
+- Service layer cho business logic (ChatAiService)
+- ViewModels cho data transfer to views
+- Cookie Authentication (no Identity yet)
+- Session-based cart (không dùng database)
+
+### Database Schema
+- 28 entities scaffolded từ SQL Server
+- Không đổi schema khi migrate
+- Entity trong Models/Generated/
+- ApplicationDbContext trong Data/
+
+### Static Files
+- CSS: wwwroot/css/site.css (copied từ FashionHub/Content/)
+- JS: wwwroot/js/site.js (copied từ FashionHub/Scripts/)
+- Images: wwwroot/images/ (prefix ~/images/ trong views)
+
+### Authentication Flow
+- Cookie-based với `CookieAuthenticationDefaults.AuthenticationScheme`
+- User claims: Id, Email, Role
+- [Authorize] cho customer pages
+- [Authorize(Roles = "Admin")] cho admin area
+
+## Files to Reference
+
+### Documentation
+- `docs/migration-progress-report-v2.md` — comprehensive status report (2026-07-20)
+- `docs/migration-comparison-report.md` — old comparison (2026-07-05)
+- `docs/chat-ai-implementation-clarification.md` — Chat AI decisions
+- `docs/searchbyimage-status.md` — SearchByImage disabled status
+- `docs/ui-testing-checklist.md` — UI testing notes
+- `FashionHub-AI-Agent-Roadmap.md` — full 20-prompt roadmap
+
+### Key Code
+- `FashionHub2/FashionHub.Web/Program.cs` — startup config
+- `FashionHub2/FashionHub.Web/Data/ApplicationDbContext.cs` — EF Core context
+- `FashionHub2/FashionHub.Web/Controllers/*.cs` — customer controllers
+- `FashionHub2/FashionHub.Web/Areas/Admin/Controllers/*.cs` — admin controllers
+- `FashionHub2/FashionHub.Web/Services/*.cs` — business logic
+- `FashionHub2/FashionHub.Web/ViewModels/**/*.cs` — data transfer objects
+
+### Old Project (Reference Only)
+- `FashionHub/` — ASP.NET MVC 5 cũ, KHÔNG sửa
+- Dùng để tham khảo logic khi migrate

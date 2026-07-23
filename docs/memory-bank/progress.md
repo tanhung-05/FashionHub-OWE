@@ -1,131 +1,146 @@
-# Progress — FashionHub / OWE
+# Progress — FashionHub Migration
+
+**Cập nhật lần cuối:** 2026-07-23
 
 ## Trạng thái tổng quan
-Dự án đã hoàn thành bước phân tích project ASP.NET MVC 5 hiện tại và đã chốt lại chiến lược mới: migrate sang ASP.NET Core MVC .NET 10 trước, sau đó mới tối ưu UI/UX, testing, Dockerize và deploy.
 
-Bước khởi tạo project migrate rỗng đã hoàn tất trong `FashionHub2/`. Project cũ `FashionHub/` chưa bị copy/chỉnh sửa trong bước này.
+- **Project:** FashionHub2/FashionHub.Web
+- **Runtime:** ASP.NET Core MVC on .NET 10
+- **Build status:** ✅ Build succeeded (20 warnings, 0 errors)
+- **App startup:** ✅ Khởi động thành công trên http://localhost:5167
+- **Tiến độ migration:** 58% (11.5/20 prompts hoàn thành)
+- **Commit cuối:** `da8a680` (2026-07-23)
 
-Bước Database First ban đầu cho project mới đã hoàn tất: EF Core đã scaffold entity và `ApplicationDbContext` từ database SQL Server hiện có vào `FashionHub2/FashionHub.Web`.
+✅ **Tiến triển mới:** 5 commits từ 20/07 đến 23/07 — UI fixes và Admin Products Views
 
-Bước Authentication nền tảng cho project mới đã hoàn tất: đã cấu hình Cookie Authentication, thêm `AccountController` ASP.NET Core MVC, thêm `LoginViewModel`/`RegisterViewModel`, dùng EF Core + BCrypt.Net-Next và xác thực bằng claims cookie.
+## Hoàn thành
 
-## Đã hoàn thành
-- [x] Phân tích project cũ `FashionHub/`.
-- [x] Xác định stack hiện tại:
-  - ASP.NET MVC 5.3.0
-  - .NET Framework 4.8
-  - Entity Framework 6.5.1
-  - Razor Views
-  - Bootstrap 5.3.x
-  - jQuery 3.7.x
-- [x] Phân tích UI/UX hiện tại.
-- [x] Xác định không nên sửa UI/UX lớn trên project cũ trước migration.
-- [x] Chốt roadmap v2: migrate → UI/UX → testing → Docker/deploy.
-- [x] Tạo/cập nhật `FashionHub-AI-Agent-Roadmap.md`.
-- [x] Cập nhật `.clinerules/00-project-context.md`.
-- [x] Cập nhật `.clinerules/01-architecture.md`.
-- [x] Cập nhật `docs/memory-bank/projectbrief.md`.
-- [x] Cập nhật `docs/memory-bank/activeContext.md`.
-- [x] Cập nhật `docs/memory-bank/techContext.md`.
-- [x] Cập nhật `docs/memory-bank/progress.md`.
-- [x] Tạo solution mới `FashionHub2/FashionHub2.slnx` nằm cạnh project cũ.
-- [x] Tạo project `FashionHub2/FashionHub.Web` bằng template ASP.NET Core MVC target `net10.0`.
-- [x] Tạo project `FashionHub2/FashionHub.Tests` bằng xUnit target `net10.0`.
-- [x] Thêm reference từ `FashionHub.Tests` tới `FashionHub.Web`.
-- [x] Thêm hai project vào solution `FashionHub2`.
-- [x] Cài package nền tảng vào `FashionHub.Web`:
-  - `Microsoft.EntityFrameworkCore.SqlServer`
-  - `Microsoft.EntityFrameworkCore.Tools`
-  - `Microsoft.EntityFrameworkCore.Design`
-  - `BCrypt.Net-Next`
-  - `X.PagedList.Mvc.Core`
-- [x] Build solution `FashionHub2/FashionHub2.slnx` thành công.
-- [x] Chạy test project `FashionHub.Tests` thành công.
-- [x] Chạy thử `FashionHub.Web` bằng `dotnet run` và xác nhận trang mặc định trả HTTP 200 tại `http://localhost:5099/`.
-- [x] Cài `dotnet-ef` global tool version `10.0.9`.
-- [x] Đọc connection string từ `FashionHub/Web.config`.
-- [x] Scaffold EF Core entity vào `FashionHub2/FashionHub.Web/Models/Generated`.
-- [x] Scaffold `ApplicationDbContext` vào `FashionHub2/FashionHub.Web/Data/ApplicationDbContext.cs`.
-- [x] Thêm connection string `DefaultConnection` vào `FashionHub2/FashionHub.Web/appsettings.Development.json`.
-- [x] Đăng ký `ApplicationDbContext` trong `FashionHub2/FashionHub.Web/Program.cs`.
-- [x] Đối chiếu sơ bộ model scaffold với EF6 model cũ và ghi nhận khác biệt chính.
-- [x] Cấu hình Cookie Authentication trong `FashionHub2/FashionHub.Web/Program.cs`.
-- [x] Dựng lại `AccountController` theo ASP.NET Core MVC.
-- [x] Thêm `LoginViewModel` và `RegisterViewModel` cho project mới.
-- [x] Giữ BCrypt.Net-Next cho login/register với mật khẩu BCrypt hiện có.
-- [x] Chạy `dotnet test FashionHub2\FashionHub.Tests\FashionHub.Tests.csproj --no-restore` thành công sau bước Authentication.
+### 1. Nền tảng (100%)
+- ✅ Project structure ASP.NET Core MVC
+- ✅ EF Core SQL Server với ApplicationDbContext
+- ✅ Cookie Authentication
+- ✅ Admin Area structure
+- ✅ Scaffold 28 entities từ database hiện có
 
-## Đang làm
-- Chuẩn bị commit riêng cho task Authentication nền tảng.
+### 2. Customer Controllers (100%)
+- ✅ HomeController
+- ✅ AccountController (Login, Register, Logout, AccessDenied)
+- ✅ ProductsController (Index with filter/sort/search/paging, Details)
+- ✅ CartController (Index, AddToCart, UpdateQuantity, RemoveItem, GetCartCount, GetCartItems)
+- ✅ OrderController (Checkout GET/POST, OrderSuccess, ApplyCoupon, AddAddress)
+- ✅ ChatController (SendMessage)
 
-## Việc cần làm tiếp theo
+### 3. Customer Views (100%)
+- ✅ Home/Index.cshtml
+- ✅ Account: Login, Register, AccessDenied, _AuthLayout
+- ✅ Products: Index (grid + filter), Details
+- ✅ Cart/Index.cshtml
+- ✅ Order: Checkout, OrderSuccess
 
-### Giai đoạn 1 — Khởi tạo project mới
-- [x] Tạo solution mới `FashionHub2` nằm cạnh project cũ.
-- [x] Tạo project `FashionHub.Web` bằng template ASP.NET Core MVC target .NET 10.
-- [x] Tạo project test `FashionHub.Tests` bằng xUnit.
-- [x] Thêm reference từ `FashionHub.Tests` tới `FashionHub.Web`.
-- [x] Cài package nền tảng:
-  - `Microsoft.EntityFrameworkCore.SqlServer`
-  - `Microsoft.EntityFrameworkCore.Tools`
-  - `Microsoft.EntityFrameworkCore.Design`
-  - `BCrypt.Net-Next`
-  - `X.PagedList.Mvc.Core`
-- [x] Chạy thử project rỗng.
+### 4. Admin (40%)
+- ✅ Admin/OrdersController: Index, Details, UpdateStatus, Invoice, BulkPrint, ExportExcel
+- ✅ Admin/Orders views: Index, Details, Invoice, BulkPrint
+- ✅ Admin/_Layout.cshtml
+- ✅ Admin/_ViewStart.cshtml
+- ✅ Admin/ProductsController: Index action (stub)
+- ✅ Admin/Products views: Index, Create, Edit (UI only, cần implement actions)
+- ✅ Admin/Products ViewModels: ProductAdminViewModel với variants support
+- ⚠️ Admin/ProductsController: Cần implement 6 actions (Create POST, Edit GET/POST, AddVariant, DeleteVariant, ImportStock, GetVariantImages, UploadImages, DeleteImage)
+- ❌ Admin/DashboardController
+- ❌ Admin/CategoriesController
+- ❌ Admin/UsersController
 
-### Giai đoạn 2 — Database First
-- [x] Nhận/đọc connection string SQL Server từ project cũ.
-- [x] Scaffold entity vào `FashionHub.Web/Models/Generated`.
-- [x] Scaffold `ApplicationDbContext` vào `FashionHub.Web/Data`.
-- [x] Đăng ký `ApplicationDbContext` trong `Program.cs`.
-- [x] Đối chiếu model scaffold với model cũ.
-- [x] Build/verify solution sau scaffold.
-- [ ] Commit riêng cho task Database First.
+### 5. Shared Layout & Components (100%)
+- ✅ _Layout.cshtml
+- ✅ _HeaderPartial.cshtml + CartIconViewComponent
+- ✅ _MenuPartial.cshtml (refactored to MenuViewComponent)
+- ✅ _FooterPartial.cshtml
+- ✅ _GlobalFeedbackPartial.cshtml
+- ✅ _CartOffcanvasPartial.cshtml
+- ✅ _ChatWidgetPartial.cshtml
+- ✅ _ProductCardPartial.cshtml
+- ✅ _QuickViewModalPartial.cshtml
+- ✅ _AddAddressModalPartial.cshtml
+- ✅ _ViewStart.cshtml
+- ✅ _ViewImports.cshtml
 
-### Giai đoạn 3 — Authentication
-- [x] Cấu hình Cookie Authentication trong `Program.cs`.
-- [x] Dựng lại AccountController.
-- [x] Giữ BCrypt.Net-Next.
-- [ ] Migrate Account Views cho Login/Register/AccessDenied.
-- [ ] Bổ sung các action/màn hình tài khoản còn lại: hồ sơ, địa chỉ, đổi mật khẩu.
-- [ ] Thêm Authorize/Role cho khu vực cần bảo vệ.
+### 6. Services (100%)
+- ✅ IChatAiService + ChatAiService (Gemini API integration)
+- ✅ IImageFeatureService + ImageFeatureService (stub, disabled by design)
 
-### Giai đoạn 4 — Services
-- [ ] Chuyển service cũ sang `FashionHub.Web/Services`.
-- [ ] Thay EF6 bằng EF Core.
-- [ ] Đăng ký service qua interface trong `Program.cs`.
+### 7. ViewModels (100%)
+- ✅ Account: LoginViewModel, RegisterViewModel
+- ✅ Products: ProductsViewModel, ProductCardViewModel, ProductDetailViewModel, ProductVariantViewModel
+- ✅ Cart: CartItemViewModel
+- ✅ Order: CheckoutViewModel, AddressViewModel, PaymentMethodViewModel
+- ✅ Home: HomeViewModel
 
-### Giai đoạn 5 — Controllers + Views
-- [ ] Chuyển Home.
-- [ ] Chuyển Products.
-- [ ] Chuyển Cart.
-- [ ] Chuyển Order.
-- [ ] Chuyển Account.
-- [ ] Chuyển Admin/ManageOrder.
-- [ ] Chuyển Chat nếu tiếp tục dùng.
+### 8. Static Assets (50%)
+- ✅ Copy complete site.css to wwwroot/css/ (commit `c8573c4`)
+- ✅ Copy complete site.js to wwwroot/js/ (commit `c8573c4`)
+- ✅ Fix image paths to ~/images/ prefix (commit `8ad5590`)
+- ✅ Add Bootstrap CSS to _Layout (commit `3ab059b`)
+- ✅ Redirect homepage to Products (commit `c2cdf59`)
+- ⚠️ Chưa review toàn diện responsive, chưa polish UI/UX
 
-### Giai đoạn 6 — Sau migration
-- [ ] Đối chiếu route/action cũ và mới.
-- [ ] Áp dụng roadmap UI/UX trên code mới.
-- [ ] Viết unit test.
-- [ ] Dockerize.
-- [ ] Deploy.
-- [ ] Hoàn thiện README/demo/CV.
+### 9. Security & Best Practices
+- ✅ Gemini API key moved to User Secrets (commit `b4e5a18`)
+- ✅ SearchByImage disabled by design (documented in searchbyimage-status.md)
+- ✅ Cookie authentication configured
+- ✅ [Authorize] attributes applied
+- ✅ Input validation with DataAnnotations
 
-## Ghi chú kỹ thuật Database First
-- Các entity scaffold chính: `BienTheSanPham`, `ChiTietDonHang`, `DanhMuc`, `DiaChi`, `DonHang`, `GioHang`, `HinhAnh`, `HinhAnhBienThe`, `KichThuoc`, `MaGiamGium`, `MauSac`, `NguoiDung`, `PhuongThucThanhToan`, `SanPham`, `ThuongHieu`, `TrangThaiDonHang`, `VaiTro`.
-- Khác biệt tên đáng chú ý:
-  - `IDSanPham`/`IDDanhMuc`/`IDBienThe` trong EF6 thành `IdsanPham`/`IddanhMuc`/`IdbienThe` trong EF Core.
-  - Navigation property EF Core có hậu tố `Navigation`.
-  - `HinhAnh_BienThe` thành `HinhAnhBienThe`.
-  - `MaGiamGia` thành `MaGiamGium`.
-- Cột mới/khác so với EF6 model cũ:
-  - `BienTheSanPham.Gia`
-  - `SanPham.VectorDacTrung`
-  - `DiaChi.PhuongXa`, `DiaChi.QuanHuyen`, `DiaChi.TinhThanh`
+## Chưa hoàn thành
 
-## Lưu ý
-- Không xoá project cũ `FashionHub/` khi chưa hoàn tất migration.
-- Không đưa code mới dài hạn vào project cũ nếu task thuộc migration.
-- Không dùng pattern ASP.NET MVC 5 trong project mới.
-- UI/UX improvement sẽ thực hiện sau khi nền tảng ASP.NET Core MVC .NET 10 đã ổn định.
+### Admin Modules (Ưu tiên 1-3)
+- 🔶 **Admin Products CRUD** (Prompt 13) — Đang làm dở
+  - ✅ Views: Index, Create, Edit (UI hoàn chỉnh)
+  - ✅ ViewModels: ProductAdminViewModel, ProductVariantAdminViewModel, etc.
+  - ✅ Controller: Index action (basic stub)
+  - ❌ Controller actions còn thiếu: Create POST, Edit GET/POST, AddVariant, DeleteVariant, ImportStock, GetVariantImages, UploadImages, DeleteImage
+  - ❌ Image upload handling
+  - ❌ Variants AJAX management
+- ❌ **Admin Dashboard & Categories** (Prompt 14)
+  - Dashboard với stats
+  - Categories CRUD
+- ❌ **Admin Users & Promotions** (Prompt 15)
+  - Users list/detail/lock
+  - Promotions CRUD
+
+### Customer Features (Ưu tiên 5)
+- ❌ **User Profile & Order History** (Prompt 17)
+  - Profile page
+  - Order history page
+
+### Quality & Polish (Ưu tiên 4, 6-8)
+- ❌ **CSS/JS Full Review** (Prompt 16)
+  - Review toàn bộ CSS/JS
+  - Polish UI/UX
+  - Responsive testing
+- ❌ **Integration Testing** (Prompt 18)
+  - xUnit tests cho flows chính
+  - Test coverage
+- ❌ **Dockerize** (Prompt 19)
+  - Dockerfile
+  - docker-compose.yml
+- ❌ **Final Review & Cleanup** (Prompt 20)
+  - Security audit
+  - Performance review
+  - Cleanup unused code
+
+## Blockers hiện tại
+
+**Không có blocker kỹ thuật.** Project build và chạy sạch.
+
+**Blocker chính:** Chưa có người thực hiện các prompt còn lại (13-20).
+
+## Next Steps
+
+1. **Prompt 13:** Migrate Admin Products — CRUD, variants, image upload
+2. **Prompt 14:** Migrate Admin Dashboard & Categories
+3. **Prompt 15:** Migrate Admin Users & Promotions
+4. **Prompt 16:** CSS/JS full review & UI polish
+5. **Prompt 17:** User Profile & Order History
+6. **Prompt 18:** Integration Testing
+7. **Prompt 19:** Dockerize
+8. **Prompt 20:** Final Review & Cleanup
