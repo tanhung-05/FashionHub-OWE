@@ -1,0 +1,138 @@
+@model FashionHub.Web.Areas.Admin.ViewModels.UserViewModel
+@{
+    ViewData["Title"] = "Chi tiết khách hàng";
+    var orderHistory = ViewBag.OrderHistory as List<FashionHub.Web.Models.Generated.DonHang>;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>@ViewData["Title"]</h2>
+    <a asp-action="Index" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Quay lại
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Thông tin khách hàng</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-5">ID:</dt>
+                    <dd class="col-sm-7">@Model.IdnguoiDung</dd>
+
+                    <dt class="col-sm-5">Họ tên:</dt>
+                    <dd class="col-sm-7">@Model.HoTen</dd>
+
+                    <dt class="col-sm-5">Email:</dt>
+                    <dd class="col-sm-7">@Model.Email</dd>
+
+                    <dt class="col-sm-5">Số điện thoại:</dt>
+                    <dd class="col-sm-7">@(Model.SoDienThoai ?? "N/A")</dd>
+
+                    <dt class="col-sm-5">Vai trò:</dt>
+                    <dd class="col-sm-7">
+                        <span class="badge bg-primary">@Model.VaiTro</span>
+                    </dd>
+
+                    <dt class="col-sm-5">Ngày tạo:</dt>
+                    <dd class="col-sm-7">@(Model.NgayTao?.ToString("dd/MM/yyyy HH:mm") ?? "N/A")</dd>
+
+                    <dt class="col-sm-5">Trạng thái:</dt>
+                    <dd class="col-sm-7">
+                        @if (Model.TrangThai == true)
+                        {
+                            <span class="badge bg-success">Hoạt động</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Đã khóa</span>
+                        }
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Thống kê</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-6">Tổng đơn hàng:</dt>
+                    <dd class="col-sm-6 text-end"><strong>@Model.TotalOrders</strong></dd>
+
+                    <dt class="col-sm-6">Tổng chi tiêu:</dt>
+                    <dd class="col-sm-6 text-end">
+                        <strong class="text-success">@Model.TotalSpent.ToString("N0")₫</strong>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Lịch sử đơn hàng</h5>
+            </div>
+            <div class="card-body">
+                @if (orderHistory == null || orderHistory.Count == 0)
+                {
+                    <div class="alert alert-info">
+                        Khách hàng chưa có đơn hàng nào.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Mã đơn</th>
+                                    <th>Ngày đặt</th>
+                                    <th>Tổng tiền</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var order in orderHistory)
+                                {
+                                    <tr>
+                                        <td>#@order.IddonHang</td>
+                                        <td>@order.NgayTao?.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td>@order.TongThanhToan.ToString("N0")₫</td>
+                                        <td>
+                                            @{
+                                                var statusClass = order.IdtrangThai switch
+                                                {
+                                                    1 => "bg-warning",
+                                                    2 => "bg-info",
+                                                    3 => "bg-success",
+                                                    4 => "bg-danger",
+                                                    _ => "bg-secondary"
+                                                };
+                                            }
+                                            <span class="badge @statusClass">
+                                                @order.IdtrangThaiNavigation?.TenTrangThai
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <a asp-controller="Orders" asp-action="Details" 
+                                               asp-route-id="@order.IddonHang" 
+                                               class="btn btn-sm btn-info">
+                                                <i class="bi bi-eye"></i> Xem
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

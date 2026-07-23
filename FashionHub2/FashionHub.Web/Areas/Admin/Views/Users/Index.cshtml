@@ -1,0 +1,117 @@
+@model List<FashionHub.Web.Areas.Admin.ViewModels.UserViewModel>
+@{
+    ViewData["Title"] = "Quản lý khách hàng";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>@ViewData["Title"]</h2>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <form asp-action="Index" method="get" class="row g-3">
+            <div class="col-md-10">
+                <input type="text" name="searchString" class="form-control" 
+                       placeholder="Tìm kiếm theo tên, email hoặc số điện thoại..." 
+                       value="@ViewBag.SearchString">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Tìm kiếm
+                </button>
+            </div>
+        </form>
+    </div>
+    <div class="card-body">
+        @if (Model.Count == 0)
+        {
+            <div class="alert alert-info">
+                Không tìm thấy khách hàng nào.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Họ tên</th>
+                            <th>Email</th>
+                            <th>Số điện thoại</th>
+                            <th>Ngày đăng ký</th>
+                            <th>Tổng đơn</th>
+                            <th>Tổng chi tiêu</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in Model)
+                        {
+                            <tr>
+                                <td>@user.IdnguoiDung</td>
+                                <td>@user.HoTen</td>
+                                <td>@user.Email</td>
+                                <td>@(user.SoDienThoai ?? "N/A")</td>
+                                <td>@(user.NgayTao?.ToString("dd/MM/yyyy") ?? "N/A")</td>
+                                <td>@user.TotalOrders</td>
+                                <td>@user.TotalSpent.ToString("N0")₫</td>
+                                <td>
+                                    @if (user.TrangThai == true)
+                                    {
+                                        <span class="badge bg-success">Hoạt động</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">Đã khóa</span>
+                                    }
+                                </td>
+                                <td>
+                                    <a asp-action="Details" asp-route-id="@user.IdnguoiDung" 
+                                       class="btn btn-sm btn-info" title="Chi tiết">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-warning" 
+                                            onclick="toggleUserStatus(@user.IdnguoiDung)" 
+                                            title="@(user.TrangThai == true ? "Khóa tài khoản" : "Mở khóa tài khoản")">
+                                        <i class="bi bi-@(user.TrangThai == true ? "lock" : "unlock")"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function toggleUserStatus(id) {
+            if (!confirm('Bạn có chắc muốn thay đổi trạng thái tài khoản này?')) return;
+
+            fetch('/Admin/Users/ToggleStatus', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                },
+                body: JSON.stringify(id)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message || 'Có lỗi xảy ra');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi cập nhật trạng thái');
+            });
+        }
+    </script>
+}

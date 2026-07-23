@@ -1,0 +1,172 @@
+@model List<FashionHub.Web.Areas.Admin.ViewModels.CouponViewModel>
+@{
+    ViewData["Title"] = "Quản lý mã giảm giá";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>@ViewData["Title"]</h2>
+    <a asp-action="Create" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Tạo mã mới
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        @if (Model.Count == 0)
+        {
+            <div class="alert alert-info">
+                Chưa có mã giảm giá nào.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Mã code</th>
+                            <th>Tên chương trình</th>
+                            <th>Loại</th>
+                            <th>Giá trị</th>
+                            <th>Đơn tối thiểu</th>
+                            <th>Số lượng</th>
+                            <th>Đã dùng</th>
+                            <th>Thời hạn</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var coupon in Model)
+                        {
+                            <tr class="@(coupon.IsExpired || coupon.IsOutOfStock ? "table-secondary" : "")">
+                                <td>@coupon.IdmaGiamGia</td>
+                                <td><code>@coupon.MaCode</code></td>
+                                <td>@(coupon.TenChuongTrinh ?? "N/A")</td>
+                                <td>
+                                    <span class="badge bg-info">@coupon.LoaiGiamGiaText</span>
+                                </td>
+                                <td>
+                                    @if (coupon.LoaiGiamGia == 1)
+                                    {
+                                        <span>@coupon.GiaTri%</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@coupon.GiaTri.ToString("N0")₫</span>
+                                    }
+                                </td>
+                                <td>@(coupon.DonHangToiThieu?.ToString("N0") ?? "0")₫</td>
+                                <td>@coupon.SoLuong</td>
+                                <td>
+                                    <span class="@(coupon.IsOutOfStock ? "text-danger fw-bold" : "")">
+                                        @coupon.DaSuDung
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (coupon.NgayBatDau.HasValue && coupon.NgayKetThuc.HasValue)
+                                    {
+                                        <small>
+                                            @coupon.NgayBatDau.Value.ToString("dd/MM/yyyy")<br />
+                                            → @coupon.NgayKetThuc.Value.ToString("dd/MM/yyyy")
+                                        </small>
+                                        @if (coupon.IsExpired)
+                                        {
+                                            <br /><span class="badge bg-danger">Hết hạn</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span>N/A</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (coupon.TrangThai)
+                                    {
+                                        <span class="badge bg-success">Hoạt động</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Tắt</span>
+                                    }
+                                </td>
+                                <td>
+                                    <a asp-action="Edit" asp-route-id="@coupon.IdmaGiamGia" 
+                                       class="btn btn-sm btn-warning" title="Sửa">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-info" 
+                                            onclick="toggleCouponStatus(@coupon.IdmaGiamGia)" 
+                                            title="@(coupon.TrangThai ? "Tắt" : "Bật")">
+                                        <i class="bi bi-power"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger" 
+                                            onclick="deleteCoupon(@coupon.IdmaGiamGia)" 
+                                            title="Xóa">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function toggleCouponStatus(id) {
+            if (!confirm('Bạn có chắc muốn thay đổi trạng thái mã này?')) return;
+
+            fetch('/Admin/Coupons/ToggleStatus', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                },
+                body: JSON.stringify(id)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message || 'Có lỗi xảy ra');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi cập nhật trạng thái');
+            });
+        }
+
+        function deleteCoupon(id) {
+            if (!confirm('Bạn có chắc muốn xóa mã này? Nếu mã đã được sử dụng, nó sẽ chỉ bị tắt.')) return;
+
+            fetch('/Admin/Coupons/Delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                },
+                body: JSON.stringify(id)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert(data.message || 'Có lỗi xảy ra');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi xóa mã giảm giá');
+            });
+        }
+    </script>
+}
