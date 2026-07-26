@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace FashionHub.Tests;
 
@@ -36,14 +37,25 @@ public class CustomWebApplicationFactory<TProgram>
                 options.UseInMemoryDatabase("TestDb");
             });
             
-            // Build service provider and seed test data
+            // Seed data after app is built
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
-            var scopedServices = scope.ServiceProvider;
-            var db = scopedServices.GetRequiredService<ApplicationDbContext>();
-            
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             SeedTestData(db);
         });
+        
+        builder.UseEnvironment("Test");
+    }
+    
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            using var scope = Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.Database.EnsureDeleted();
+        }
+        base.Dispose(disposing);
     }
     
     private void SeedTestData(ApplicationDbContext db)

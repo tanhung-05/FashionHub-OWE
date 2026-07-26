@@ -22,17 +22,21 @@ builder.Services.AddSession(options =>
 });
 
 // Database configuration with retry policy
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        sqlOptions =>
-        {
-            sqlOptions.EnableRetryOnFailure(
+// Skip SQL Server registration in Test environment (tests will configure InMemory)
+if (builder.Environment.EnvironmentName != "Test")
+{
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseSqlServer(
+            builder.Configuration.GetConnectionString("DefaultConnection"),
+            sqlOptions =>
+            {
+                sqlOptions.EnableRetryOnFailure(
                 maxRetryCount: 3,
                 maxRetryDelay: TimeSpan.FromSeconds(5),
                 errorNumbersToAdd: null);
             sqlOptions.CommandTimeout(30);
         }));
+}
 
 // Response compression for production
 builder.Services.AddResponseCompression(options =>

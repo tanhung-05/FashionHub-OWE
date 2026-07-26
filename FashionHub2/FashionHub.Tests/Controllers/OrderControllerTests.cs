@@ -6,9 +6,11 @@ namespace FashionHub.Tests.Controllers;
 public class OrderControllerTests : IClassFixture<CustomWebApplicationFactory<Program>>
 {
     private readonly HttpClient _client;
+    private readonly CustomWebApplicationFactory<Program> _factory;
     
     public OrderControllerTests(CustomWebApplicationFactory<Program> factory)
     {
+        _factory = factory;
         _client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false
