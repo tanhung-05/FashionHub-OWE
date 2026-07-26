@@ -434,6 +434,144 @@ public class AccountController : Controller
 
     #endregion
 
+    #region Order History
+
+    [Authorize]
+    public async Task<IActionResult> OrderHistory(int page = 1, int? statusFilter = null)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null)
+            return RedirectToAction(nameof(Login));
+
+        var pageSize = 10;
+
+        var query = dbContext.DonHangs
+            .Where(d => d.IdnguoiDung == userId.Value)
+            .Include(d => d.IdtrangThaiNavigation)
+            .OrderByDescending(d => d.NgayTao)
+            .AsQueryable();
+
+        if (statusFilter.HasValue)
+            query = query.Where(d => d.IdtrangThai == statusFilter.Value);
+
+        var totalOrders = await query.CountAsync();
+        var orders = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(d => new OrderHistoryViewModel
+            {
+                IddonHang = d.IddonHang,
+                NgayTao = d.NgayTao,
+                TongThanhToan = d.TongThanhToan,
+                TrangThai = d.IdtrangThaiNavigation.TenTrangThai,
+                MauTrangThai = GetStatusBadgeColor(d.IdtrangThai),
+                SoLuongSanPham = d.ChiTietDonHangs.Sum(ct => ct.SoLuong)
+            })
+            .ToListAsync();
+
+        ViewBag.CurrentPage = page;
+        ViewBag.TotalPages = (int)Math.Ceiling(totalOrders / (double)pageSize);
+        ViewBag.StatusFilter = statusFilter;
+        ViewBag.TotalOrders = totalOrders;
+
+        // Get all statuses for filter dropdown
+        ViewBag.Statuses = await dbContext.TrangThaiDonHangs.ToListAsync();
+
+        return View(orders);
+    }
+
+    [Authorize]
+    public async Task<IActionResult> OrderDetail(int id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null)
+            return RedirectToAction(nameof(Login));
+
+        var order = await dbContext.DonHangs
+            .Include(d => d.ChiTietDonHangs)
+                .ThenInclude(ct => ct.IdbienTheNavigation)
+                    .ThenInclude(bt => bt!.IdsanPhamNavigation)
+            .Include(d => d.ChiTietDonHangs)
+                .ThenInclude(ct => ct.IdbienTheNavigation)
+                    .ThenInclude(bt => bt!.IdmauSacNavigation)
+            .Include(d => d.ChiTietDonHangs)
+                .ThenInclude(ct => ct.IdbienTheNavigation)
+                    .ThenInclude(bt => bt!.IdkichThuocNavigation)
+            .Include(d => d.IdtrangThaiNavigation)
+            .Include(d => d.IdphuongThucThanhToanNavigation)
+            .FirstOrDefaultAsync(d => d.IddonHang == id && d.IdnguoiDung == userId.Value);
+
+        if (order == null)
+            return NotFound();
+
+        var model = new OrderDetailViewModel
+        {
+            IddonHang = order.IddonHang,
+            NgayTao = order.NgayTao,
+            TenNguoiNhan = order.TenNguoiNhan,
+            DiaChiGiao = order.DiaChiGiao,
+            SoDienThoai = order.SoDienThoai,
+            TongTienHang = order.TongTienHang,
+            PhiVanChuyen = order.PhiVanChuyen,
+            TienGiamGia = order.TienGiamGia,
+            TongThanhToan = order.TongThanhToan,
+            TrangThai = order.IdtrangThaiNavigation.TenTrangThai,
+            IdtrangThai = order.IdtrangThai,
+            PhuongThucThanhToan = order.IdphuongThucThanhToanNavigation?.TenPhuongThuc,
+            Items = order.ChiTietDonHangs.Select(ct => new OrderItemViewModel
+            {
+                TenSanPham = ct.IdbienTheNavigation?.IdsanPhamNavigation?.TenSanPham ?? "N/A",
+                HinhAnh = ct.IdbienTheNavigation?.HinhAnhBienThes.FirstOrDefault()?.IdhinhAnhNavigation?.DuongDan,
+                MauSac = ct.IdbienTheNavigation?.IdmauSacNavigation?.TenMau,
+                KichThuoc = ct.IdbienTheNavigation?.IdkichThuocNavigation?.TenKichThuoc,
+                SoLuong = ct.SoLuong,
+                DonGia = ct.DonGia,
+                ThanhTien = ct.SoLuong * ct.DonGia
+            }).ToList()
+        };
+
+        return View(model);
+    }
+
+    [HttpPost]
+    [Authorize]
+    public async Task<IActionResult> CancelOrder(int id, string reason)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null)
+            return Json(new { success = false, message = "Vui lòng đăng nhập" });
+
+        var order = await dbContext.DonHangs
+            .FirstOrDefaultAsync(d => d.IddonHang == id && d.IdnguoiDung == userId.Value);
+
+        if (order == null)
+            return Json(new { success = false, message = "Không tìm thấy đơn hàng" });
+
+        // Only allow cancel if order is pending (IdtrangThai = 1)
+        if (order.IdtrangThai != 1)
+            return Json(new { success = false, message = "Không thể hủy đơn hàng ở trạng thái hiện tại" });
+
+        order.IdtrangThai = 5; // Cancelled
+        await dbContext.SaveChangesAsync();
+
+        return Json(new { success = true, message = "Hủy đơn hàng thành công" });
+    }
+
+    private string GetStatusBadgeColor(int statusId)
+    {
+        return statusId switch
+        {
+            1 => "warning",  // Pending
+            2 => "info",     // Confirmed
+            3 => "primary",  // Shipping
+            4 => "success",  // Delivered
+            5 => "danger",   // Cancelled
+            _ => "secondary"
+        };
+    }
+
+    #endregion
+
     private async Task SignInUserAsync(NguoiDung user, bool isPersistent)
     {
         var roleName = user.IdvaiTroNavigation?.TenVaiTro ?? user.IdvaiTro.ToString();
