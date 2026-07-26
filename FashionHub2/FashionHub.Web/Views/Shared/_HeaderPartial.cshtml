@@ -71,8 +71,8 @@
                                         <div class="text-muted small text-truncate header-user-email">@User.FindFirstValue(ClaimTypes.Email)</div>
                                     </div>
                                 </li>
-                                <li><a class="dropdown-item py-2" href="#"><i class="bi bi-person-vcard me-2"></i>Hồ sơ</a></li>
-                                <li><a class="dropdown-item py-2" href="#"><i class="bi bi-receipt me-2"></i>Đơn hàng</a></li>
+                                <li><a class="dropdown-item py-2" asp-controller="Account" asp-action="Profile"><i class="bi bi-person-vcard me-2"></i>Hồ sơ</a></li>
+                                <li><a class="dropdown-item py-2" asp-controller="Account" asp-action="Addresses"><i class="bi bi-geo-alt me-2"></i>Địa chỉ</a></li>
 
                                 @if (User.IsInRole("Admin"))
                                 {
