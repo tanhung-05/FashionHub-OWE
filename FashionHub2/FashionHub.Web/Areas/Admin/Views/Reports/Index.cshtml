@@ -1,0 +1,97 @@
+@{
+    ViewData["Title"] = "Báo Cáo & Thống Kê";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Báo Cáo & Thống Kê</h2>
+    </div>
+
+    <div class="row g-4">
+        <!-- Báo cáo Bán Hàng -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary bg-opacity-10 rounded-3 p-3">
+                                <i class="bi bi-graph-up text-primary" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5 class="card-title mb-1">Báo Cáo Bán Hàng</h5>
+                            <p class="text-muted mb-0 small">Doanh thu & đơn hàng</p>
+                        </div>
+                    </div>
+                    <p class="card-text">Xem chi tiết doanh thu, số lượng đơn hàng, sản phẩm bán chạy theo ngày/tuần/tháng.</p>
+                    <a asp-action="SalesReport" class="btn btn-primary w-100">
+                        <i class="bi bi-arrow-right-circle me-1"></i> Xem Báo Cáo
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Báo cáo Khách Hàng -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-opacity-10 rounded-3 p-3">
+                                <i class="bi bi-people text-success" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5 class="card-title mb-1">Báo Cáo Khách Hàng</h5>
+                            <p class="text-muted mb-0 small">Khách hàng & hoạt động</p>
+                        </div>
+                    </div>
+                    <p class="card-text">Phân tích khách hàng mới, khách hàng thân thiết, tổng chi tiêu của từng khách hàng.</p>
+                    <a asp-action="CustomerReport" class="btn btn-success w-100">
+                        <i class="bi bi-arrow-right-circle me-1"></i> Xem Báo Cáo
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hiệu Suất Sản Phẩm -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-opacity-10 rounded-3 p-3">
+                                <i class="bi bi-box-seam text-info" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5 class="card-title mb-1">Hiệu Suất Sản Phẩm</h5>
+                            <p class="text-muted mb-0 small">Doanh số theo sản phẩm</p>
+                        </div>
+                    </div>
+                    <p class="card-text">Xem chi tiết doanh số bán, số lượng đã bán của từng sản phẩm theo danh mục.</p>
+                    <a asp-action="ProductPerformance" class="btn btn-info w-100">
+                        <i class="bi bi-arrow-right-circle me-1"></i> Xem Báo Cáo
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Tổng Quan Nhanh</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Chọn loại báo cáo phía trên để xem chi tiết thống kê và phân tích dữ liệu kinh doanh.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

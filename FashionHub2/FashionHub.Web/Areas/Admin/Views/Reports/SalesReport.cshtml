@@ -1,0 +1,204 @@
+@model FashionHub.Web.Areas.Admin.ViewModels.SalesReportViewModel
+@{
+    ViewData["Title"] = "Báo Cáo Bán Hàng";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Báo Cáo Bán Hàng</h2>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Quay Lại
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" asp-action="SalesReport" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Từ Ngày</label>
+                    <input type="date" name="startDate" class="form-control" 
+                           value="@Model.StartDate.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Đến Ngày</label>
+                    <input type="date" name="endDate" class="form-control" 
+                           value="@Model.EndDate.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Nhóm Theo</label>
+                    <select name="period" class="form-select">
+                        <option value="daily" selected="@(Model.Period == "daily")">Ngày</option>
+                        <option value="weekly" selected="@(Model.Period == "weekly")">Tuần</option>
+                        <option value="monthly" selected="@(Model.Period == "monthly")">Tháng</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search me-1"></i> Lọc
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">Tổng Đơn Hàng</p>
+                            <h4 class="mb-0">@Model.TotalOrders.ToString("N0")</h4>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 rounded-circle p-3">
+                            <i class="bi bi-cart-check text-primary" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">Tổng Doanh Thu</p>
+                            <h4 class="mb-0">@Model.TotalRevenue.ToString("N0")đ</h4>
+                        </div>
+                        <div class="bg-success bg-opacity-10 rounded-circle p-3">
+                            <i class="bi bi-currency-dollar text-success" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">Tổng Giảm Giá</p>
+                            <h4 class="mb-0">@Model.TotalDiscount.ToString("N0")đ</h4>
+                        </div>
+                        <div class="bg-warning bg-opacity-10 rounded-circle p-3">
+                            <i class="bi bi-tag text-warning" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">Đơn Hàng TB</p>
+                            <h4 class="mb-0">@Model.AverageOrderValue.ToString("N0")đ</h4>
+                        </div>
+                        <div class="bg-info bg-opacity-10 rounded-circle p-3">
+                            <i class="bi bi-graph-up text-info" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue Chart -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Biểu Đồ Doanh Thu</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="revenueChart" height="80"></canvas>
+        </div>
+    </div>
+
+    <!-- Top Products -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Top 10 Sản Phẩm Bán Chạy</h5>
+        </div>
+        <div class="card-body">
+            @if (Model.TopProducts.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Sản Phẩm</th>
+                                <th class="text-end">Số Lượng Bán</th>
+                                <th class="text-end">Doanh Thu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < Model.TopProducts.Count; i++)
+                            {
+                                var product = Model.TopProducts[i];
+                                <tr>
+                                    <td>@(i + 1)</td>
+                                    <td>
+                                        <a asp-controller="Products" asp-action="Edit" asp-route-id="@product.ProductId">
+                                            @product.ProductName
+                                        </a>
+                                    </td>
+                                    <td class="text-end">@product.QuantitySold.ToString("N0")</td>
+                                    <td class="text-end fw-bold">@product.Revenue.ToString("N0")đ</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted text-center py-4">Không có dữ liệu</p>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: @Html.Raw(Json.Serialize(Model.ChartLabels)),
+                datasets: [{
+                    label: 'Doanh Thu (đ)',
+                    data: @Html.Raw(Json.Serialize(Model.ChartData)),
+                    borderColor: 'rgb(13, 110, 253)',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('vi-VN') + 'đ';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+}
