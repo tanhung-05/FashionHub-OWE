@@ -1,0 +1,17 @@
+**/.dockerignore
+**/.env
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/*.trx
+**/*.md
+LICENSE
+README.md
+**/node_modules
+**/.DS_Store
+**/launchSettings.json
+**/appsettings.Development.json
+**/Thumbs.db
