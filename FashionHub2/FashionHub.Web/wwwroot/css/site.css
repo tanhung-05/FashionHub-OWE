@@ -79,7 +79,7 @@ a:hover {
 .btn-dark {
     background-color: var(--owe-black);
     border-color: var(--owe-black);
-    color: #fff;
+    color: var(--owe-surface);
     transition: all var(--owe-transition);
 }
 
@@ -87,9 +87,9 @@ a:hover {
 .btn-primary:focus,
 .btn-dark:hover,
 .btn-dark:focus {
-    background-color: #000;
-    border-color: #000;
-    color: #fff;
+    background-color: var(--owe-black);
+    border-color: var(--owe-black);
+    color: var(--owe-surface);
     transform: translateY(-2px);
     box-shadow: var(--owe-shadow-sm);
 }
@@ -105,7 +105,7 @@ a:hover {
 .btn-outline-primary:focus,
 .btn-outline-dark:hover,
 .btn-outline-dark:focus {
-    color: #fff;
+    color: var(--owe-surface);
     background-color: var(--owe-black);
     border-color: var(--owe-black);
 }
@@ -160,7 +160,7 @@ a:hover {
 
 .main-navbar .nav-link:hover,
 .main-navbar .nav-link.active {
-    color: #000 !important;
+    color: var(--owe-black) !important;
 }
 
 .main-navbar .nav-link::after {
@@ -268,7 +268,7 @@ a:hover {
     left: 28px;
     width: 12px;
     height: 12px;
-    background: #fff;
+    background: var(--owe-surface);
     transform: rotate(45deg);
     border-left: 1px solid rgba(0, 0, 0, 0.06);
     border-top: 1px solid rgba(0, 0, 0, 0.06);
@@ -296,7 +296,7 @@ a:hover {
 .main-navbar .dropdown-item:hover,
 .main-navbar .dropdown-submenu > a:hover {
     background-color: rgba(0, 0, 0, 0.05);
-    color: #000;
+    color: var(--owe-black);
     transform: translateX(4px);
 }
 
@@ -400,7 +400,7 @@ a:hover {
 .product-img-wrap {
     position: relative;
     overflow: hidden;
-    background-color: #f8f9fa;
+    background-color: var(--owe-soft);
 }
 
 .product-img,
@@ -426,7 +426,7 @@ a:hover {
 }
 
 .product-card .card-footer {
-    background-color: #fff;
+    background-color: var(--owe-surface);
     padding: 0.5rem 1rem;
 }
 
@@ -465,9 +465,9 @@ a:hover {
     width: 45px;
     height: 45px;
     border-radius: 50%;
-    background-color: white;
-    color: #000;
-    border: 1px solid #eee;
+    background-color: var(--owe-surface);
+    color: var(--owe-black);
+    border: 1px solid var(--owe-border);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -478,9 +478,9 @@ a:hover {
 }
 
 .btn-action:hover {
-    background-color: #000;
-    color: white;
-    border-color: #000;
+    background-color: var(--owe-black);
+    color: var(--owe-surface);
+    border-color: var(--owe-black);
 }
 
 .badge-overlay {
@@ -497,13 +497,13 @@ a:hover {
 }
 
 .badge-soldout {
-    background-color: #6c757d;
-    color: white;
+    background-color: var(--owe-muted);
+    color: var(--owe-surface);
 }
 
 .badge-sale {
     background-color: var(--owe-sale);
-    color: white;
+    color: var(--owe-surface);
 }
 
 /* Product listing / filter */
@@ -536,7 +536,7 @@ a:hover {
     padding: 10px 16px;
     border: 1px solid var(--owe-border);
     border-radius: 999px;
-    background-color: #fff;
+    background-color: var(--owe-surface);
     font-size: 0.9rem;
     font-weight: 700;
     color: var(--owe-ink);
@@ -548,7 +548,7 @@ a:hover {
     padding: 22px;
     border: 1px solid var(--owe-border);
     border-radius: var(--owe-radius-lg);
-    background-color: #fff;
+    background-color: var(--owe-surface);
     box-shadow: var(--owe-shadow-sm);
 }
 
@@ -584,7 +584,7 @@ a:hover {
 }
 
 .filter-reset-link:hover {
-    color: #fff;
+    color: var(--owe-surface);
     background-color: var(--owe-black);
     border-color: var(--owe-black);
 }
@@ -627,12 +627,12 @@ a:hover {
 
 .category-link:hover {
     background-color: var(--owe-soft);
-    color: #000;
+    color: var(--owe-black);
     transform: translateX(2px);
 }
 
 .category-link.active {
-    color: #fff;
+    color: var(--owe-surface);
     background-color: var(--owe-black);
 }
 
@@ -652,7 +652,7 @@ a:hover {
 }
 
 .category-link.child-category.active {
-    color: #fff;
+    color: var(--owe-surface);
 }
 
 .filter-option-list {
@@ -669,7 +669,7 @@ a:hover {
     padding: 8px 12px;
     border: 1px solid var(--owe-border);
     border-radius: 999px;
-    background-color: #fff;
+    background-color: var(--owe-surface);
     color: var(--owe-ink);
     font-size: 0.88rem;
     font-weight: 600;
@@ -684,7 +684,7 @@ a:hover {
 }
 
 .filter-check-input:checked + .filter-chip {
-    color: #fff;
+    color: var(--owe-surface);
     background-color: var(--owe-black);
     border-color: var(--owe-black);
     box-shadow: var(--owe-shadow-sm);
@@ -700,7 +700,7 @@ a:hover {
     width: 18px;
     height: 18px;
     margin-right: 0;
-    border: 2px solid #fff;
+    border: 2px solid var(--owe-surface);
     border-radius: 50%;
     box-shadow: 0 0 0 1px var(--owe-border-strong);
     vertical-align: middle;
@@ -728,7 +728,7 @@ a:hover {
     padding: 18px 20px;
     border: 1px solid var(--owe-border);
     border-radius: var(--owe-radius-md);
-    background-color: #fff;
+    background-color: var(--owe-surface);
     box-shadow: var(--owe-shadow-sm);
 }
 
@@ -757,7 +757,7 @@ a:hover {
     padding: 54px 24px;
     border: 1px dashed var(--owe-border-strong);
     border-radius: var(--owe-radius-lg);
-    background-color: #fff;
+    background-color: var(--owe-surface);
     color: var(--owe-muted);
     text-align: center;
 }
@@ -773,7 +773,7 @@ a:hover {
 }
 
 .pagination .page-item.active .page-link {
-    color: #fff;
+    color: var(--owe-surface);
     background-color: var(--owe-black);
     border-color: var(--owe-black);
 }
@@ -877,7 +877,7 @@ a:hover {
     min-height: 56px;
     border-color: var(--owe-border);
     border-radius: 16px;
-    background-color: #fbfaf8;
+    background-color: var(--owe-soft);
     font-weight: 600;
 }
 
@@ -929,7 +929,7 @@ a:hover {
 }
 
 .main-footer h5 {
-    color: #ffffff;
+    color: var(--owe-surface);
     margin-bottom: 20px;
     font-weight: 700;
 }
@@ -946,7 +946,7 @@ a:hover {
 }
 
 .main-footer ul li a:hover {
-    color: #ffffff;
+    color: var(--owe-surface);
     text-decoration: underline;
 }
 
@@ -979,7 +979,7 @@ a:hover {
 }
 
 #chat-content {
-    background-color: #f8f9fa;
+    background-color: var(--owe-soft);
     flex: 1;
 }
 
@@ -1006,7 +1006,7 @@ a:hover {
 }
 
 .app-toast .toast-header {
-    background-color: #fff;
+    background-color: var(--owe-surface);
     color: var(--owe-black);
     border-bottom-color: var(--owe-border);
 }
