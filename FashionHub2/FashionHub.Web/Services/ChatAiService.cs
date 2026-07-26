@@ -137,7 +137,13 @@ namespace FashionHub.Web.Services
                    - Trên 75kg: Size XL
             ";
 
-            var apiKey = _configuration["GeminiAI:ApiKey"] ?? "AIzaSyCwSDhu2KY92SEAnHvs1RgZnXAKsAVnHrE";
+            var apiKey = _configuration["GeminiAI:ApiKey"];
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                throw new InvalidOperationException(
+                    "Gemini API key is not configured. Please set 'GeminiAI:ApiKey' in User Secrets or appsettings.");
+            }
+            
             var apiUrl = _configuration["GeminiAI:ApiUrl"] ?? "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
 
             var requestData = new
