@@ -31,10 +31,12 @@ public class CustomWebApplicationFactory<TProgram>
                 services.Remove(dbContextRegistration);
             }
             
-            // Add InMemory database for testing
+            // Add InMemory database for testing — unique per factory instance
+            // to avoid duplicate key conflicts when xUnit runs test classes in parallel
+            var dbName = "TestDb_" + Guid.NewGuid().ToString("N");
             services.AddDbContext<ApplicationDbContext>(options =>
             {
-                options.UseInMemoryDatabase("TestDb");
+                options.UseInMemoryDatabase(dbName);
             });
             
             // Seed data after app is built

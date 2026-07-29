@@ -85,7 +85,7 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory<Pro
         var content = new FormUrlEncodedContent(updateData);
         
         // Act
-        var response = await _client.PostAsync("/Cart/UpdateQuantity", content);
+        var response = await _client.PostAsync("/Cart/UpdateCart", content);
         
         // Assert
         response.EnsureSuccessStatusCode();
@@ -103,7 +103,11 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory<Pro
         await _client.PostAsync("/Cart/AddToCart", new FormUrlEncodedContent(addData));
         
         // Act
-        var response = await _client.PostAsync("/Cart/RemoveItem/1", null);
+        var response = await _client.PostAsync("/Cart/RemoveFromCart", 
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                { "variantId", "1" }
+            }));
         
         // Assert
         response.EnsureSuccessStatusCode();
@@ -121,7 +125,7 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory<Pro
         await _client.PostAsync("/Cart/AddToCart", new FormUrlEncodedContent(addData));
         
         // Act
-        var response = await _client.GetAsync("/Cart/GetCartCount");
+        var response = await _client.GetAsync("/Cart/GetCartItemCount");
         
         // Assert
         response.EnsureSuccessStatusCode();

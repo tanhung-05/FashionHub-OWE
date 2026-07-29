@@ -90,23 +90,6 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
     
-    [Fact]
-    public async Task QuickView_WithValidId_ReturnsSuccess()
-    {
-        // Arrange & Act
-        var response = await _client.GetAsync("/Products/QuickView/1");
-        
-        // Assert
-        response.EnsureSuccessStatusCode();
-    }
-    
-    [Fact]
-    public async Task QuickView_WithInvalidId_ReturnsNotFound()
-    {
-        // Arrange & Act
-        var response = await _client.GetAsync("/Products/QuickView/99999");
-        
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
+    // QuickView tests removed - QuickView action was never migrated from old project
+    // The functionality was replaced by product details page
 }

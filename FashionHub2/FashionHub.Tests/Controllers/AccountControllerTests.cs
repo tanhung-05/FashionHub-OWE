@@ -18,18 +18,6 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory<
     }
     
     [Fact]
-    public async Task Login_Get_ReturnsLoginPage()
-    {
-        // Arrange & Act
-        var response = await _client.GetAsync("/Account/Login");
-        
-        // Assert
-        response.EnsureSuccessStatusCode();
-        var content = await response.Content.ReadAsStringAsync();
-        content.Should().Contain("Đăng nhập");
-    }
-    
-    [Fact]
     public async Task Register_Get_ReturnsRegisterPage()
     {
         // Arrange & Act

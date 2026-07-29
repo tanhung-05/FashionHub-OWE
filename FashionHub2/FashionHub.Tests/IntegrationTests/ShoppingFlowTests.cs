@@ -91,18 +91,22 @@ public class ShoppingFlowTests : IClassFixture<CustomWebApplicationFactory<Progr
             { "variantId", "1" },
             { "quantity", "3" }
         };
-        var updateResponse = await _client.PostAsync("/Cart/UpdateQuantity", 
+        var updateResponse = await _client.PostAsync("/Cart/UpdateCart", 
             new FormUrlEncodedContent(updateData));
         updateResponse.EnsureSuccessStatusCode();
         
         // Verify cart count
-        var countResponse = await _client.GetAsync("/Cart/GetCartCount");
+        var countResponse = await _client.GetAsync("/Cart/GetCartItemCount");
         countResponse.EnsureSuccessStatusCode();
         var count = await countResponse.Content.ReadAsStringAsync();
         count.Should().Contain("3");
         
         // Remove item
-        var removeResponse = await _client.PostAsync("/Cart/RemoveItem/1", null);
+        var removeResponse = await _client.PostAsync("/Cart/RemoveFromCart",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                { "variantId", "1" }
+            }));
         removeResponse.EnsureSuccessStatusCode();
     }
     
