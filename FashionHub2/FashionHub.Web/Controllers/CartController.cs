@@ -80,7 +80,7 @@ public class CartController : Controller
 
         if (variant == null)
         {
-            return Json(new { success = false, message = "Sản phẩm không hợp lệ." });
+            return BadRequest(new { success = false, message = "Sản phẩm không hợp lệ." });
         }
 
         var existingQuantity = cart.FirstOrDefault(item => item.IdbienThe == variantId)?.SoLuong ?? 0;
