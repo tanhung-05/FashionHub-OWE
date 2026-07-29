@@ -447,5 +447,13 @@ BEGIN
 END
 GO
 
+-- 3. Fix image paths for .NET Core migration (wwwroot/images instead of Content/images)
+PRINT 'Fixing image paths for .NET Core...';
+UPDATE HinhAnh
+SET DuongDan = REPLACE(DuongDan, '/Content/images/', '/images/')
+WHERE DuongDan LIKE '/Content/images/%';
+PRINT 'Updated ' + CAST(@@ROWCOUNT AS VARCHAR) + ' image paths';
+GO
+
 PRINT 'Database setup and seeding completed successfully!';
 GO
