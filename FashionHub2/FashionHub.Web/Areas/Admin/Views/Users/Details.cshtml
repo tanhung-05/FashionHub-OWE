@@ -102,14 +102,15 @@
                                 {
                                     <tr>
                                         <td>#@order.IddonHang</td>
-                                        <td>@order.NgayTao?.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td>@order.NgayTao.ToString("dd/MM/yyyy HH:mm")</td>
                                         <td>@order.TongThanhToan.ToString("N0")₫</td>
                                         <td>
                                             @{
                                                 var statusClass = order.IdtrangThai switch
                                                 {
-                                                    1 => "bg-warning",
-                                                    2 => "bg-info",
+                                                    0 => "bg-warning",
+                                                    1 => "bg-info",
+                                                    2 => "bg-primary",
                                                     3 => "bg-success",
                                                     4 => "bg-danger",
                                                     _ => "bg-secondary"

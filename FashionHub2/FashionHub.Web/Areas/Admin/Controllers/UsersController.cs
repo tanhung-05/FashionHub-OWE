@@ -113,7 +113,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             }
 
             // Đảo ngược trạng thái
-            bool currentStatus = user.TrangThai ?? true;
+            bool currentStatus = user.TrangThai;
             user.TrangThai = !currentStatus;
 
             await _context.SaveChangesAsync();

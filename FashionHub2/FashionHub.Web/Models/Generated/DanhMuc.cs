@@ -9,7 +9,15 @@ public partial class DanhMuc
 
     public string TenDanhMuc { get; set; } = null!;
 
+    public string? Slug { get; set; }
+
     public int? IddanhMucCha { get; set; }
+
+    public int ThuTuHienThi { get; set; }
+
+    public bool TrangThai { get; set; }
+
+    public DateTime? DeletedAt { get; set; }
 
     public virtual DanhMuc? IddanhMucChaNavigation { get; set; }
 

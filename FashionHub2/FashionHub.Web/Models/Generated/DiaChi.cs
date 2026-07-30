@@ -21,7 +21,9 @@ public partial class DiaChi
 
     public string TinhThanh { get; set; } = null!;
 
-    public bool? LaMacDinh { get; set; }
+    public bool LaMacDinh { get; set; }
+
+    public DateTime NgayTao { get; set; }
 
     public virtual NguoiDung IdnguoiDungNavigation { get; set; } = null!;
 }

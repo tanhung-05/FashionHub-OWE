@@ -1,15 +1,21 @@
-using FashionHub.Web.Extensions;
+using FashionHub.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace FashionHub.Web.ViewComponents
+namespace FashionHub.Web.ViewComponents;
+
+public class CartIconViewComponent : ViewComponent
 {
-    public class CartIconViewComponent : ViewComponent
+    private readonly ICartService cartService;
+
+    public CartIconViewComponent(ICartService cartService)
     {
-        public IViewComponentResult Invoke()
-        {
-            var cart = HttpContext.Session.GetObjectFromJson<Dictionary<int, int>>("Cart") ?? new Dictionary<int, int>();
-            ViewBag.CartItemCount = cart.Values.Sum();
-            return View();
-        }
+        this.cartService = cartService;
+    }
+
+    public async Task<IViewComponentResult> InvokeAsync()
+    {
+        var result = await cartService.GetCartAsync();
+        ViewBag.CartItemCount = result.Value?.TotalQuantity ?? 0;
+        return View();
     }
 }

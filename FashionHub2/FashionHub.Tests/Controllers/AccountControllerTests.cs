@@ -26,7 +26,7 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory<
         // Assert
         response.EnsureSuccessStatusCode();
         var content = await response.Content.ReadAsStringAsync();
-        content.Should().Contain("Đăng ký");
+        content.Should().Contain("Tạo tài khoản");
     }
     
     [Fact]

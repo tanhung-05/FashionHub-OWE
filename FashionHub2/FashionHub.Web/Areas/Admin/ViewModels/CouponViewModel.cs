@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using FashionHub.Web.Domain;
 
 namespace FashionHub.Web.Areas.Admin.ViewModels
 {
@@ -50,7 +51,7 @@ namespace FashionHub.Web.Areas.Admin.ViewModels
         public bool TrangThai { get; set; }
 
         // Helper properties
-        public string LoaiGiamGiaText => LoaiGiamGia == 1 ? "Phần trăm" : "Số tiền";
+        public string LoaiGiamGiaText => LoaiGiamGia == CouponTypes.FixedAmount ? "Số tiền" : "Phần trăm";
         public string TrangThaiText => TrangThai ? "Hoạt động" : "Tắt";
         public bool IsExpired => NgayKetThuc.HasValue && NgayKetThuc.Value < DateTime.Now;
         public bool IsOutOfStock => DaSuDung >= SoLuong;

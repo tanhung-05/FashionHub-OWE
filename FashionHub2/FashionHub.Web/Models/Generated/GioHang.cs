@@ -11,6 +11,10 @@ public partial class GioHang
 
     public int SoLuong { get; set; }
 
+    public DateTime NgayThem { get; set; }
+
+    public DateTime NgayCapNhat { get; set; }
+
     public virtual BienTheSanPham IdbienTheNavigation { get; set; } = null!;
 
     public virtual NguoiDung IdnguoiDungNavigation { get; set; } = null!;

@@ -2,11 +2,11 @@
 -- Execute this script before production deployment for optimal performance
 -- Review Date: 2026-07-26
 
-USE [FashionHub];
+USE [QL_SHOPQUANAO_PRO];
 GO
 
 -- Check if indexes exist before creating
-PRINT 'Creating performance indexes for FashionHub...';
+PRINT 'Creating performance indexes for QL_SHOPQUANAO_PRO...';
 GO
 
 -- Products table - Filter by active status

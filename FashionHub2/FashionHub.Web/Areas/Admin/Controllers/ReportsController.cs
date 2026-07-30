@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using FashionHub.Web.Data;
 using FashionHub.Web.Areas.Admin.ViewModels;
+using FashionHub.Web.Domain;
 
 namespace FashionHub.Web.Areas.Admin.Controllers;
 
@@ -30,7 +31,9 @@ public class ReportsController : Controller
         var start = startDate ?? end.AddDays(-30);
 
         var orders = await _context.DonHangs
-            .Where(o => o.NgayTao >= start && o.NgayTao <= end.AddDays(1).AddSeconds(-1))
+            .Where(o => o.IdtrangThai != OrderStatusIds.Cancelled
+                && o.NgayTao >= start
+                && o.NgayTao <= end.AddDays(1).AddSeconds(-1))
             .ToListAsync();
 
         var report = new SalesReportViewModel
@@ -40,8 +43,8 @@ public class ReportsController : Controller
             Period = period,
             TotalOrders = orders.Count,
             TotalRevenue = orders.Sum(o => o.TongThanhToan),
-            TotalDiscount = orders.Sum(o => o.TienGiamGia ?? 0m),
-            TotalShipping = orders.Sum(o => o.PhiVanChuyen ?? 0m),
+            TotalDiscount = orders.Sum(o => o.TienGiamGia),
+            TotalShipping = orders.Sum(o => o.PhiVanChuyen),
             AverageOrderValue = orders.Any() ? orders.Average(o => o.TongThanhToan) : 0m
         };
 
@@ -57,7 +60,7 @@ public class ReportsController : Controller
                 {
                     var date = start.AddDays(i);
                     return orders
-                        .Where(o => o.NgayTao.HasValue && o.NgayTao.Value.Date == date)
+                        .Where(o => o.NgayTao.Date == date)
                         .Sum(o => o.TongThanhToan);
                 })
                 .ToList();
@@ -73,9 +76,8 @@ public class ReportsController : Controller
             {
                 months.Add(date.ToString("MM/yyyy"));
                 var monthRevenue = orders
-                    .Where(o => o.NgayTao.HasValue &&
-                               o.NgayTao.Value.Year == date.Year &&
-                               o.NgayTao.Value.Month == date.Month)
+                    .Where(o => o.NgayTao.Year == date.Year
+                        && o.NgayTao.Month == date.Month)
                     .Sum(o => o.TongThanhToan);
                 data.Add(monthRevenue);
             }
@@ -97,9 +99,8 @@ public class ReportsController : Controller
                 weeks.Add($"{currentStart:dd/MM} - {weekEnd:dd/MM}");
 
                 var weekRevenue = orders
-                    .Where(o => o.NgayTao.HasValue &&
-                               o.NgayTao.Value >= currentStart &&
-                               o.NgayTao.Value <= weekEnd.AddDays(1).AddSeconds(-1))
+                    .Where(o => o.NgayTao >= currentStart
+                        && o.NgayTao <= weekEnd.AddDays(1).AddSeconds(-1))
                     .Sum(o => o.TongThanhToan);
                 data.Add(weekRevenue);
 
@@ -112,7 +113,8 @@ public class ReportsController : Controller
 
         // Top sản phẩm bán chạy
         report.TopProducts = await _context.ChiTietDonHangs
-            .Where(cd => cd.IddonHangNavigation!.NgayTao >= start &&
+            .Where(cd => cd.IddonHangNavigation!.IdtrangThai != OrderStatusIds.Cancelled
+                        && cd.IddonHangNavigation.NgayTao >= start &&
                         cd.IddonHangNavigation.NgayTao <= end.AddDays(1).AddSeconds(-1))
             .GroupBy(cd => new
             {
@@ -157,14 +159,18 @@ public class ReportsController : Controller
 
         // Khách hàng có đơn hàng
         report.ActiveCustomers = await _context.DonHangs
-            .Where(o => o.NgayTao >= start && o.NgayTao <= end.AddDays(1).AddSeconds(-1))
+            .Where(o => o.IdtrangThai != OrderStatusIds.Cancelled
+                && o.NgayTao >= start
+                && o.NgayTao <= end.AddDays(1).AddSeconds(-1))
             .Select(o => o.IdnguoiDung)
             .Distinct()
             .CountAsync();
 
         // Top khách hàng
         report.TopCustomers = await _context.DonHangs
-            .Where(o => o.NgayTao >= start && o.NgayTao <= end.AddDays(1).AddSeconds(-1))
+            .Where(o => o.IdtrangThai != OrderStatusIds.Cancelled
+                && o.NgayTao >= start
+                && o.NgayTao <= end.AddDays(1).AddSeconds(-1))
             .GroupBy(o => new
             {
                 o.IdnguoiDung,
@@ -206,7 +212,8 @@ public class ReportsController : Controller
 
         // Query sản phẩm
         var query = _context.ChiTietDonHangs
-            .Where(cd => cd.IddonHangNavigation!.NgayTao >= start &&
+            .Where(cd => cd.IddonHangNavigation!.IdtrangThai != OrderStatusIds.Cancelled
+                        && cd.IddonHangNavigation.NgayTao >= start &&
                         cd.IddonHangNavigation.NgayTao <= end.AddDays(1).AddSeconds(-1));
 
         if (categoryId.HasValue)

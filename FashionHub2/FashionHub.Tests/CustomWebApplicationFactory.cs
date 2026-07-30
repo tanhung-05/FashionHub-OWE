@@ -1,4 +1,5 @@
 using FashionHub.Web.Data;
+using FashionHub.Web.Application.Authentication;
 using FashionHub.Web.Models.Generated;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -43,24 +44,14 @@ public class CustomWebApplicationFactory<TProgram>
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            SeedTestData(db);
+            var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            SeedTestData(db, passwordHasher);
         });
         
         builder.UseEnvironment("Test");
     }
     
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            using var scope = Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            db.Database.EnsureDeleted();
-        }
-        base.Dispose(disposing);
-    }
-    
-    private void SeedTestData(ApplicationDbContext db)
+    private void SeedTestData(ApplicationDbContext db, IPasswordHasher passwordHasher)
     {
         // Ensure database is created
         db.Database.EnsureCreated();
@@ -130,7 +121,12 @@ public class CustomWebApplicationFactory<TProgram>
                 IdmauSac = 1,
                 IdkichThuoc = 1,
                 Sku = "TEST-001",
-                Gia = 100000
+                Gia = 100000,
+                SoLuongTon = 100,
+                SoLuongCanhBao = 10,
+                TongDaBan = 0,
+                TrangThai = true,
+                RowVersion = BitConverter.GetBytes(1L)
             });
             
             // Add test image
@@ -149,17 +145,64 @@ public class CustomWebApplicationFactory<TProgram>
                 IdbienThe = 1,
                 LaAnhChinh = true
             });
+
+            db.SanPhams.Add(new SanPham
+            {
+                IdsanPham = 2,
+                TenSanPham = "Premium Product",
+                MoTa = "Higher priced product for filtering tests",
+                IddanhMuc = 2,
+                IdthuongHieu = 1,
+                Gia = 300000,
+                TrangThai = true
+            });
+            db.BienTheSanPhams.Add(new BienTheSanPham
+            {
+                IdbienThe = 2,
+                IdsanPham = 2,
+                IdmauSac = 1,
+                IdkichThuoc = 1,
+                Sku = "TEST-002",
+                Gia = 300000,
+                SoLuongTon = 20,
+                SoLuongCanhBao = 5,
+                TongDaBan = 0,
+                TrangThai = true,
+                RowVersion = BitConverter.GetBytes(2L)
+            });
         }
         
         // Add test roles
         if (!db.VaiTros.Any())
         {
             db.VaiTros.AddRange(
-                new VaiTro { IdvaiTro = 1, TenVaiTro = "Customer" },
-                new VaiTro { IdvaiTro = 2, TenVaiTro = "Admin" }
+                new VaiTro { IdvaiTro = 1, TenVaiTro = "Admin" },
+                new VaiTro { IdvaiTro = 2, TenVaiTro = "Customer" }
             );
             db.SaveChanges();
         }
+
+        if (!db.TrangThaiDonHangs.Any())
+        {
+            db.TrangThaiDonHangs.AddRange(
+                new TrangThaiDonHang { IdtrangThai = 0, TenTrangThai = "Chờ xác nhận" },
+                new TrangThaiDonHang { IdtrangThai = 1, TenTrangThai = "Đã xác nhận" },
+                new TrangThaiDonHang { IdtrangThai = 2, TenTrangThai = "Đang giao" },
+                new TrangThaiDonHang { IdtrangThai = 3, TenTrangThai = "Hoàn thành" },
+                new TrangThaiDonHang { IdtrangThai = 4, TenTrangThai = "Đã hủy" });
+        }
+
+        if (!db.PhuongThucThanhToans.Any())
+        {
+            db.PhuongThucThanhToans.Add(new PhuongThucThanhToan
+            {
+                IdphuongThucThanhToan = 1,
+                TenPhuongThuc = "Thanh toán khi nhận hàng (COD)",
+                TrangThai = true
+            });
+        }
+
+        db.SaveChanges();
         
         // Add test users
         if (!db.NguoiDungs.Any())
@@ -169,23 +212,42 @@ public class CustomWebApplicationFactory<TProgram>
                 {
                     IdnguoiDung = 1,
                     Email = "test@example.com",
-                    MatKhauHash = "hashed_password",
+                    MatKhauHash = passwordHasher.Hash("Test123!"),
                     HoTen = "Test User",
                     SoDienThoai = "0123456789",
-                    IdvaiTro = 1,
+                    IdvaiTro = 2,
                     TrangThai = true
                 },
                 new NguoiDung
                 {
                     IdnguoiDung = 2,
                     Email = "admin@example.com",
-                    MatKhauHash = "hashed_password",
+                    MatKhauHash = passwordHasher.Hash("Test123!"),
                     HoTen = "Admin User",
                     SoDienThoai = "0987654321",
-                    IdvaiTro = 2,
+                    IdvaiTro = 1,
                     TrangThai = true
                 }
             );
+        }
+
+        db.SaveChanges();
+
+        if (!db.DiaChis.Any())
+        {
+            db.DiaChis.Add(new DiaChi
+            {
+                IddiaChi = 1,
+                IdnguoiDung = 1,
+                TenNguoiNhan = "Test User",
+                SoDienThoai = "0123456789",
+                ChiTiet = "123 Test Street",
+                PhuongXa = "Test Ward",
+                QuanHuyen = "Test District",
+                TinhThanh = "Test City",
+                LaMacDinh = true,
+                NgayTao = DateTime.Now
+            });
         }
         
         // Add test coupon
@@ -196,6 +258,7 @@ public class CustomWebApplicationFactory<TProgram>
                 IdmaGiamGia = 1,
                 MaCode = "TEST10",
                 TenChuongTrinh = "Test Coupon",
+                LoaiGiamGia = 1,
                 GiaTri = 10000,
                 GiamToiDa = 100000,
                 DonHangToiThieu = 0,

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using FashionHub.Web.Data;
+using FashionHub.Web.Services;
 using FashionHub.Web.ViewModels.Cart;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -8,19 +9,22 @@ namespace FashionHub.Web.Controllers;
 
 public class CartController : Controller
 {
-    private const string CartSessionKey = "CartSession";
     private const string BuyNowCartSessionKey = "BuyNowCart";
     private readonly ApplicationDbContext dbContext;
+    private readonly ICartService cartService;
 
-    public CartController(ApplicationDbContext dbContext)
+    public CartController(
+        ApplicationDbContext dbContext,
+        ICartService cartService)
     {
         this.dbContext = dbContext;
+        this.cartService = cartService;
     }
 
-    public IActionResult Index()
+    public async Task<IActionResult> Index()
     {
-        var cart = GetCart();
-        return View(cart);
+        var result = await cartService.GetCartAsync();
+        return View(result.Value?.ToViewModels() ?? new List<CartItemViewModel>());
     }
 
     [HttpGet]
@@ -28,13 +32,17 @@ public class CartController : Controller
     {
         var product = await dbContext.SanPhams
             .AsNoTracking()
-            .Where(product => product.IdsanPham == productId && product.TrangThai == true)
+            .Where(product => product.IdsanPham == productId
+                && product.TrangThai == true
+                && product.DeletedAt == null)
             .Select(product => new
             {
                 id = product.IdsanPham,
                 name = product.TenSanPham,
                 variants = product.BienTheSanPhams
-                    .Where(variant => variant.SoLuongTon > 0)
+                    .Where(variant => variant.TrangThai
+                        && variant.DeletedAt == null
+                        && variant.SoLuongTon > 0)
                     .Select(variant => new
                     {
                         variantId = variant.IdbienThe,
@@ -48,6 +56,7 @@ public class CartController : Controller
                     })
                     .ToList(),
                 images = product.BienTheSanPhams
+                    .Where(variant => variant.TrangThai && variant.DeletedAt == null)
                     .SelectMany(variant => variant.HinhAnhBienThes)
                     .Select(image => new
                     {
@@ -75,53 +84,22 @@ public class CartController : Controller
             return Json(new { success = false, message = "Số lượng không hợp lệ." });
         }
 
-        var cart = GetCart();
-        var variant = await GetVariantForCartAsync(variantId);
-
-        if (variant == null)
+        var result = await cartService.AddAsync(variantId, quantity);
+        if (!result.IsSuccess)
         {
-            return BadRequest(new { success = false, message = "Sản phẩm không hợp lệ." });
-        }
-
-        var existingQuantity = cart.FirstOrDefault(item => item.IdbienThe == variantId)?.SoLuong ?? 0;
-        if (variant.SoLuongTon < existingQuantity + quantity)
-        {
-            return Json(new { success = false, message = "Số lượng tồn kho không đủ." });
-        }
-
-        var finalPrice = GetFinalPrice(
-            variant.IdsanPhamNavigation.Gia,
-            variant.IdsanPhamNavigation.GiaKhuyenMai,
-            variant.IdsanPhamNavigation.NgayBatDauKm,
-            variant.IdsanPhamNavigation.NgayKetThucKm);
-
-        var cartItem = cart.FirstOrDefault(item => item.IdbienThe == variantId);
-        if (cartItem != null)
-        {
-            cartItem.SoLuong += quantity;
-            cartItem.DonGia = finalPrice;
-        }
-        else
-        {
-            cart.Add(new CartItemViewModel
+            if (result.Error?.Code == "cart_variant_not_found")
             {
-                IdbienThe = variant.IdbienThe,
-                TenSanPham = variant.IdsanPhamNavigation.TenSanPham,
-                TenMau = variant.IdmauSacNavigation?.TenMau,
-                TenKichThuoc = variant.IdkichThuocNavigation?.TenKichThuoc,
-                DonGia = finalPrice,
-                SoLuong = quantity,
-                AnhDaiDien = GetVariantImageUrl(variant)
-            });
-        }
+                return BadRequest(new { success = false, message = result.Error.Message });
+            }
 
-        SaveCart(CartSessionKey, cart);
+            return Json(new { success = false, message = result.Error?.Message });
+        }
 
         return Json(new
         {
             success = true,
             message = "Thêm vào giỏ hàng thành công!",
-            cartCount = cart.Count
+            cartCount = result.Value!.TotalQuantity
         });
     }
 
@@ -171,26 +149,32 @@ public class CartController : Controller
     }
 
     [HttpGet]
-    public IActionResult GetCartOffcanvas()
+    public async Task<IActionResult> GetCartOffcanvas()
     {
-        var cart = GetCart();
-        return PartialView("_CartOffcanvasPartial", cart);
+        var result = await cartService.GetCartAsync();
+        return PartialView(
+            "_CartOffcanvasPartial",
+            result.Value?.ToViewModels() ?? new List<CartItemViewModel>());
     }
 
     [HttpGet]
-    public IActionResult CartIcon()
+    public async Task<IActionResult> CartIcon()
     {
-        var cart = GetCart();
-        ViewBag.CartItemCount = cart.Count;
+        var result = await cartService.GetCartAsync();
+        ViewBag.CartItemCount = result.Value?.TotalQuantity ?? 0;
 
         return PartialView("_CartIconPartial");
     }
 
     [HttpGet]
-    public IActionResult GetCartItemCount()
+    public async Task<IActionResult> GetCartItemCount()
     {
-        var cart = GetCart();
-        return Json(new { success = true, count = cart.Count });
+        var result = await cartService.GetCartAsync();
+        return Json(new
+        {
+            success = result.IsSuccess,
+            count = result.Value?.TotalQuantity ?? 0
+        });
     }
 
     [HttpPost]
@@ -201,56 +185,37 @@ public class CartController : Controller
             return Json(new { success = false, message = "Số lượng không hợp lệ." });
         }
 
-        var cart = GetCart();
-        var cartItem = cart.FirstOrDefault(item => item.IdbienThe == variantId);
-
-        if (cartItem == null)
+        var result = await cartService.UpdateAsync(variantId, quantity);
+        if (!result.IsSuccess)
         {
-            return Json(new { success = false, message = "Sản phẩm không có trong giỏ hàng." });
+            return Json(new { success = false, message = result.Error?.Message });
         }
 
-        var stock = await dbContext.BienTheSanPhams
-            .AsNoTracking()
-            .Where(variant => variant.IdbienThe == variantId)
-            .Select(variant => variant.SoLuongTon)
-            .FirstOrDefaultAsync();
-
-        if (stock < quantity)
-        {
-            return Json(new { success = false, message = $"Chỉ còn {stock} sản phẩm." });
-        }
-
-        cartItem.SoLuong = quantity;
-        SaveCart(CartSessionKey, cart);
+        var cartItem = result.Value!.Items.First(item => item.VariantId == variantId);
 
         return Json(new
         {
             success = true,
-            itemTotal = cartItem.ThanhTien.ToString("N0"),
-            cartTotal = cart.Sum(item => item.ThanhTien).ToString("N0"),
-            cartCount = cart.Count
+            itemTotal = cartItem.LineTotal.ToString("N0"),
+            cartTotal = result.Value.Subtotal.ToString("N0"),
+            cartCount = result.Value.TotalQuantity
         });
     }
 
     [HttpPost]
-    public IActionResult RemoveFromCart(int variantId)
+    public async Task<IActionResult> RemoveFromCart(int variantId)
     {
-        var cart = GetCart();
-        var cartItem = cart.FirstOrDefault(item => item.IdbienThe == variantId);
-
-        if (cartItem == null)
+        var result = await cartService.RemoveAsync(variantId);
+        if (!result.IsSuccess)
         {
-            return Json(new { success = false, message = "Sản phẩm không có trong giỏ hàng." });
+            return Json(new { success = false, message = result.Error?.Message });
         }
-
-        cart.Remove(cartItem);
-        SaveCart(CartSessionKey, cart);
 
         return Json(new
         {
             success = true,
-            cartTotal = cart.Sum(item => item.ThanhTien).ToString("N0"),
-            cartCount = cart.Count
+            cartTotal = result.Value!.Subtotal.ToString("N0"),
+            cartCount = result.Value.TotalQuantity
         });
     }
 
@@ -262,19 +227,12 @@ public class CartController : Controller
             .Include(variant => variant.IdkichThuocNavigation)
             .Include(variant => variant.HinhAnhBienThes)
                 .ThenInclude(image => image.IdhinhAnhNavigation)
-            .FirstOrDefaultAsync(variant => variant.IdbienThe == variantId);
-    }
-
-    private List<CartItemViewModel> GetCart()
-    {
-        var cartJson = HttpContext.Session.GetString(CartSessionKey);
-
-        if (string.IsNullOrWhiteSpace(cartJson))
-        {
-            return new List<CartItemViewModel>();
-        }
-
-        return JsonSerializer.Deserialize<List<CartItemViewModel>>(cartJson) ?? new List<CartItemViewModel>();
+            .FirstOrDefaultAsync(variant =>
+                variant.IdbienThe == variantId
+                && variant.TrangThai
+                && variant.DeletedAt == null
+                && variant.IdsanPhamNavigation.TrangThai
+                && variant.IdsanPhamNavigation.DeletedAt == null);
     }
 
     private void SaveCart(string sessionKey, List<CartItemViewModel> cart)

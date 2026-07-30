@@ -55,6 +55,8 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(CouponViewModel model)
         {
+            ValidateCouponDates(model);
+
             if (ModelState.IsValid)
             {
                 // Kiểm tra mã đã tồn tại chưa
@@ -70,12 +72,13 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                     TenChuongTrinh = model.TenChuongTrinh,
                     LoaiGiamGia = model.LoaiGiamGia,
                     GiaTri = model.GiaTri,
-                    DonHangToiThieu = model.DonHangToiThieu,
+                    DonHangToiThieu = model.DonHangToiThieu ?? 0,
                     GiamToiDa = model.GiamToiDa,
                     SoLuong = model.SoLuong,
                     DaSuDung = 0,
-                    NgayBatDau = model.NgayBatDau,
-                    NgayKetThuc = model.NgayKetThuc,
+                    NgayBatDau = model.NgayBatDau!.Value,
+                    NgayKetThuc = model.NgayKetThuc!.Value,
+                    NgayTao = DateTime.Now,
                     TrangThai = true
                 };
 
@@ -127,6 +130,8 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 return NotFound();
             }
 
+            ValidateCouponDates(model);
+
             if (ModelState.IsValid)
             {
                 try
@@ -148,11 +153,11 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                     coupon.TenChuongTrinh = model.TenChuongTrinh;
                     coupon.LoaiGiamGia = model.LoaiGiamGia;
                     coupon.GiaTri = model.GiaTri;
-                    coupon.DonHangToiThieu = model.DonHangToiThieu;
+                    coupon.DonHangToiThieu = model.DonHangToiThieu ?? 0;
                     coupon.GiamToiDa = model.GiamToiDa;
                     coupon.SoLuong = model.SoLuong;
-                    coupon.NgayBatDau = model.NgayBatDau;
-                    coupon.NgayKetThuc = model.NgayKetThuc;
+                    coupon.NgayBatDau = model.NgayBatDau!.Value;
+                    coupon.NgayKetThuc = model.NgayKetThuc!.Value;
                     coupon.TrangThai = model.TrangThai;
 
                     await _context.SaveChangesAsync();
@@ -221,6 +226,26 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         private async Task<bool> CouponExists(int id)
         {
             return await _context.MaGiamGia.AnyAsync(e => e.IdmaGiamGia == id);
+        }
+
+        private void ValidateCouponDates(CouponViewModel model)
+        {
+            if (!model.NgayBatDau.HasValue)
+            {
+                ModelState.AddModelError(nameof(model.NgayBatDau), "Ngày bắt đầu là bắt buộc.");
+            }
+
+            if (!model.NgayKetThuc.HasValue)
+            {
+                ModelState.AddModelError(nameof(model.NgayKetThuc), "Ngày kết thúc là bắt buộc.");
+            }
+
+            if (model.NgayBatDau.HasValue
+                && model.NgayKetThuc.HasValue
+                && model.NgayBatDau.Value > model.NgayKetThuc.Value)
+            {
+                ModelState.AddModelError(nameof(model.NgayKetThuc), "Ngày kết thúc phải sau ngày bắt đầu.");
+            }
         }
     }
 }

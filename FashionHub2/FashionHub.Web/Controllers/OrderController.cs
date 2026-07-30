@@ -1,7 +1,10 @@
 using System.Security.Claims;
 using System.Text.Json;
 using FashionHub.Web.Data;
+using FashionHub.Web.Application.Orders;
+using FashionHub.Web.Domain;
 using FashionHub.Web.Models.Generated;
+using FashionHub.Web.Services;
 using FashionHub.Web.ViewModels.Cart;
 using FashionHub.Web.ViewModels.Order;
 using Microsoft.AspNetCore.Authorization;
@@ -13,13 +16,19 @@ namespace FashionHub.Web.Controllers;
 [Authorize]
 public class OrderController : Controller
 {
-    private const string CartSessionKey = "CartSession";
     private const string BuyNowCartSessionKey = "BuyNowCart";
     private readonly ApplicationDbContext dbContext;
+    private readonly ICartService cartService;
+    private readonly IOrderService orderService;
 
-    public OrderController(ApplicationDbContext dbContext)
+    public OrderController(
+        ApplicationDbContext dbContext,
+        ICartService cartService,
+        IOrderService orderService)
     {
         this.dbContext = dbContext;
+        this.cartService = cartService;
+        this.orderService = orderService;
     }
 
     [HttpGet]
@@ -43,10 +52,8 @@ public class OrderController : Controller
         }
         else
         {
-            var cartJson = HttpContext.Session.GetString(CartSessionKey);
-            cartToCheckout = string.IsNullOrWhiteSpace(cartJson)
-                ? new()
-                : JsonSerializer.Deserialize<List<CartItemViewModel>>(cartJson) ?? new();
+            var cartResult = await cartService.GetCartAsync();
+            cartToCheckout = cartResult.Value?.ToViewModels() ?? new();
             cartType = "Normal";
         }
 
@@ -64,7 +71,7 @@ public class OrderController : Controller
                 IddiaChi = address.IddiaChi,
                 TenNguoiNhan = address.TenNguoiNhan ?? string.Empty,
                 SoDienThoai = address.SoDienThoai ?? string.Empty,
-                LaMacDinh = address.LaMacDinh ?? false,
+                LaMacDinh = address.LaMacDinh,
                 FullAddress = $"{address.ChiTiet}, {address.PhuongXa}, {address.QuanHuyen}, {address.TinhThanh}"
             })
             .ToListAsync();
@@ -72,6 +79,7 @@ public class OrderController : Controller
         // Lấy phương thức thanh toán
         var paymentMethods = await dbContext.PhuongThucThanhToans
             .AsNoTracking()
+            .Where(method => method.TrangThai)
             .Select(method => new PaymentMethodViewModel
             {
                 IdphuongThucThanhToan = method.IdphuongThucThanhToan,
@@ -80,15 +88,13 @@ public class OrderController : Controller
             .ToListAsync();
 
         var subtotal = cartToCheckout.Sum(item => item.ThanhTien);
-        const decimal shippingFee = 30000;
-
         var viewModel = new CheckoutViewModel
         {
             CartItems = cartToCheckout,
             UserAddresses = addresses,
             PaymentMethods = paymentMethods,
             Subtotal = subtotal,
-            ShippingFee = shippingFee,
+            ShippingFee = ShippingFees.Standard,
             Discount = 0,
             AppliedCouponCode = string.Empty
         };
@@ -107,6 +113,26 @@ public class OrderController : Controller
             return RedirectToAction("Login", "Account");
         }
 
+        if (!string.Equals(cartType, "BuyNow", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = await orderService.CreateOrderAsync(new CreateOrderRequest
+            {
+                AddressId = addressId,
+                PaymentMethodId = paymentMethodId,
+                CouponCode = HttpContext.Session.GetString("CouponCode")
+            });
+            if (!result.IsSuccess)
+            {
+                TempData["Error"] = result.Error!.Message;
+                return RedirectToAction("Checkout");
+            }
+
+            HttpContext.Session.Remove("DiscountAmount");
+            HttpContext.Session.Remove("CouponId");
+            HttpContext.Session.Remove("CouponCode");
+            return RedirectToAction("OrderSuccess", new { id = result.Value!.Id });
+        }
+
         using var transaction = await dbContext.Database.BeginTransactionAsync();
         try
         {
@@ -121,10 +147,8 @@ public class OrderController : Controller
             }
             else
             {
-                var cartJson = HttpContext.Session.GetString(CartSessionKey);
-                cart = string.IsNullOrWhiteSpace(cartJson)
-                    ? new()
-                    : JsonSerializer.Deserialize<List<CartItemViewModel>>(cartJson) ?? new();
+                var cartResult = await cartService.GetCartAsync();
+                cart = cartResult.Value?.ToViewModels() ?? new();
             }
 
             if (!cart.Any())
@@ -136,7 +160,13 @@ public class OrderController : Controller
             foreach (var item in cart)
             {
                 var variant = await dbContext.BienTheSanPhams
-                    .FirstOrDefaultAsync(v => v.IdbienThe == item.IdbienThe);
+                    .Include(v => v.IdsanPhamNavigation)
+                    .FirstOrDefaultAsync(v =>
+                        v.IdbienThe == item.IdbienThe
+                        && v.TrangThai
+                        && v.DeletedAt == null
+                        && v.IdsanPhamNavigation.TrangThai
+                        && v.IdsanPhamNavigation.DeletedAt == null);
 
                 if (variant == null || variant.SoLuongTon < item.SoLuong)
                 {
@@ -164,7 +194,10 @@ public class OrderController : Controller
             }
 
             // Lấy địa chỉ
-            var address = await dbContext.DiaChis.FindAsync(addressId);
+            var address = await dbContext.DiaChis
+                .FirstOrDefaultAsync(item =>
+                    item.IddiaChi == addressId
+                    && item.IdnguoiDung == userId);
             if (address == null)
             {
                 TempData["Error"] = "Địa chỉ không hợp lệ.";
@@ -172,10 +205,42 @@ public class OrderController : Controller
                 return RedirectToAction("Checkout");
             }
 
-            // Tạo đơn hàng
-            var totalAmount = cart.Sum(item => item.ThanhTien);
-            const decimal shippingFee = 40000;
+            var paymentMethodIsActive = await dbContext.PhuongThucThanhToans
+                .AnyAsync(method =>
+                    method.IdphuongThucThanhToan == paymentMethodId
+                    && method.TrangThai);
+            if (!paymentMethodIsActive)
+            {
+                TempData["Error"] = "Phương thức thanh toán không hợp lệ.";
+                await transaction.RollbackAsync();
+                return RedirectToAction("Checkout");
+            }
 
+            var totalAmount = cart.Sum(item => item.ThanhTien);
+            MaGiamGium? coupon = null;
+            if (couponId.HasValue)
+            {
+                coupon = await dbContext.MaGiamGia.FirstOrDefaultAsync(item =>
+                    item.IdmaGiamGia == couponId.Value
+                    && item.TrangThai
+                    && item.DeletedAt == null
+                    && item.DaSuDung < item.SoLuong
+                    && item.NgayBatDau <= DateTime.Now
+                    && item.NgayKetThuc >= DateTime.Now
+                    && item.DonHangToiThieu <= totalAmount);
+
+                if (coupon == null)
+                {
+                    couponId = null;
+                    discount = 0;
+                }
+                else
+                {
+                    discount = CalculateDiscount(coupon, totalAmount);
+                }
+            }
+
+            // Tạo đơn hàng
             var order = new DonHang
             {
                 IdnguoiDung = userId,
@@ -183,12 +248,12 @@ public class OrderController : Controller
                 DiaChiGiao = $"{address.ChiTiet}, {address.PhuongXa}, {address.QuanHuyen}, {address.TinhThanh}",
                 SoDienThoai = address.SoDienThoai ?? string.Empty,
                 TongTienHang = totalAmount,
-                PhiVanChuyen = shippingFee,
+                PhiVanChuyen = ShippingFees.Standard,
                 TienGiamGia = discount,
-                TongThanhToan = totalAmount + shippingFee - discount,
+                TongThanhToan = totalAmount + ShippingFees.Standard - discount,
                 IdmaGiamGia = couponId,
                 IdphuongThucThanhToan = paymentMethodId,
-                IdtrangThai = 0,
+                IdtrangThai = OrderStatusIds.Pending,
                 NgayTao = DateTime.Now
             };
 
@@ -196,13 +261,9 @@ public class OrderController : Controller
             await dbContext.SaveChangesAsync();
 
             // Cập nhật coupon
-            if (couponId.HasValue)
+            if (coupon != null)
             {
-                var coupon = await dbContext.MaGiamGia.FindAsync(couponId.Value);
-                if (coupon != null)
-                {
-                    coupon.DaSuDung++;
-                }
+                coupon.DaSuDung++;
             }
 
             // Tạo chi tiết đơn hàng và trừ tồn kho
@@ -223,8 +284,37 @@ public class OrderController : Controller
                 var variant = await dbContext.BienTheSanPhams.FindAsync(item.IdbienThe);
                 if (variant != null)
                 {
+                    var previousStock = variant.SoLuongTon;
                     variant.SoLuongTon -= item.SoLuong;
+                    variant.TongDaBan += item.SoLuong;
+                    variant.NgayCapNhat = DateTime.Now;
+                    dbContext.LichSuTonKhos.Add(new LichSuTonKho
+                    {
+                        IdbienThe = variant.IdbienThe,
+                        IdnguoiThucHien = userId,
+                        IddonHang = order.IddonHang,
+                        LoaiThayDoi = InventoryChangeTypes.OrderPlaced,
+                        SoLuongThayDoi = -item.SoLuong,
+                        TonTruoc = previousStock,
+                        TonSau = variant.SoLuongTon,
+                        GhiChu = $"Xuất kho cho đơn hàng #{order.IddonHang}",
+                        NgayTao = DateTime.Now
+                    });
                 }
+            }
+
+            dbContext.LichSuDonHangs.Add(new LichSuDonHang
+            {
+                IddonHang = order.IddonHang,
+                IdtrangThaiMoi = OrderStatusIds.Pending,
+                IdnguoiThucHien = userId,
+                GhiChu = "Khách hàng tạo đơn hàng",
+                NgayTao = DateTime.Now
+            });
+
+            if (cartType != "BuyNow")
+            {
+                await cartService.ClearAsync();
             }
 
             await dbContext.SaveChangesAsync();
@@ -237,7 +327,7 @@ public class OrderController : Controller
             }
             else
             {
-                HttpContext.Session.Remove(CartSessionKey);
+                HttpContext.Session.Remove(CartService.CartSessionKey);
             }
 
             HttpContext.Session.Remove("DiscountAmount");
@@ -278,10 +368,8 @@ public class OrderController : Controller
             }
             else
             {
-                var cartJson = HttpContext.Session.GetString(CartSessionKey);
-                cart = string.IsNullOrWhiteSpace(cartJson)
-                    ? new()
-                    : JsonSerializer.Deserialize<List<CartItemViewModel>>(cartJson) ?? new();
+                var cartResult = await cartService.GetCartAsync();
+                cart = cartResult.Value?.ToViewModels() ?? new();
             }
 
             if (!cart.Any())
@@ -293,7 +381,10 @@ public class OrderController : Controller
 
             var coupon = await dbContext.MaGiamGia
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.MaCode == cleanCode && c.TrangThai == true);
+                .FirstOrDefaultAsync(c =>
+                    c.MaCode == cleanCode
+                    && c.TrangThai == true
+                    && c.DeletedAt == null);
 
             if (coupon == null)
             {
@@ -321,27 +412,14 @@ public class OrderController : Controller
             }
 
             // Tính giảm giá
-            decimal discountAmount = 0;
-            if (coupon.LoaiGiamGia == 1)
-            {
-                discountAmount = coupon.GiaTri;
-            }
-            else
-            {
-                discountAmount = totalOrder * (coupon.GiaTri / 100);
-                if (coupon.GiamToiDa.HasValue && discountAmount > coupon.GiamToiDa.Value)
-                {
-                    discountAmount = coupon.GiamToiDa.Value;
-                }
-            }
+            var discountAmount = CalculateDiscount(coupon, totalOrder);
 
             // Lưu session
             HttpContext.Session.SetString("CouponCode", coupon.MaCode ?? string.Empty);
             HttpContext.Session.SetString("DiscountAmount", discountAmount.ToString());
             HttpContext.Session.SetString("CouponId", coupon.IdmaGiamGia.ToString());
 
-            const decimal shipping = 30000;
-            var finalTotal = totalOrder + shipping - discountAmount;
+            var finalTotal = totalOrder + ShippingFees.Standard - discountAmount;
 
             return Json(new
             {
@@ -368,5 +446,21 @@ public class OrderController : Controller
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return int.TryParse(userIdClaim, out var userId) ? userId : null;
+    }
+
+    private static decimal CalculateDiscount(MaGiamGium coupon, decimal orderTotal)
+    {
+        if (coupon.LoaiGiamGia == CouponTypes.FixedAmount)
+        {
+            return Math.Min(coupon.GiaTri, orderTotal);
+        }
+
+        var discount = orderTotal * (coupon.GiaTri / 100);
+        if (coupon.GiamToiDa.HasValue)
+        {
+            discount = Math.Min(discount, coupon.GiamToiDa.Value);
+        }
+
+        return Math.Min(discount, orderTotal);
     }
 }

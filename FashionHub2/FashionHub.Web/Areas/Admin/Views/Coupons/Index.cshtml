@@ -50,11 +50,11 @@
                                 <td>
                                     @if (coupon.LoaiGiamGia == 1)
                                     {
-                                        <span>@coupon.GiaTri%</span>
+                                        <span>@coupon.GiaTri.ToString("N0")₫</span>
                                     }
                                     else
                                     {
-                                        <span>@coupon.GiaTri.ToString("N0")₫</span>
+                                        <span>@coupon.GiaTri%</span>
                                     }
                                 </td>
                                 <td>@(coupon.DonHangToiThieu?.ToString("N0") ?? "0")₫</td>

@@ -1,6 +1,7 @@
 using FashionHub.Web.Areas.Admin.ViewModels;
 using FashionHub.Web.Data;
 using FashionHub.Web.Models.Generated;
+using FashionHub.Web.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +24,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             var query = _context.DanhMucs
                 .Include(d => d.IddanhMucChaNavigation)
                 .Include(d => d.SanPhams)
+                .Where(d => d.DeletedAt == null)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -70,7 +72,9 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                     var category = new DanhMuc
                     {
                         TenDanhMuc = model.Name,
-                        IddanhMucCha = model.ParentCategoryId
+                        Slug = await CreateUniqueSlugAsync(model.Name),
+                        IddanhMucCha = model.ParentCategoryId,
+                        TrangThai = true
                     };
 
                     _context.DanhMucs.Add(category);
@@ -134,6 +138,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 else
                 {
                     category.TenDanhMuc = model.Name;
+                    category.Slug = await CreateUniqueSlugAsync(model.Name, category.IddanhMuc);
                     category.IddanhMucCha = model.ParentCategoryId;
 
                     _context.Update(category);
@@ -154,7 +159,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 .Include(d => d.IddanhMucChaNavigation)
                 .Include(d => d.SanPhams)
                 .Include(d => d.InverseIddanhMucChaNavigation)
-                .FirstOrDefaultAsync(d => d.IddanhMuc == id);
+                .FirstOrDefaultAsync(d => d.IddanhMuc == id && d.DeletedAt == null);
 
             if (category == null)
             {
@@ -172,7 +177,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             var category = await _context.DanhMucs
                 .Include(d => d.SanPhams)
                 .Include(d => d.InverseIddanhMucChaNavigation)
-                .FirstOrDefaultAsync(d => d.IddanhMuc == id);
+                .FirstOrDefaultAsync(d => d.IddanhMuc == id && d.DeletedAt == null);
 
             if (category == null)
             {
@@ -180,20 +185,21 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             }
 
             // Check if category has products
-            if (category.SanPhams.Any())
+            if (category.SanPhams.Any(product => product.DeletedAt == null))
             {
                 TempData["ErrorMessage"] = "Không thể xóa danh mục đang có sản phẩm. Vui lòng xóa hoặc chuyển sản phẩm sang danh mục khác.";
                 return RedirectToAction(nameof(Index));
             }
 
             // Check if category has subcategories
-            if (category.InverseIddanhMucChaNavigation.Any())
+            if (category.InverseIddanhMucChaNavigation.Any(child => child.DeletedAt == null))
             {
                 TempData["ErrorMessage"] = "Không thể xóa danh mục đang có danh mục con. Vui lòng xóa danh mục con trước.";
                 return RedirectToAction(nameof(Index));
             }
 
-            _context.DanhMucs.Remove(category);
+            category.TrangThai = false;
+            category.DeletedAt = DateTime.Now;
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = "Xóa danh mục thành công!";
@@ -208,8 +214,9 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 Name = category.TenDanhMuc,
                 ParentCategoryId = category.IddanhMucCha,
                 ParentCategoryName = category.IddanhMucChaNavigation?.TenDanhMuc,
-                ProductCount = category.SanPhams?.Count ?? 0,
+                ProductCount = category.SanPhams?.Count(product => product.DeletedAt == null) ?? 0,
                 SubCategories = category.InverseIddanhMucChaNavigation?
+                    .Where(child => child.DeletedAt == null)
                     .Select(MapToViewModel)
                     .ToList() ?? new List<CategoryViewModel>()
             };
@@ -217,7 +224,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
 
         private async Task<List<CategoryViewModel>> GetParentCategoriesAsync(int? excludeId = null)
         {
-            var query = _context.DanhMucs.AsQueryable();
+            var query = _context.DanhMucs.Where(category => category.DeletedAt == null && category.TrangThai);
 
             if (excludeId.HasValue)
             {
@@ -235,6 +242,23 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 .ToListAsync();
 
             return categories;
+        }
+
+        private async Task<string> CreateUniqueSlugAsync(string name, int? excludeId = null)
+        {
+            var baseSlug = SlugGenerator.Generate(name);
+            var slug = baseSlug;
+            var suffix = 2;
+
+            while (await _context.DanhMucs.AnyAsync(category =>
+                       category.Slug == slug
+                       && category.DeletedAt == null
+                       && (!excludeId.HasValue || category.IddanhMuc != excludeId.Value)))
+            {
+                slug = $"{baseSlug}-{suffix++}";
+            }
+
+            return slug;
         }
     }
 }

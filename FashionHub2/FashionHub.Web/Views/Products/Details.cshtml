@@ -142,7 +142,7 @@
             </ul>
             <div class="tab-content p-4 border border-top-0 bg-white rounded-bottom shadow-sm" id="productTabContent">
                 <div class="tab-pane fade show active" id="description" role="tabpanel">
-                    @Html.Raw(Model.MoTa)
+                    <p class="product-description">@Model.MoTa</p>
                 </div>
                 <div class="tab-pane fade" id="reviews" role="tabpanel">
                     <p class="text-muted fst-italic">Chưa có đánh giá nào cho sản phẩm này.</p>
@@ -172,7 +172,8 @@
 @section scripts {
     <script>
         $(document).ready(function () {
-            const variants = JSON.parse('@Html.Raw(Model.VariantsJson)');
+            const variants = @Json.Serialize(
+                Newtonsoft.Json.JsonConvert.DeserializeObject(Model.VariantsJson));
             let selectedColorId = null;
             let selectedSizeId = null;
 

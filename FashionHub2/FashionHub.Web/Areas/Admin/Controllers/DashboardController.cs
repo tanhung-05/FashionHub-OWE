@@ -1,5 +1,6 @@
 using FashionHub.Web.Areas.Admin.ViewModels;
 using FashionHub.Web.Data;
+using FashionHub.Web.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,9 +27,9 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             var startOfMonth = new DateTime(now.Year, now.Month, 1);
             var startOfLastMonth = startOfMonth.AddMonths(-1);
 
-            // Total revenue (excluding cancelled orders - assuming status 6 is cancelled)
+            // Revenue excludes cancelled orders.
             viewModel.Stats.TotalRevenue = await _context.DonHangs
-                .Where(d => d.IdtrangThai != 6)
+                .Where(d => d.IdtrangThai != OrderStatusIds.Cancelled)
                 .SumAsync(d => d.TongThanhToan);
 
             // Total orders
@@ -40,24 +41,23 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             // Total users
             viewModel.Stats.TotalUsers = await _context.NguoiDungs.CountAsync();
 
-            // Order status counts (adjust these status IDs based on your database)
             viewModel.Stats.PendingOrders = await _context.DonHangs
-                .CountAsync(d => d.IdtrangThai == 1);
+                .CountAsync(d => d.IdtrangThai == OrderStatusIds.Pending);
 
             viewModel.Stats.ProcessingOrders = await _context.DonHangs
-                .CountAsync(d => d.IdtrangThai == 2);
+                .CountAsync(d => d.IdtrangThai == OrderStatusIds.Confirmed
+                    || d.IdtrangThai == OrderStatusIds.Shipping);
 
             viewModel.Stats.DeliveredOrders = await _context.DonHangs
-                .CountAsync(d => d.IdtrangThai == 5);
+                .CountAsync(d => d.IdtrangThai == OrderStatusIds.Completed);
 
             // Revenue growth (this month vs last month)
             var thisMonthRevenue = await _context.DonHangs
-                .Where(d => d.IdtrangThai != 6 && d.NgayTao.HasValue && d.NgayTao >= startOfMonth)
+                .Where(d => d.IdtrangThai != OrderStatusIds.Cancelled && d.NgayTao >= startOfMonth)
                 .SumAsync(d => d.TongThanhToan);
 
             var lastMonthRevenue = await _context.DonHangs
-                .Where(d => d.IdtrangThai != 6 && 
-                           d.NgayTao.HasValue &&
+                .Where(d => d.IdtrangThai != OrderStatusIds.Cancelled &&
                            d.NgayTao >= startOfLastMonth && 
                            d.NgayTao < startOfMonth)
                 .SumAsync(d => d.TongThanhToan);
@@ -69,10 +69,10 @@ namespace FashionHub.Web.Areas.Admin.Controllers
 
             // Order growth
             var thisMonthOrders = await _context.DonHangs
-                .CountAsync(d => d.NgayTao.HasValue && d.NgayTao >= startOfMonth);
+                .CountAsync(d => d.NgayTao >= startOfMonth);
 
             var lastMonthOrders = await _context.DonHangs
-                .CountAsync(d => d.NgayTao.HasValue && d.NgayTao >= startOfLastMonth && d.NgayTao < startOfMonth);
+                .CountAsync(d => d.NgayTao >= startOfLastMonth && d.NgayTao < startOfMonth);
 
             if (lastMonthOrders > 0)
             {
@@ -95,7 +95,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                     Status = d.IdtrangThaiNavigation != null
                         ? d.IdtrangThaiNavigation.TenTrangThai
                         : "N/A",
-                    OrderDate = d.NgayTao ?? DateTime.Now
+                    OrderDate = d.NgayTao
                 })
                 .ToListAsync();
 
@@ -104,8 +104,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             viewModel.TopProducts = await _context.ChiTietDonHangs
                 .Include(c => c.IdbienTheNavigation)
                     .ThenInclude(b => b!.IdsanPhamNavigation)
-                .Where(c => c.IddonHangNavigation!.IdtrangThai != 6 &&
-                           c.IddonHangNavigation.NgayTao.HasValue &&
+                .Where(c => c.IddonHangNavigation!.IdtrangThai != OrderStatusIds.Cancelled &&
                            c.IddonHangNavigation.NgayTao >= thirtyDaysAgo)
                 .GroupBy(c => new
                 {
@@ -127,8 +126,8 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             // Monthly revenue for last 6 months
             var sixMonthsAgo = startOfMonth.AddMonths(-5);
             viewModel.MonthlyRevenues = await _context.DonHangs
-                .Where(d => d.IdtrangThai != 6 && d.NgayTao.HasValue && d.NgayTao >= sixMonthsAgo)
-                .GroupBy(d => new { d.NgayTao.Value.Year, d.NgayTao.Value.Month })
+                .Where(d => d.IdtrangThai != OrderStatusIds.Cancelled && d.NgayTao >= sixMonthsAgo)
+                .GroupBy(d => new { d.NgayTao.Year, d.NgayTao.Month })
                 .Select(g => new MonthlyRevenue
                 {
                     Month = $"Tháng {g.Key.Month}/{g.Key.Year}",

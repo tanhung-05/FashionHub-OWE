@@ -114,7 +114,7 @@
                                         <div class="fw-bold">@item.TenNguoiNhan</div>
                                         <small class="text-muted">@item.SoDienThoai</small>
                                     </td>
-                                    <td>@(item.NgayTao.HasValue ? item.NgayTao.Value.ToString("dd/MM/yyyy") : "N/A")</td>
+                                    <td>@item.NgayTao.ToString("dd/MM/yyyy")</td>
                                     <td class="fw-bold text-primary">@item.TongThanhToan.ToString("N0") đ</td>
                                     <td>
                                         @switch (item.IdtrangThai)

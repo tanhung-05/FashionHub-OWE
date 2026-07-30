@@ -1,75 +1,53 @@
 using System.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using FashionHub.Web.Data;
+using FashionHub.Web.Application.Products;
 using FashionHub.Web.Models;
 using FashionHub.Web.ViewModels.Home;
 using FashionHub.Web.ViewModels.Products;
+using Microsoft.AspNetCore.Mvc;
 
 namespace FashionHub.Web.Controllers;
 
 public class HomeController : Controller
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IProductService productService;
 
-    public HomeController(ApplicationDbContext context)
+    public HomeController(IProductService productService)
     {
-        _context = context;
+        this.productService = productService;
     }
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        var viewModel = new HomeViewModel();
+        var newestResult = await productService.GetProductsAsync(
+            new ProductQueryParameters
+            {
+                PageNumber = 1,
+                PageSize = 8,
+                SortBy = "newest",
+                SortDirection = "desc"
+            },
+            cancellationToken);
 
-        // Query sản phẩm mới - 8 sản phẩm mới nhất (theo IdsanPham desc)
-        var sanPhamMoiQuery = await _context.SanPhams
-            .Where(p => p.TrangThai == true)
-            .OrderByDescending(p => p.IdsanPham)
-            .Take(8)
-            .Include(p => p.BienTheSanPhams)
-                .ThenInclude(bt => bt.HinhAnhBienThes)
-                .ThenInclude(habt => habt.IdhinhAnhNavigation)
-            .ToListAsync();
+        var saleResult = await productService.GetProductsAsync(
+            new ProductQueryParameters
+            {
+                PageNumber = 1,
+                PageSize = 8,
+                SortBy = "newest",
+                SortDirection = "desc",
+                OnSaleOnly = true
+            },
+            cancellationToken);
 
-        viewModel.SanPhamMoi = sanPhamMoiQuery.Select(p => new ProductCardViewModel
+        var viewModel = new HomeViewModel
         {
-            IDSanPham = p.IdsanPham,
-            TenSanPham = p.TenSanPham ?? string.Empty,
-            Gia = p.Gia,
-            AnhChinhURL = p.BienTheSanPhams
-                            .SelectMany(bt => bt.HinhAnhBienThes)
-                            .FirstOrDefault(habt => habt.LaAnhChinh == true)?
-                            .IdhinhAnhNavigation?.DuongDan ?? "/images/placeholder.png",
-            IsOutStock = !p.BienTheSanPhams.Any(bt => bt.SoLuongTon > 0),
-            GiaKhuyenMai = p.GiaKhuyenMai,
-            NgayBatDauKM = p.NgayBatDauKm,
-            NgayKetThucKM = p.NgayKetThucKm
-        }).ToList();
-
-        // Query sản phẩm khuyến mãi - sản phẩm có GiaKhuyenMai
-        var sanPhamKhuyenMaiQuery = await _context.SanPhams
-            .Where(p => p.TrangThai == true && p.GiaKhuyenMai.HasValue)
-            .OrderByDescending(p => p.IdsanPham)
-            .Take(8)
-            .Include(p => p.BienTheSanPhams)
-                .ThenInclude(bt => bt.HinhAnhBienThes)
-                .ThenInclude(habt => habt.IdhinhAnhNavigation)
-            .ToListAsync();
-
-        viewModel.SanPhamKhuyenMai = sanPhamKhuyenMaiQuery.Select(p => new ProductCardViewModel
-        {
-            IDSanPham = p.IdsanPham,
-            TenSanPham = p.TenSanPham ?? string.Empty,
-            Gia = p.Gia,
-            AnhChinhURL = p.BienTheSanPhams
-                            .SelectMany(bt => bt.HinhAnhBienThes)
-                            .FirstOrDefault(habt => habt.LaAnhChinh == true)?
-                            .IdhinhAnhNavigation?.DuongDan ?? "/images/placeholder.png",
-            IsOutStock = !p.BienTheSanPhams.Any(bt => bt.SoLuongTon > 0),
-            GiaKhuyenMai = p.GiaKhuyenMai,
-            NgayBatDauKM = p.NgayBatDauKm,
-            NgayKetThucKM = p.NgayKetThucKm
-        }).ToList();
+            SanPhamMoi = newestResult.IsSuccess
+                ? newestResult.Value!.Items.Select(ProductMvcMapper.ToCard).ToList()
+                : new List<ProductCardViewModel>(),
+            SanPhamKhuyenMai = saleResult.IsSuccess
+                ? saleResult.Value!.Items.Select(ProductMvcMapper.ToCard).ToList()
+                : new List<ProductCardViewModel>()
+        };
 
         return View(viewModel);
     }
@@ -82,6 +60,9 @@ public class HomeController : Controller
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {
-        return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        return View(new ErrorViewModel
+        {
+            RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier
+        });
     }
 }

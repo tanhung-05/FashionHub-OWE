@@ -1,7 +1,7 @@
 @model FashionHub.Web.ViewModels.Account.OrderDetailViewModel
 @{
     ViewData["Title"] = $"Chi tiết đơn hàng #{Model.IddonHang}";
-    var canCancel = Model.IdtrangThai == 1; // Only pending orders can be cancelled
+    var canCancel = Model.IdtrangThai == 0;
 }
 
 <div class="container py-4">
@@ -30,11 +30,11 @@
                             <h5 class="mb-0">Thông tin đơn hàng</h5>
                             <span class="badge bg-@(Model.IdtrangThai switch 
                             {
-                                1 => "warning",
-                                2 => "info",
-                                3 => "primary",
-                                4 => "success",
-                                5 => "danger",
+                                0 => "warning",
+                                1 => "info",
+                                2 => "primary",
+                                3 => "success",
+                                4 => "danger",
                                 _ => "secondary"
                             })">@Model.TrangThai</span>
                         </div>

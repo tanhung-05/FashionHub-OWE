@@ -79,18 +79,18 @@
                             <span class="text-muted">Tổng tiền hàng:</span>
                             <strong>@Model.TongTienHang.ToString("N0") đ</strong>
                         </div>
-                        @if (Model.PhiVanChuyen.HasValue && Model.PhiVanChuyen.Value > 0)
+                        @if (Model.PhiVanChuyen > 0)
                         {
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Phí vận chuyển:</span>
-                                <strong>@Model.PhiVanChuyen.Value.ToString("N0") đ</strong>
+                                <strong>@Model.PhiVanChuyen.ToString("N0") đ</strong>
                             </div>
                         }
-                        @if (Model.TienGiamGia.HasValue && Model.TienGiamGia.Value > 0)
+                        @if (Model.TienGiamGia > 0)
                         {
                             <div class="d-flex justify-content-between mb-2 text-success">
                                 <span>Giảm giá:</span>
-                                <strong>-@Model.TienGiamGia.Value.ToString("N0") đ</strong>
+                                <strong>-@Model.TienGiamGia.ToString("N0") đ</strong>
                             </div>
                         }
                         <hr />
@@ -169,7 +169,7 @@
 
                 <p class="mb-0 text-muted small">
                     <strong>Ngày tạo:</strong><br />
-                    @(Model.NgayTao.HasValue ? Model.NgayTao.Value.ToString("dd/MM/yyyy HH:mm") : "N/A")
+                    @Model.NgayTao.ToString("dd/MM/yyyy HH:mm")
                 </p>
             </div>
         </div>

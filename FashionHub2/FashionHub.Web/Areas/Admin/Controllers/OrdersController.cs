@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.Security.Claims;
 using System.Text;
 using FashionHub.Web.Data;
+using FashionHub.Web.Domain;
 using FashionHub.Web.Models.Generated;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,10 +15,6 @@ namespace FashionHub.Web.Areas.Admin.Controllers;
 [Authorize(Roles = "Admin")]
 public class OrdersController : Controller
 {
-    private const int PendingStatusId = 0;
-    private const int ConfirmedStatusId = 1;
-    private const int CancelledStatusId = 4;
-
     private readonly ApplicationDbContext _context;
 
     public OrdersController(ApplicationDbContext context)
@@ -125,8 +123,18 @@ public class OrdersController : Controller
         }
 
         var oldStatus = order.IdtrangThai;
+        if (oldStatus == idTrangThai)
+        {
+            TempData["Success"] = "Đơn hàng đang ở trạng thái này.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
 
-        if (idTrangThai == CancelledStatusId && oldStatus != CancelledStatusId)
+        if (!await _context.TrangThaiDonHangs.AnyAsync(status => status.IdtrangThai == idTrangThai))
+        {
+            return BadRequest();
+        }
+
+        if (idTrangThai == OrderStatusIds.Cancelled && oldStatus != OrderStatusIds.Cancelled)
         {
             foreach (var item in order.ChiTietDonHangs)
             {
@@ -138,11 +146,21 @@ public class OrdersController : Controller
                 var variant = await _context.BienTheSanPhams.FindAsync(item.IdbienThe.Value);
                 if (variant is not null)
                 {
+                    var previousStock = variant.SoLuongTon;
                     variant.SoLuongTon += item.SoLuong;
+                    variant.TongDaBan = Math.Max(0, variant.TongDaBan - item.SoLuong);
+                    variant.NgayCapNhat = DateTime.Now;
+                    AddInventoryHistory(
+                        variant,
+                        order.IddonHang,
+                        item.SoLuong,
+                        previousStock,
+                        InventoryChangeTypes.OrderCancelled,
+                        $"Hoàn kho do hủy đơn #{order.IddonHang}");
                 }
             }
         }
-        else if (oldStatus == CancelledStatusId && idTrangThai != CancelledStatusId)
+        else if (oldStatus == OrderStatusIds.Cancelled && idTrangThai != OrderStatusIds.Cancelled)
         {
             foreach (var item in order.ChiTietDonHangs)
             {
@@ -163,11 +181,23 @@ public class OrdersController : Controller
                     return RedirectToAction(nameof(Details), new { id });
                 }
 
+                var previousStock = variant.SoLuongTon;
                 variant.SoLuongTon -= item.SoLuong;
+                variant.TongDaBan += item.SoLuong;
+                variant.NgayCapNhat = DateTime.Now;
+                AddInventoryHistory(
+                    variant,
+                    order.IddonHang,
+                    -item.SoLuong,
+                    previousStock,
+                    InventoryChangeTypes.OrderPlaced,
+                    $"Xuất lại kho khi khôi phục đơn #{order.IddonHang}");
             }
         }
 
         order.IdtrangThai = idTrangThai;
+        order.NgayCapNhat = DateTime.Now;
+        AddOrderHistory(order.IddonHang, oldStatus, idTrangThai, "Admin cập nhật trạng thái đơn hàng");
         await _context.SaveChangesAsync();
 
         TempData["Success"] = "Cập nhật trạng thái thành công!";
@@ -211,7 +241,7 @@ public class OrdersController : Controller
         {
             var customer = EscapeCsv(item.TenNguoiNhan);
             var phone = EscapeCsv(item.SoDienThoai);
-            var createdAt = item.NgayTao?.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) ?? string.Empty;
+            var createdAt = item.NgayTao.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
             var status = EscapeCsv(item.IdtrangThaiNavigation.TenTrangThai);
             var address = EscapeCsv(item.DiaChiGiao);
 
@@ -263,12 +293,18 @@ public class OrdersController : Controller
             return Json(new { success = false, message = "Không tìm thấy đơn hàng." });
         }
 
-        if (order.IdtrangThai != PendingStatusId)
+        if (order.IdtrangThai != OrderStatusIds.Pending)
         {
             return Json(new { success = false, message = "Đơn hàng không ở trạng thái chờ." });
         }
 
-        order.IdtrangThai = ConfirmedStatusId;
+        order.IdtrangThai = OrderStatusIds.Confirmed;
+        order.NgayCapNhat = DateTime.Now;
+        AddOrderHistory(
+            order.IddonHang,
+            OrderStatusIds.Pending,
+            OrderStatusIds.Confirmed,
+            "Admin xác nhận đơn hàng");
         await _context.SaveChangesAsync();
 
         return Json(new { success = true, message = $"Đã xác nhận đơn hàng #{id}" });
@@ -283,7 +319,7 @@ public class OrdersController : Controller
         try
         {
             var pendingOrders = await _context.DonHangs
-                .Where(order => order.IdtrangThai == PendingStatusId)
+                .Where(order => order.IdtrangThai == OrderStatusIds.Pending)
                 .ToListAsync();
 
             if (pendingOrders.Count == 0)
@@ -293,7 +329,13 @@ public class OrdersController : Controller
 
             foreach (var order in pendingOrders)
             {
-                order.IdtrangThai = ConfirmedStatusId;
+                order.IdtrangThai = OrderStatusIds.Confirmed;
+                order.NgayCapNhat = DateTime.Now;
+                AddOrderHistory(
+                    order.IddonHang,
+                    OrderStatusIds.Pending,
+                    OrderStatusIds.Confirmed,
+                    "Admin xác nhận hàng loạt");
             }
 
             await _context.SaveChangesAsync();
@@ -319,5 +361,50 @@ public class OrdersController : Controller
         return escaped.Contains(',') || escaped.Contains('"') || escaped.Contains('\n') || escaped.Contains('\r')
             ? $"\"{escaped}\""
             : escaped;
+    }
+
+    private void AddInventoryHistory(
+        BienTheSanPham variant,
+        int orderId,
+        int quantityChange,
+        int previousStock,
+        string changeType,
+        string note)
+    {
+        _context.LichSuTonKhos.Add(new LichSuTonKho
+        {
+            IdbienThe = variant.IdbienThe,
+            IdnguoiThucHien = GetCurrentUserId(),
+            IddonHang = orderId,
+            LoaiThayDoi = changeType,
+            SoLuongThayDoi = quantityChange,
+            TonTruoc = previousStock,
+            TonSau = variant.SoLuongTon,
+            GhiChu = note,
+            NgayTao = DateTime.Now
+        });
+    }
+
+    private void AddOrderHistory(
+        int orderId,
+        int oldStatus,
+        int newStatus,
+        string note)
+    {
+        _context.LichSuDonHangs.Add(new LichSuDonHang
+        {
+            IddonHang = orderId,
+            IdtrangThaiCu = oldStatus,
+            IdtrangThaiMoi = newStatus,
+            IdnguoiThucHien = GetCurrentUserId(),
+            GhiChu = note,
+            NgayTao = DateTime.Now
+        });
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var claimValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(claimValue, out var userId) ? userId : null;
     }
 }

@@ -9,5 +9,9 @@ public partial class ThuongHieu
 
     public string TenThuongHieu { get; set; } = null!;
 
+    public bool TrangThai { get; set; }
+
+    public DateTime? DeletedAt { get; set; }
+
     public virtual ICollection<SanPham> SanPhams { get; set; } = new List<SanPham>();
 }

@@ -11,7 +11,7 @@ public partial class HinhAnh
 
     public string? MoTa { get; set; }
 
-    public string? VectorDacTrung { get; set; }
+    public DateTime NgayTao { get; set; }
 
     public virtual ICollection<HinhAnhBienThe> HinhAnhBienThes { get; set; } = new List<HinhAnhBienThe>();
 }

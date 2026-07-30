@@ -9,7 +9,9 @@ public partial class HinhAnhBienThe
 
     public int IdbienThe { get; set; }
 
-    public bool? LaAnhChinh { get; set; }
+    public bool LaAnhChinh { get; set; }
+
+    public int ThuTuHienThi { get; set; }
 
     public virtual BienTheSanPham IdbienTheNavigation { get; set; } = null!;
 

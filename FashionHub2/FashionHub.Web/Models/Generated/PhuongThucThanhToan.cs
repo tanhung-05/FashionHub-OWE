@@ -9,5 +9,7 @@ public partial class PhuongThucThanhToan
 
     public string TenPhuongThuc { get; set; } = null!;
 
+    public bool TrangThai { get; set; }
+
     public virtual ICollection<DonHang> DonHangs { get; set; } = new List<DonHang>();
 }

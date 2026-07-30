@@ -1,86 +1,64 @@
-using FashionHub.Web.Data;
+using FashionHub.Web.Application.Products;
 using FashionHub.Web.ViewModels.Products;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 
 namespace FashionHub.Web.Controllers;
 
 public class ProductsController : Controller
 {
-    private readonly ApplicationDbContext db;
+    private readonly IProductService productService;
 
-    public ProductsController(ApplicationDbContext context)
+    public ProductsController(IProductService productService)
     {
-        db = context;
+        this.productService = productService;
     }
 
-    public async Task<IActionResult> Index(string searchString, int? categoryId, List<int>? colorIds, List<int>? sizeIds, string? priceRange, string? sortBy, int page = 1)
+    public async Task<IActionResult> Index(
+        string? searchString,
+        int? categoryId,
+        List<int>? colorIds,
+        List<int>? sizeIds,
+        string? priceRange,
+        string? sortBy,
+        int page = 1,
+        CancellationToken cancellationToken = default)
     {
-        IQueryable<Models.Generated.SanPham> baseQuery = db.SanPhams
-            .Where(p => p.TrangThai == true)
-            .Include(p => p.BienTheSanPhams).ThenInclude(bt => bt.HinhAnhBienThes).ThenInclude(habt => habt.IdhinhAnhNavigation);
+        var query = new ProductQueryParameters
+        {
+            PageNumber = Math.Max(page, 1),
+            PageSize = 9,
+            Search = searchString,
+            CategoryId = categoryId,
+            ColorIds = colorIds ?? new List<int>(),
+            SizeIds = sizeIds ?? new List<int>(),
+            SortBy = sortBy?.StartsWith("price", StringComparison.OrdinalIgnoreCase) == true
+                ? "price"
+                : "newest",
+            SortDirection = sortBy == "price_asc" ? "asc" : "desc"
+        };
 
-        if (!string.IsNullOrEmpty(searchString))
-        {
-            baseQuery = baseQuery.Where(p => p.TenSanPham.Contains(searchString));
-        }
-        if (categoryId.HasValue)
-        {
-            baseQuery = baseQuery.Where(p =>
-                p.IddanhMuc == categoryId.Value ||
-                p.IddanhMucNavigation.IddanhMucCha == categoryId.Value
-            );
-        }
+        var productResult = await productService.GetProductsAsync(query, cancellationToken);
+        var filterResult = await productService.GetFilterOptionsAsync(cancellationToken);
 
-        if (colorIds != null && colorIds.Any())
+        if (!productResult.IsSuccess || !filterResult.IsSuccess)
         {
-            baseQuery = baseQuery.Where(p => p.BienTheSanPhams.Any(v => v.IdmauSac.HasValue && colorIds.Contains(v.IdmauSac.Value)));
-        }
-
-        if (sizeIds != null && sizeIds.Any())
-        {
-            baseQuery = baseQuery.Where(p => p.BienTheSanPhams.Any(v => v.IdkichThuoc.HasValue && sizeIds.Contains(v.IdkichThuoc.Value)));
+            return View(new ProductsViewModel());
         }
 
-        switch (sortBy)
-        {
-            case "price_asc": baseQuery = baseQuery.OrderBy(p => p.Gia); break;
-            case "price_desc": baseQuery = baseQuery.OrderByDescending(p => p.Gia); break;
-            case "newest": default: baseQuery = baseQuery.OrderByDescending(p => p.IdsanPham); break;
-        }
-
-        int pageSize = 9;
-        int totalItems = await baseQuery.CountAsync();
-        var pagedQuery = baseQuery.Skip((page - 1) * pageSize).Take(pageSize);
-
-        var products = await pagedQuery.ToListAsync();
-        var productCards = products.Select(p => new ProductCardViewModel
-        {
-            IDSanPham = p.IdsanPham,
-            TenSanPham = p.TenSanPham,
-            Gia = p.Gia,
-            AnhChinhURL = p.BienTheSanPhams
-                            .SelectMany(bt => bt.HinhAnhBienThes)
-                            .FirstOrDefault(habt => habt.LaAnhChinh == true)?
-                            .IdhinhAnhNavigation?.DuongDan ?? "/images/placeholder.png",
-            IsOutStock = !p.BienTheSanPhams.Any(bt => bt.SoLuongTon > 0),
-            GiaKhuyenMai = p.GiaKhuyenMai,
-            NgayBatDauKM = p.NgayBatDauKm,
-            NgayKetThucKM = p.NgayKetThucKm
-        }).ToList();
-
+        var products = productResult.Value!;
+        var filters = filterResult.Value!;
         var viewModel = new ProductsViewModel
         {
-            Products = productCards,
-            Categories = await db.DanhMucs.ToListAsync(),
-            Colors = await db.MauSacs.ToListAsync(),
-            Sizes = await db.KichThuocs.ToListAsync(),
-            CurrentPage = page,
-            TotalPages = (int)Math.Ceiling((double)totalItems / pageSize),
+            Products = products.Items.Select(ProductMvcMapper.ToCard).ToList(),
+            Categories = ProductMvcMapper.ToCategories(filters),
+            Colors = ProductMvcMapper.ToColors(filters),
+            Sizes = ProductMvcMapper.ToSizes(filters),
+            CurrentPage = products.PageNumber,
+            TotalPages = products.TotalPages,
             SelectedCategoryId = categoryId,
-            SelectedColorIds = colorIds ?? new List<int>(),
-            SelectedSizeIds = sizeIds ?? new List<int>(),
+            SelectedColorIds = query.ColorIds,
+            SelectedSizeIds = query.SizeIds,
+            SelectedPriceRange = priceRange,
             SelectedSortBy = sortBy,
             searchString = searchString
         };
@@ -88,107 +66,27 @@ public class ProductsController : Controller
         return View(viewModel);
     }
 
-    public async Task<IActionResult> Details(int id)
+    public async Task<IActionResult> Details(
+        int id,
+        CancellationToken cancellationToken)
     {
-        var product = await db.SanPhams
-            .Where(p => p.IdsanPham == id && p.TrangThai == true)
-            .Include(p => p.IddanhMucNavigation)
-            .Include(p => p.IdthuongHieuNavigation)
-            .Include(p => p.BienTheSanPhams).ThenInclude(bt => bt.IdmauSacNavigation)
-            .Include(p => p.BienTheSanPhams).ThenInclude(bt => bt.IdkichThuocNavigation)
-            .Include(p => p.BienTheSanPhams).ThenInclude(bt => bt.HinhAnhBienThes).ThenInclude(habt => habt.IdhinhAnhNavigation)
-            .FirstOrDefaultAsync();
-
-        if (product == null) return NotFound();
-
-        var allVariants = product.BienTheSanPhams.ToList();
-
-        var viewModel = new ProductDetailViewModel
+        var result = await productService.GetProductAsync(id, cancellationToken);
+        if (!result.IsSuccess)
         {
-            IDSanPham = product.IdsanPham,
-            TenSanPham = product.TenSanPham,
-            MoTa = product.MoTa,
-            IDDanhMuc = product.IddanhMucNavigation.IddanhMuc,
-            TenDanhMuc = product.IddanhMucNavigation.TenDanhMuc,
-            TenThuongHieu = product.IdthuongHieuNavigation?.TenThuongHieu,
-            Gia = product.Gia,
-            GiaKhuyenMai = product.GiaKhuyenMai,
+            return result.Error?.Type == Application.Common.ServiceErrorType.NotFound
+                ? NotFound()
+                : BadRequest();
+        }
 
-            AvailableColors = allVariants.Where(v => v.IdmauSacNavigation != null).Select(v => v.IdmauSacNavigation!).Distinct().ToList(),
-            AvailableSizes = allVariants.Where(v => v.IdkichThuocNavigation != null).Select(v => v.IdkichThuocNavigation!).Distinct().ToList(),
-            IsOutStock = !allVariants.Any(v => v.SoLuongTon > 0),
-
-            NgayBatDauKM = product.NgayBatDauKm,
-            NgayKetThucKM = product.NgayKetThucKm,
-
-            AllImages = product.BienTheSanPhams
-                .SelectMany(bt => bt.HinhAnhBienThes.Select(habt => habt.IdhinhAnhNavigation))
-                .Distinct()
-                .ToList()
-        };
-
-        var variantsForJson = allVariants.Select(v => new ProductVariantViewModel
-        {
-            IDBienThe = v.IdbienThe,
-            IDMauSac = v.IdmauSac,
-            IDKichThuoc = v.IdkichThuoc,
-            SoLuongTon = v.SoLuongTon,
-            Sku = v.Sku,
-            HinhAnhIDs = v.HinhAnhBienThes.Select(ha => ha.IdhinhAnh).ToList()
-        }).ToList();
-
-        viewModel.VariantsJson = JsonConvert.SerializeObject(variantsForJson);
-
-        var relatedProducts = await db.SanPhams
-            .Where(p => p.IddanhMuc == product.IddanhMuc && p.IdsanPham != id && p.TrangThai == true)
-            .Take(4)
-            .Include(p => p.BienTheSanPhams).ThenInclude(bt => bt.HinhAnhBienThes).ThenInclude(habt => habt.IdhinhAnhNavigation)
-            .ToListAsync();
-
-        viewModel.RelatedProducts = relatedProducts.Select(p => new ProductCardViewModel
-        {
-            IDSanPham = p.IdsanPham,
-            TenSanPham = p.TenSanPham,
-            Gia = p.Gia,
-            AnhChinhURL = p.BienTheSanPhams
-                            .SelectMany(bt => bt.HinhAnhBienThes)
-                            .FirstOrDefault(habt => habt.LaAnhChinh == true)?
-                            .IdhinhAnhNavigation?.DuongDan ?? "/images/placeholder.png",
-            IsOutStock = !p.BienTheSanPhams.Any(bt => bt.SoLuongTon > 0),
-            GiaKhuyenMai = p.GiaKhuyenMai,
-            NgayBatDauKM = p.NgayBatDauKm,
-            NgayKetThucKM = p.NgayKetThucKm
-        }).ToList();
-
-        return View(viewModel);
+        return View(ProductMvcMapper.ToDetail(result.Value!));
     }
 
     [HttpPost]
     public IActionResult SearchByImage(IFormFile? imageFile)
     {
-        // Image search feature disabled to avoid dependency on local AI model or external services.
-        // To re-enable, restore the original implementation in this method.
-        return RedirectToAction("Index", new { error = "Tính năng tìm kiếm bằng hình ảnh đã bị tắt để ứng dụng hoạt động ổn định." });
-    }
-
-    // Hàm toán học tính độ giống nhau (Cosine Similarity)
-    private double CalculateCosineSimilarity(float[] vectorA, float[] vectorB)
-    {
-        if (vectorA.Length != vectorB.Length) return 0;
-
-        double dotProduct = 0.0;
-        double magnitudeA = 0.0;
-        double magnitudeB = 0.0;
-
-        for (int i = 0; i < vectorA.Length; i++)
+        return RedirectToAction("Index", new
         {
-            dotProduct += vectorA[i] * vectorB[i];
-            magnitudeA += Math.Pow(vectorA[i], 2);
-            magnitudeB += Math.Pow(vectorB[i], 2);
-        }
-
-        if (magnitudeA == 0 || magnitudeB == 0) return 0;
-
-        return dotProduct / (Math.Sqrt(magnitudeA) * Math.Sqrt(magnitudeB));
+            error = "Tính năng tìm kiếm bằng hình ảnh đã bị tắt để ứng dụng hoạt động ổn định."
+        });
     }
 }

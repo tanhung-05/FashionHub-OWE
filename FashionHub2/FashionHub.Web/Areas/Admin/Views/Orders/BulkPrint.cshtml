@@ -215,7 +215,7 @@
                 <div class="invoice-meta">
                     <h2>HÓA ĐƠN</h2>
                     <p><strong>Số:</strong> #@order.IddonHang</p>
-                    <p><strong>Ngày:</strong> @(order.NgayTao.HasValue ? order.NgayTao.Value.ToString("dd/MM/yyyy") : "N/A")</p>
+                    <p><strong>Ngày:</strong> @order.NgayTao.ToString("dd/MM/yyyy")</p>
                 </div>
             </div>
 
@@ -269,18 +269,18 @@
                     <td>Tổng tiền hàng:</td>
                     <td class="text-right"><strong>@order.TongTienHang.ToString("N0") đ</strong></td>
                 </tr>
-                @if (order.PhiVanChuyen.HasValue && order.PhiVanChuyen.Value > 0)
+                @if (order.PhiVanChuyen > 0)
                 {
                     <tr>
                         <td>Phí vận chuyển:</td>
-                        <td class="text-right"><strong>@order.PhiVanChuyen.Value.ToString("N0") đ</strong></td>
+                        <td class="text-right"><strong>@order.PhiVanChuyen.ToString("N0") đ</strong></td>
                     </tr>
                 }
-                @if (order.TienGiamGia.HasValue && order.TienGiamGia.Value > 0)
+                @if (order.TienGiamGia > 0)
                 {
                     <tr style="color: #28a745;">
                         <td>Giảm giá:</td>
-                        <td class="text-right"><strong>-@order.TienGiamGia.Value.ToString("N0") đ</strong></td>
+                        <td class="text-right"><strong>-@order.TienGiamGia.ToString("N0") đ</strong></td>
                     </tr>
                 }
                 <tr>

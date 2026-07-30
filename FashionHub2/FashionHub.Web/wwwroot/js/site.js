@@ -294,7 +294,7 @@ $(document).ready(function () {
         const modalBodyHtml = `
             <div class="row">
                 <div class="col-md-6">
-                    <img id="modal-main-image" src="${product.images[0]?.url || '/Content/images/placeholder.png'}" class="img-fluid rounded mb-3" alt="${product.name}">
+                    <img id="modal-main-image" src="${product.images[0]?.url || '/images/placeholder.png'}" class="img-fluid rounded mb-3" alt="${product.name}">
                     <div class="d-flex">${imagesHtml}</div>
                 </div>
                 <div class="col-md-6">

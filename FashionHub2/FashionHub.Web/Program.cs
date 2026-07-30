@@ -1,15 +1,110 @@
+using FashionHub.Web.Application.Admin;
+using FashionHub.Web.Application.Authentication;
+using FashionHub.Web.Application.Products;
+using FashionHub.Web.Application.Orders;
 using FashionHub.Web.Data;
+using FashionHub.Web.Infrastructure.Authentication;
+using FashionHub.Web.Infrastructure.Cart;
+using FashionHub.Web.Infrastructure.Web;
 using FashionHub.Web.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 using System.IO.Compression;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllersWithViews();
+builder.Services
+    .AddControllersWithViews()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var problem = new ValidationProblemDetails(context.ModelState)
+            {
+                Type = "https://httpstatuses.com/400",
+                Title = "Request validation failed",
+                Status = StatusCodes.Status400BadRequest,
+                Instance = context.HttpContext.Request.Path
+            };
+            problem.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+
+            return new BadRequestObjectResult(problem);
+        };
+    });
 builder.Services.AddHttpClient();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-CSRF-TOKEN";
+    options.Cookie.Name = "FashionHub.Antiforgery";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = builder.Environment.IsEnvironment("Test")
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+});
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        context.ProblemDetails.Extensions["traceId"] =
+            context.HttpContext.TraceIdentifier;
+    };
+});
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("auth", limiter =>
+    {
+        limiter.PermitLimit = 10;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueLimit = 0;
+        limiter.AutoReplenishment = true;
+    });
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/problem+json";
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new ProblemDetails
+            {
+                Title = "Too many requests",
+                Status = StatusCodes.Status429TooManyRequests,
+                Detail = "Vui lòng thử lại sau.",
+                Instance = context.HttpContext.Request.Path,
+                Extensions =
+                {
+                    ["traceId"] = context.HttpContext.TraceIdentifier
+                }
+            },
+            cancellationToken);
+    };
+});
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "FashionHub API",
+        Version = "v1",
+        Description = "Versioned REST API for the FashionHub e-commerce application."
+    });
+    options.AddSecurityDefinition("cookieAuth", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Cookie,
+        Name = "FashionHub.Auth",
+        Description = "Cookie authentication created by /api/v1/auth/login."
+    });
+});
 
 // Session configuration
 builder.Services.AddSession(options =>
@@ -17,7 +112,9 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromDays(7);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = builder.Environment.IsEnvironment("Test")
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.Lax;
 });
 
@@ -68,6 +165,21 @@ builder.Services.AddHealthChecks()
 
 // Application services
 builder.Services.AddScoped<IChatAiService, ChatAiService>();
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<ICartSessionStore, HttpCartSessionStore>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAuthenticationSessionService, CookieAuthenticationSessionService>();
+builder.Services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<AdminService>();
+builder.Services.AddScoped<IAdminProductService>(
+    provider => provider.GetRequiredService<AdminService>());
+builder.Services.AddScoped<IAdminOrderService>(
+    provider => provider.GetRequiredService<AdminService>());
+builder.Services.AddScoped<IAdminReportService>(
+    provider => provider.GetRequiredService<AdminService>());
 
 // Authentication
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -77,10 +189,62 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.AccessDeniedPath = "/Account/AccessDenied";
         options.Cookie.Name = "FashionHub.Auth";
         options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SecurePolicy = builder.Environment.IsEnvironment("Test")
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.SlidingExpiration = true;
         options.ExpireTimeSpan = TimeSpan.FromDays(14);
+        options.Events.OnValidatePrincipal = async context =>
+        {
+            var userIdClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+            var emailClaim = context.Principal?.FindFirstValue(ClaimTypes.Email);
+            var isValidPrincipal = false;
+
+            if (int.TryParse(userIdClaim, out var userId)
+                && !string.IsNullOrWhiteSpace(emailClaim))
+            {
+                var dbContext = context.HttpContext.RequestServices
+                    .GetRequiredService<ApplicationDbContext>();
+
+                isValidPrincipal = await dbContext.NguoiDungs
+                    .AsNoTracking()
+                    .AnyAsync(user =>
+                        user.IdnguoiDung == userId
+                        && user.Email == emailClaim
+                        && user.TrangThai
+                        && user.DeletedAt == null);
+            }
+
+            if (!isValidPrincipal)
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme);
+            }
+        };
+        options.Events.OnRedirectToLogin = context =>
+        {
+            if (context.Request.Path.StartsWithSegments("/api"))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            }
+
+            context.Response.Redirect(context.RedirectUri);
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            if (context.Request.Path.StartsWithSegments("/api"))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
+            }
+
+            context.Response.Redirect(context.RedirectUri);
+            return Task.CompletedTask;
+        };
     });
 
 var app = builder.Build();
@@ -89,6 +253,12 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "FashionHub API v1");
+        options.RoutePrefix = "swagger";
+    });
 }
 else
 {
@@ -124,6 +294,29 @@ app.Use(async (context, next) =>
 
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseRateLimiter();
+app.UseWhen(
+    context => context.Request.Path.StartsWithSegments("/api"),
+    apiPipeline => apiPipeline.UseExceptionHandler());
+
+app.UseWhen(
+    context => context.Request.Path.StartsWithSegments("/api"),
+    apiPipeline => apiPipeline.Use(async (context, next) =>
+    {
+        context.Response.Headers["X-Trace-Id"] = context.TraceIdentifier;
+        var logger = context.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("FashionHub.Api");
+        using (logger.BeginScope(new Dictionary<string, object>
+        {
+            ["TraceId"] = context.TraceIdentifier,
+            ["Method"] = context.Request.Method,
+            ["Path"] = context.Request.Path.Value ?? string.Empty
+        }))
+        {
+            await next();
+        }
+    }));
 
 // Static files with caching for production
 if (app.Environment.IsProduction())
@@ -146,6 +339,8 @@ else
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapControllers();
 
 app.MapControllerRoute(
     name: "admin",

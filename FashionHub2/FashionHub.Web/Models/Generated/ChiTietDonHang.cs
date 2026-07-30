@@ -23,5 +23,7 @@ public partial class ChiTietDonHang
 
     public virtual BienTheSanPham? IdbienTheNavigation { get; set; }
 
+    public virtual ICollection<DanhGia> DanhGia { get; set; } = new List<DanhGia>();
+
     public virtual DonHang IddonHangNavigation { get; set; } = null!;
 }

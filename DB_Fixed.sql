@@ -1,4 +1,11 @@
-﻿create database QL_SHOPQUANAO_PRO;
+SET NOCOUNT ON;
+GO
+
+IF DB_ID(N'QL_SHOPQUANAO_PRO') IS NULL
+BEGIN
+    EXEC(N'CREATE DATABASE QL_SHOPQUANAO_PRO');
+END
+GO
 
 USE QL_SHOPQUANAO_PRO;
 GO
@@ -8,6 +15,11 @@ GO
 -- =================================================================
 
 -- Drop các bảng liên kết/phụ thuộc trước
+IF OBJECT_ID('AdminActivityLog', 'U') IS NOT NULL DROP TABLE AdminActivityLog;
+IF OBJECT_ID('LichSuDonHang', 'U') IS NOT NULL DROP TABLE LichSuDonHang;
+IF OBJECT_ID('LichSuTonKho', 'U') IS NOT NULL DROP TABLE LichSuTonKho;
+IF OBJECT_ID('DanhGia', 'U') IS NOT NULL DROP TABLE DanhGia;
+IF OBJECT_ID('YeuThich', 'U') IS NOT NULL DROP TABLE YeuThich;
 IF OBJECT_ID('ChiTietDonHang', 'U') IS NOT NULL DROP TABLE ChiTietDonHang;
 IF OBJECT_ID('DonHang', 'U') IS NOT NULL DROP TABLE DonHang;
 IF OBJECT_ID('GioHang', 'U') IS NOT NULL DROP TABLE GioHang;
@@ -35,41 +47,62 @@ GO
 
 -- 2.1. Các bảng tra cứu & danh mục
 CREATE TABLE VaiTro (
-    IDVaiTro INT PRIMARY KEY IDENTITY(1,1),
-    TenVaiTro VARCHAR(50) NOT NULL UNIQUE
+    IDVaiTro INT NOT NULL PRIMARY KEY,
+    TenVaiTro VARCHAR(50) NOT NULL,
+    CONSTRAINT UQ_VaiTro_TenVaiTro UNIQUE (TenVaiTro)
 );
 
 CREATE TABLE TrangThaiDonHang (
-    IDTrangThai INT PRIMARY KEY,
-    TenTrangThai NVARCHAR(100) NOT NULL
+    IDTrangThai INT NOT NULL PRIMARY KEY,
+    TenTrangThai NVARCHAR(100) NOT NULL,
+    CONSTRAINT UQ_TrangThaiDonHang_TenTrangThai UNIQUE (TenTrangThai)
 );
 
 CREATE TABLE PhuongThucThanhToan (
     IDPhuongThucThanhToan INT PRIMARY KEY IDENTITY(1,1),
-    TenPhuongThuc NVARCHAR(100) NOT NULL
+    TenPhuongThuc NVARCHAR(100) NOT NULL,
+    TrangThai BIT NOT NULL CONSTRAINT DF_PhuongThucThanhToan_TrangThai DEFAULT 1,
+    CONSTRAINT UQ_PhuongThucThanhToan_TenPhuongThuc UNIQUE (TenPhuongThuc)
 );
 
 CREATE TABLE DanhMuc (
     IDDanhMuc INT PRIMARY KEY IDENTITY(1,1),
     TenDanhMuc NVARCHAR(100) NOT NULL,
+    Slug NVARCHAR(100) NULL,
     IDDanhMucCha INT NULL,
-    FOREIGN KEY (IDDanhMucCha) REFERENCES DanhMuc(IDDanhMuc)
+    ThuTuHienThi INT NOT NULL CONSTRAINT DF_DanhMuc_ThuTuHienThi DEFAULT 0,
+    TrangThai BIT NOT NULL CONSTRAINT DF_DanhMuc_TrangThai DEFAULT 1,
+    DeletedAt DATETIME2(0) NULL,
+    CONSTRAINT FK_DanhMuc_DanhMucCha FOREIGN KEY (IDDanhMucCha)
+        REFERENCES DanhMuc(IDDanhMuc)
 );
 
 CREATE TABLE ThuongHieu (
     IDThuongHieu INT PRIMARY KEY IDENTITY(1,1),
-    TenThuongHieu NVARCHAR(100) NOT NULL
+    TenThuongHieu NVARCHAR(100) NOT NULL,
+    TrangThai BIT NOT NULL CONSTRAINT DF_ThuongHieu_TrangThai DEFAULT 1,
+    DeletedAt DATETIME2(0) NULL,
+    CONSTRAINT UQ_ThuongHieu_TenThuongHieu UNIQUE (TenThuongHieu)
 );
 
 CREATE TABLE MauSac (
     IDMauSac INT PRIMARY KEY IDENTITY(1,1),
     TenMau NVARCHAR(50) NOT NULL,
-    MaMauHex VARCHAR(7)
+    MaMauHex VARCHAR(7) NULL,
+    CONSTRAINT CK_MauSac_MaMauHex CHECK (
+        MaMauHex IS NULL
+        OR (
+            LEN(MaMauHex) = 7
+            AND LEFT(MaMauHex, 1) = '#'
+            AND SUBSTRING(MaMauHex, 2, 6) NOT LIKE '%[^0-9A-Fa-f]%'
+        )
+    )
 );
 
 CREATE TABLE KichThuoc (
     IDKichThuoc INT PRIMARY KEY IDENTITY(1,1),
-    TenKichThuoc VARCHAR(50) NOT NULL
+    TenKichThuoc VARCHAR(50) NOT NULL,
+    CONSTRAINT UQ_KichThuoc_TenKichThuoc UNIQUE (TenKichThuoc)
 );
 
 -- 2.2. Người dùng & Địa chỉ
@@ -80,9 +113,11 @@ CREATE TABLE NguoiDung (
     SoDienThoai VARCHAR(15) NULL,
     MatKhauHash VARCHAR(255) NOT NULL,
     IDVaiTro INT NOT NULL,
-    NgayTao DATETIME DEFAULT GETDATE(),
-    TrangThai BIT DEFAULT 1,
-    FOREIGN KEY (IDVaiTro) REFERENCES VaiTro(IDVaiTro)
+    NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_NguoiDung_NgayTao DEFAULT SYSDATETIME(),
+    NgayCapNhat DATETIME2(0) NULL,
+    TrangThai BIT NOT NULL CONSTRAINT DF_NguoiDung_TrangThai DEFAULT 1,
+    DeletedAt DATETIME2(0) NULL,
+    CONSTRAINT FK_NguoiDung_VaiTro FOREIGN KEY (IDVaiTro) REFERENCES VaiTro(IDVaiTro)
 );
 
 CREATE TABLE DiaChi (
@@ -94,24 +129,37 @@ CREATE TABLE DiaChi (
     PhuongXa NVARCHAR(100) NOT NULL,
     QuanHuyen NVARCHAR(100) NOT NULL,
     TinhThanh NVARCHAR(100) NOT NULL,
-    LaMacDinh BIT DEFAULT 0,
-    FOREIGN KEY (IDNguoiDung) REFERENCES NguoiDung(IDNguoiDung) ON DELETE CASCADE
+    LaMacDinh BIT NOT NULL CONSTRAINT DF_DiaChi_LaMacDinh DEFAULT 0,
+    NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_DiaChi_NgayTao DEFAULT SYSDATETIME(),
+    CONSTRAINT FK_DiaChi_NguoiDung FOREIGN KEY (IDNguoiDung)
+        REFERENCES NguoiDung(IDNguoiDung) ON DELETE CASCADE
 );
 
 -- 2.3. Sản phẩm, Biến thể & Hình ảnh
 CREATE TABLE SanPham (
     IDSanPham INT PRIMARY KEY IDENTITY(1,1),
     TenSanPham NVARCHAR(255) NOT NULL,
-    MoTa NVARCHAR(MAX) NULL, -- Đã chuyển từ NTEXT sang NVARCHAR(MAX)
-    Gia DECIMAL(18, 2) NOT NULL DEFAULT 0,
-    GiaKhuyenMai DECIMAL(18, 2) NULL,
-    NgayBatDauKM DATETIME NULL,
-    NgayKetThucKM DATETIME NULL,
-    IDDanhMuc INT,
-    IDThuongHieu INT,
-    TrangThai BIT DEFAULT 1,
-    FOREIGN KEY (IDDanhMuc) REFERENCES DanhMuc(IDDanhMuc),
-    FOREIGN KEY (IDThuongHieu) REFERENCES ThuongHieu(IDThuongHieu)
+    Slug NVARCHAR(255) NULL,
+    MoTa NVARCHAR(MAX) NULL,
+    Gia DECIMAL(18, 0) NOT NULL CONSTRAINT DF_SanPham_Gia DEFAULT 0,
+    GiaKhuyenMai DECIMAL(18, 0) NULL,
+    NgayBatDauKM DATETIME2(0) NULL,
+    NgayKetThucKM DATETIME2(0) NULL,
+    IDDanhMuc INT NULL,
+    IDThuongHieu INT NULL,
+    TrangThai BIT NOT NULL CONSTRAINT DF_SanPham_TrangThai DEFAULT 1,
+    NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_SanPham_NgayTao DEFAULT SYSDATETIME(),
+    NgayCapNhat DATETIME2(0) NULL,
+    DeletedAt DATETIME2(0) NULL,
+    CONSTRAINT FK_SanPham_DanhMuc FOREIGN KEY (IDDanhMuc) REFERENCES DanhMuc(IDDanhMuc),
+    CONSTRAINT FK_SanPham_ThuongHieu FOREIGN KEY (IDThuongHieu) REFERENCES ThuongHieu(IDThuongHieu),
+    CONSTRAINT CK_SanPham_Gia CHECK (Gia >= 0),
+    CONSTRAINT CK_SanPham_GiaKhuyenMai CHECK (
+        GiaKhuyenMai IS NULL OR (GiaKhuyenMai >= 0 AND GiaKhuyenMai <= Gia)
+    ),
+    CONSTRAINT CK_SanPham_ThoiGianKhuyenMai CHECK (
+        NgayBatDauKM IS NULL OR NgayKetThucKM IS NULL OR NgayBatDauKM <= NgayKetThucKM
+    )
 );
 
 CREATE TABLE BienTheSanPham (
@@ -119,37 +167,59 @@ CREATE TABLE BienTheSanPham (
     IDSanPham INT NOT NULL,
     IDMauSac INT,
     IDKichThuoc INT,
-    SKU VARCHAR(100) UNIQUE,
-    Gia DECIMAL(18, 2) NOT NULL DEFAULT 0, -- Thêm cột Gia để lưu trữ giá biến thể
-    SoLuongTon INT NOT NULL DEFAULT 0,
-    FOREIGN KEY (IDSanPham) REFERENCES SanPham(IDSanPham) ON DELETE CASCADE,
-    FOREIGN KEY (IDMauSac) REFERENCES MauSac(IDMauSac),
-    FOREIGN KEY (IDKichThuoc) REFERENCES KichThuoc(IDKichThuoc)
+    SKU VARCHAR(100) NOT NULL,
+    Gia DECIMAL(18, 0) NOT NULL CONSTRAINT DF_BienTheSanPham_Gia DEFAULT 0,
+    SoLuongTon INT NOT NULL CONSTRAINT DF_BienTheSanPham_SoLuongTon DEFAULT 0,
+    SoLuongCanhBao INT NOT NULL CONSTRAINT DF_BienTheSanPham_SoLuongCanhBao DEFAULT 10,
+    TongDaBan INT NOT NULL CONSTRAINT DF_BienTheSanPham_TongDaBan DEFAULT 0,
+    TrangThai BIT NOT NULL CONSTRAINT DF_BienTheSanPham_TrangThai DEFAULT 1,
+    NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_BienTheSanPham_NgayTao DEFAULT SYSDATETIME(),
+    NgayCapNhat DATETIME2(0) NULL,
+    DeletedAt DATETIME2(0) NULL,
+    RowVersion ROWVERSION NOT NULL,
+    CONSTRAINT UQ_BienTheSanPham_SKU UNIQUE (SKU),
+    CONSTRAINT FK_BienTheSanPham_SanPham FOREIGN KEY (IDSanPham)
+        REFERENCES SanPham(IDSanPham) ON DELETE CASCADE,
+    CONSTRAINT FK_BienTheSanPham_MauSac FOREIGN KEY (IDMauSac) REFERENCES MauSac(IDMauSac),
+    CONSTRAINT FK_BienTheSanPham_KichThuoc FOREIGN KEY (IDKichThuoc) REFERENCES KichThuoc(IDKichThuoc),
+    CONSTRAINT CK_BienTheSanPham_Gia CHECK (Gia >= 0),
+    CONSTRAINT CK_BienTheSanPham_SoLuongTon CHECK (SoLuongTon >= 0),
+    CONSTRAINT CK_BienTheSanPham_SoLuongCanhBao CHECK (SoLuongCanhBao >= 0),
+    CONSTRAINT CK_BienTheSanPham_TongDaBan CHECK (TongDaBan >= 0)
 );
 
 CREATE TABLE HinhAnh (
     IDHinhAnh INT PRIMARY KEY IDENTITY(1,1),
     DuongDan VARCHAR(500) NOT NULL,
-    MoTa NVARCHAR(255) NULL
+    MoTa NVARCHAR(255) NULL,
+    NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_HinhAnh_NgayTao DEFAULT SYSDATETIME()
 );
 
 CREATE TABLE HinhAnh_BienThe (
-    IDHinhAnh INT,
-    IDBienThe INT,
-    LaAnhChinh BIT DEFAULT 0,
+    IDHinhAnh INT NOT NULL,
+    IDBienThe INT NOT NULL,
+    LaAnhChinh BIT NOT NULL CONSTRAINT DF_HinhAnhBienThe_LaAnhChinh DEFAULT 0,
+    ThuTuHienThi INT NOT NULL CONSTRAINT DF_HinhAnhBienThe_ThuTuHienThi DEFAULT 0,
     PRIMARY KEY (IDHinhAnh, IDBienThe),
-    FOREIGN KEY (IDHinhAnh) REFERENCES HinhAnh(IDHinhAnh) ON DELETE CASCADE,
-    FOREIGN KEY (IDBienThe) REFERENCES BienTheSanPham(IDBienThe) ON DELETE CASCADE
+    CONSTRAINT FK_HinhAnhBienThe_HinhAnh FOREIGN KEY (IDHinhAnh)
+        REFERENCES HinhAnh(IDHinhAnh) ON DELETE CASCADE,
+    CONSTRAINT FK_HinhAnhBienThe_BienTheSanPham FOREIGN KEY (IDBienThe)
+        REFERENCES BienTheSanPham(IDBienThe) ON DELETE CASCADE
 );
 
 -- 2.4. Giỏ hàng & Khuyến mãi
 CREATE TABLE GioHang (
-    IDNguoiDung INT,
-    IDBienThe INT,
-    SoLuong INT NOT NULL DEFAULT 1,
+    IDNguoiDung INT NOT NULL,
+    IDBienThe INT NOT NULL,
+    SoLuong INT NOT NULL CONSTRAINT DF_GioHang_SoLuong DEFAULT 1,
+    NgayThem DATETIME2(0) NOT NULL CONSTRAINT DF_GioHang_NgayThem DEFAULT SYSDATETIME(),
+    NgayCapNhat DATETIME2(0) NOT NULL CONSTRAINT DF_GioHang_NgayCapNhat DEFAULT SYSDATETIME(),
     PRIMARY KEY (IDNguoiDung, IDBienThe),
-    FOREIGN KEY (IDNguoiDung) REFERENCES NguoiDung(IDNguoiDung) ON DELETE CASCADE,
-    FOREIGN KEY (IDBienThe) REFERENCES BienTheSanPham(IDBienThe) ON DELETE CASCADE
+    CONSTRAINT FK_GioHang_NguoiDung FOREIGN KEY (IDNguoiDung)
+        REFERENCES NguoiDung(IDNguoiDung) ON DELETE CASCADE,
+    CONSTRAINT FK_GioHang_BienTheSanPham FOREIGN KEY (IDBienThe)
+        REFERENCES BienTheSanPham(IDBienThe) ON DELETE CASCADE,
+    CONSTRAINT CK_GioHang_SoLuong CHECK (SoLuong > 0)
 );
 
 CREATE TABLE MaGiamGia (
@@ -157,14 +227,24 @@ CREATE TABLE MaGiamGia (
     MaCode VARCHAR(50) NOT NULL UNIQUE,
     TenChuongTrinh NVARCHAR(255),
     LoaiGiamGia INT NOT NULL, -- 1: Tiền cố định, 2: Phần trăm
-    GiaTri DECIMAL(18, 2) NOT NULL,
-    DonHangToiThieu DECIMAL(18, 2) DEFAULT 0,
-    GiamToiDa DECIMAL(18, 2) NULL,
+    GiaTri DECIMAL(18, 0) NOT NULL,
+    DonHangToiThieu DECIMAL(18, 0) NOT NULL CONSTRAINT DF_MaGiamGia_DonHangToiThieu DEFAULT 0,
+    GiamToiDa DECIMAL(18, 0) NULL,
     SoLuong INT NOT NULL,
-    DaSuDung INT NOT NULL DEFAULT 0,
-    NgayBatDau DATETIME,
-    NgayKetThuc DATETIME,
-    TrangThai BIT NOT NULL DEFAULT 1
+    DaSuDung INT NOT NULL CONSTRAINT DF_MaGiamGia_DaSuDung DEFAULT 0,
+    NgayBatDau DATETIME2(0) NOT NULL,
+    NgayKetThuc DATETIME2(0) NOT NULL,
+    TrangThai BIT NOT NULL CONSTRAINT DF_MaGiamGia_TrangThai DEFAULT 1,
+    NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_MaGiamGia_NgayTao DEFAULT SYSDATETIME(),
+    DeletedAt DATETIME2(0) NULL,
+    CONSTRAINT CK_MaGiamGia_Loai CHECK (LoaiGiamGia IN (1, 2)),
+    CONSTRAINT CK_MaGiamGia_GiaTri CHECK (
+        GiaTri > 0 AND (LoaiGiamGia = 1 OR GiaTri <= 100)
+    ),
+    CONSTRAINT CK_MaGiamGia_SoLuong CHECK (
+        SoLuong >= 0 AND DaSuDung >= 0 AND DaSuDung <= SoLuong
+    ),
+    CONSTRAINT CK_MaGiamGia_ThoiGian CHECK (NgayBatDau <= NgayKetThuc)
 );
 
 -- 2.5. Đơn hàng & Chi tiết đơn hàng
@@ -175,17 +255,27 @@ CREATE TABLE DonHang (
     TenNguoiNhan NVARCHAR(100) NOT NULL,
     DiaChiGiao NVARCHAR(500) NOT NULL,
     SoDienThoai VARCHAR(15) NOT NULL,
-    TongTienHang DECIMAL(18, 2) NOT NULL,
-    PhiVanChuyen DECIMAL(18, 2) DEFAULT 0,
-    TienGiamGia DECIMAL(18, 2) DEFAULT 0,
-    TongThanhToan DECIMAL(18, 2) NOT NULL,
+    TongTienHang DECIMAL(18, 0) NOT NULL,
+    PhiVanChuyen DECIMAL(18, 0) NOT NULL CONSTRAINT DF_DonHang_PhiVanChuyen DEFAULT 0,
+    TienGiamGia DECIMAL(18, 0) NOT NULL CONSTRAINT DF_DonHang_TienGiamGia DEFAULT 0,
+    TongThanhToan DECIMAL(18, 0) NOT NULL,
     IDPhuongThucThanhToan INT NULL,
     IDTrangThai INT NOT NULL,
-    NgayTao DATETIME DEFAULT GETDATE(),
-    FOREIGN KEY (IDNguoiDung) REFERENCES NguoiDung(IDNguoiDung) ON DELETE SET NULL,
-    FOREIGN KEY (IDMaGiamGia) REFERENCES MaGiamGia(IDMaGiamGia),
-    FOREIGN KEY (IDPhuongThucThanhToan) REFERENCES PhuongThucThanhToan(IDPhuongThucThanhToan) ON DELETE SET NULL,
-    FOREIGN KEY (IDTrangThai) REFERENCES TrangThaiDonHang(IDTrangThai)
+    GhiChu NVARCHAR(500) NULL,
+    NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_DonHang_NgayTao DEFAULT SYSDATETIME(),
+    NgayCapNhat DATETIME2(0) NULL,
+    CONSTRAINT FK_DonHang_NguoiDung FOREIGN KEY (IDNguoiDung)
+        REFERENCES NguoiDung(IDNguoiDung) ON DELETE SET NULL,
+    CONSTRAINT FK_DonHang_MaGiamGia FOREIGN KEY (IDMaGiamGia) REFERENCES MaGiamGia(IDMaGiamGia),
+    CONSTRAINT FK_DonHang_PhuongThucThanhToan FOREIGN KEY (IDPhuongThucThanhToan)
+        REFERENCES PhuongThucThanhToan(IDPhuongThucThanhToan) ON DELETE SET NULL,
+    CONSTRAINT FK_DonHang_TrangThaiDonHang FOREIGN KEY (IDTrangThai)
+        REFERENCES TrangThaiDonHang(IDTrangThai),
+    CONSTRAINT CK_DonHang_SoTien CHECK (
+        TongTienHang >= 0 AND PhiVanChuyen >= 0 AND TienGiamGia >= 0
+        AND TongThanhToan >= 0
+        AND TongThanhToan = TongTienHang + PhiVanChuyen - TienGiamGia
+    )
 );
 
 CREATE TABLE ChiTietDonHang (
@@ -193,13 +283,102 @@ CREATE TABLE ChiTietDonHang (
     IDDonHang INT NOT NULL,
     IDBienThe INT NULL,
     SoLuong INT NOT NULL,
-    DonGia DECIMAL(18, 2) NOT NULL,
+    DonGia DECIMAL(18, 0) NOT NULL,
     TenSanPham NVARCHAR(255) NOT NULL,
     TenMau NVARCHAR(50) NULL,
     TenKichThuoc VARCHAR(50) NULL,
-    FOREIGN KEY (IDDonHang) REFERENCES DonHang(IDDonHang) ON DELETE CASCADE,
-    FOREIGN KEY (IDBienThe) REFERENCES BienTheSanPham(IDBienThe) ON DELETE SET NULL,
-    CONSTRAINT UQ_DonHang_BienThe UNIQUE (IDDonHang, IDBienThe)
+    CONSTRAINT FK_ChiTietDonHang_DonHang FOREIGN KEY (IDDonHang)
+        REFERENCES DonHang(IDDonHang) ON DELETE CASCADE,
+    CONSTRAINT FK_ChiTietDonHang_BienTheSanPham FOREIGN KEY (IDBienThe)
+        REFERENCES BienTheSanPham(IDBienThe) ON DELETE SET NULL,
+    CONSTRAINT UQ_ChiTietDonHang_DonHang_BienThe UNIQUE (IDDonHang, IDBienThe),
+    CONSTRAINT CK_ChiTietDonHang_SoLuong CHECK (SoLuong > 0),
+    CONSTRAINT CK_ChiTietDonHang_DonGia CHECK (DonGia >= 0)
+);
+
+-- 2.6. Wishlist, đánh giá và lịch sử nghiệp vụ
+CREATE TABLE YeuThich (
+    IDNguoiDung INT NOT NULL,
+    IDSanPham INT NOT NULL,
+    NgayThem DATETIME2(0) NOT NULL CONSTRAINT DF_YeuThich_NgayThem DEFAULT SYSDATETIME(),
+    CONSTRAINT PK_YeuThich PRIMARY KEY (IDNguoiDung, IDSanPham),
+    CONSTRAINT FK_YeuThich_NguoiDung FOREIGN KEY (IDNguoiDung)
+        REFERENCES NguoiDung(IDNguoiDung) ON DELETE CASCADE,
+    CONSTRAINT FK_YeuThich_SanPham FOREIGN KEY (IDSanPham)
+        REFERENCES SanPham(IDSanPham) ON DELETE CASCADE
+);
+
+CREATE TABLE DanhGia (
+    IDDanhGia INT PRIMARY KEY IDENTITY(1,1),
+    IDNguoiDung INT NOT NULL,
+    IDSanPham INT NOT NULL,
+    IDChiTietDonHang INT NULL,
+    DiemSo TINYINT NOT NULL,
+    NoiDung NVARCHAR(2000) NULL,
+    TrangThai BIT NOT NULL CONSTRAINT DF_DanhGia_TrangThai DEFAULT 1,
+    NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_DanhGia_NgayTao DEFAULT SYSDATETIME(),
+    NgayCapNhat DATETIME2(0) NULL,
+    DeletedAt DATETIME2(0) NULL,
+    CONSTRAINT FK_DanhGia_NguoiDung FOREIGN KEY (IDNguoiDung) REFERENCES NguoiDung(IDNguoiDung),
+    CONSTRAINT FK_DanhGia_SanPham FOREIGN KEY (IDSanPham) REFERENCES SanPham(IDSanPham),
+    CONSTRAINT FK_DanhGia_ChiTietDonHang FOREIGN KEY (IDChiTietDonHang)
+        REFERENCES ChiTietDonHang(IDChiTietDonHang) ON DELETE SET NULL,
+    CONSTRAINT UQ_DanhGia_NguoiDung_SanPham UNIQUE (IDNguoiDung, IDSanPham),
+    CONSTRAINT CK_DanhGia_DiemSo CHECK (DiemSo BETWEEN 1 AND 5)
+);
+
+CREATE TABLE LichSuTonKho (
+    IDLichSu INT PRIMARY KEY IDENTITY(1,1),
+    IDBienThe INT NOT NULL,
+    IDNguoiThucHien INT NULL,
+    IDDonHang INT NULL,
+    LoaiThayDoi NVARCHAR(50) NOT NULL,
+    SoLuongThayDoi INT NOT NULL,
+    TonTruoc INT NOT NULL,
+    TonSau INT NOT NULL,
+    GhiChu NVARCHAR(500) NULL,
+    NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_LichSuTonKho_NgayTao DEFAULT SYSDATETIME(),
+    CONSTRAINT FK_LichSuTonKho_BienTheSanPham FOREIGN KEY (IDBienThe)
+        REFERENCES BienTheSanPham(IDBienThe),
+    CONSTRAINT FK_LichSuTonKho_NguoiDung FOREIGN KEY (IDNguoiThucHien)
+        REFERENCES NguoiDung(IDNguoiDung) ON DELETE SET NULL,
+    CONSTRAINT FK_LichSuTonKho_DonHang FOREIGN KEY (IDDonHang)
+        REFERENCES DonHang(IDDonHang) ON DELETE SET NULL,
+    CONSTRAINT CK_LichSuTonKho_Ton CHECK (TonTruoc >= 0 AND TonSau >= 0)
+);
+
+CREATE TABLE LichSuDonHang (
+    IDLichSu INT PRIMARY KEY IDENTITY(1,1),
+    IDDonHang INT NOT NULL,
+    IDTrangThaiCu INT NULL,
+    IDTrangThaiMoi INT NOT NULL,
+    IDNguoiThucHien INT NULL,
+    GhiChu NVARCHAR(500) NULL,
+    NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_LichSuDonHang_NgayTao DEFAULT SYSDATETIME(),
+    CONSTRAINT FK_LichSuDonHang_DonHang FOREIGN KEY (IDDonHang)
+        REFERENCES DonHang(IDDonHang) ON DELETE CASCADE,
+    CONSTRAINT FK_LichSuDonHang_TrangThaiCu FOREIGN KEY (IDTrangThaiCu)
+        REFERENCES TrangThaiDonHang(IDTrangThai),
+    CONSTRAINT FK_LichSuDonHang_TrangThaiMoi FOREIGN KEY (IDTrangThaiMoi)
+        REFERENCES TrangThaiDonHang(IDTrangThai),
+    CONSTRAINT FK_LichSuDonHang_NguoiDung FOREIGN KEY (IDNguoiThucHien)
+        REFERENCES NguoiDung(IDNguoiDung) ON DELETE SET NULL
+);
+
+CREATE TABLE AdminActivityLog (
+    IDLog BIGINT PRIMARY KEY IDENTITY(1,1),
+    IDAdmin INT NULL,
+    HanhDong NVARCHAR(100) NOT NULL,
+    TenBang NVARCHAR(100) NULL,
+    IDBanGhi NVARCHAR(100) NULL,
+    DuLieuCu NVARCHAR(MAX) NULL,
+    DuLieuMoi NVARCHAR(MAX) NULL,
+    DiaChiIP VARCHAR(45) NULL,
+    NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_AdminActivityLog_NgayTao DEFAULT SYSDATETIME(),
+    CONSTRAINT FK_AdminActivityLog_NguoiDung FOREIGN KEY (IDAdmin)
+        REFERENCES NguoiDung(IDNguoiDung) ON DELETE SET NULL,
+    CONSTRAINT CK_AdminActivityLog_DuLieuCuJson CHECK (DuLieuCu IS NULL OR ISJSON(DuLieuCu) = 1),
+    CONSTRAINT CK_AdminActivityLog_DuLieuMoiJson CHECK (DuLieuMoi IS NULL OR ISJSON(DuLieuMoi) = 1)
 );
 GO
 
@@ -210,6 +389,55 @@ GO
 CREATE UNIQUE NONCLUSTERED INDEX IX_NguoiDung_SoDienThoai 
 ON NguoiDung(SoDienThoai) 
 WHERE SoDienThoai IS NOT NULL;
+
+CREATE UNIQUE NONCLUSTERED INDEX UX_DanhMuc_Slug
+ON DanhMuc(Slug)
+WHERE Slug IS NOT NULL AND DeletedAt IS NULL;
+
+CREATE UNIQUE NONCLUSTERED INDEX UX_SanPham_Slug
+ON SanPham(Slug)
+WHERE Slug IS NOT NULL AND DeletedAt IS NULL;
+
+CREATE UNIQUE NONCLUSTERED INDEX UX_DiaChi_MacDinh
+ON DiaChi(IDNguoiDung)
+WHERE LaMacDinh = 1;
+
+CREATE UNIQUE NONCLUSTERED INDEX UX_HinhAnhBienThe_AnhChinh
+ON HinhAnh_BienThe(IDBienThe)
+WHERE LaAnhChinh = 1;
+
+CREATE INDEX IX_SanPham_DanhMuc_TrangThai
+ON SanPham(IDDanhMuc, TrangThai, DeletedAt);
+
+CREATE INDEX IX_SanPham_ThuongHieu
+ON SanPham(IDThuongHieu, DeletedAt);
+
+CREATE INDEX IX_BienTheSanPham_SanPham_TrangThai
+ON BienTheSanPham(IDSanPham, TrangThai, DeletedAt);
+
+CREATE INDEX IX_GioHang_NgayCapNhat
+ON GioHang(IDNguoiDung, NgayCapNhat DESC);
+
+CREATE INDEX IX_DonHang_NguoiDung_NgayTao
+ON DonHang(IDNguoiDung, NgayTao DESC);
+
+CREATE INDEX IX_DonHang_TrangThai_NgayTao
+ON DonHang(IDTrangThai, NgayTao DESC);
+
+CREATE INDEX IX_ChiTietDonHang_BienThe
+ON ChiTietDonHang(IDBienThe);
+
+CREATE INDEX IX_DanhGia_SanPham_TrangThai
+ON DanhGia(IDSanPham, TrangThai, DeletedAt);
+
+CREATE INDEX IX_LichSuTonKho_BienThe_NgayTao
+ON LichSuTonKho(IDBienThe, NgayTao DESC);
+
+CREATE INDEX IX_LichSuDonHang_DonHang_NgayTao
+ON LichSuDonHang(IDDonHang, NgayTao DESC);
+
+CREATE INDEX IX_AdminActivityLog_Admin_NgayTao
+ON AdminActivityLog(IDAdmin, NgayTao DESC);
 GO
 
 -- =================================================================
@@ -217,7 +445,9 @@ GO
 -- =================================================================
 
 -- 4.1. Vai trò & Trạng thái & Phương thức thanh toán
-INSERT INTO VaiTro (TenVaiTro) VALUES ('Admin'), ('Customer');
+INSERT INTO VaiTro (IDVaiTro, TenVaiTro) VALUES
+(1, 'Admin'),
+(2, 'Customer');
 
 INSERT INTO TrangThaiDonHang (IDTrangThai, TenTrangThai) VALUES 
 (0, N'Chờ xác nhận'), 
@@ -232,15 +462,20 @@ INSERT INTO PhuongThucThanhToan (TenPhuongThuc) VALUES
 (N'Ví điện tử Momo');
 
 -- 4.2. Danh mục & Thương hiệu & Màu sắc & Kích thước
-INSERT INTO DanhMuc (TenDanhMuc, IDDanhMucCha) VALUES 
-(N'Thời Trang Nam', NULL), 
-(N'Thời Trang Nữ', NULL), 
-(N'Phụ Kiện', NULL);
+INSERT INTO DanhMuc (TenDanhMuc, Slug, IDDanhMucCha, ThuTuHienThi) VALUES
+(N'Thời Trang Nam', N'thoi-trang-nam', NULL, 1),
+(N'Thời Trang Nữ', N'thoi-trang-nu', NULL, 2),
+(N'Phụ Kiện', N'phu-kien', NULL, 3);
 
-INSERT INTO DanhMuc (TenDanhMuc, IDDanhMucCha) VALUES 
-(N'Áo Nam', 1), (N'Quần Nam', 1), (N'Đồ Mặc Ngoài (Nam)', 1),
-(N'Váy & Đầm', 2), (N'Áo Nữ', 2), (N'Quần Nữ', 2),
-(N'Túi Xách', 3), (N'Mũ & Nón', 3);
+INSERT INTO DanhMuc (TenDanhMuc, Slug, IDDanhMucCha, ThuTuHienThi) VALUES
+(N'Áo Nam', N'ao-nam', 1, 1),
+(N'Quần Nam', N'quan-nam', 1, 2),
+(N'Đồ Mặc Ngoài Nam', N'do-mac-ngoai-nam', 1, 3),
+(N'Váy & Đầm', N'vay-dam', 2, 1),
+(N'Áo Nữ', N'ao-nu', 2, 2),
+(N'Quần Nữ', N'quan-nu', 2, 3),
+(N'Túi Xách', N'tui-xach', 3, 1),
+(N'Mũ & Nón', N'mu-non', 3, 2);
 
 INSERT INTO ThuongHieu (TenThuongHieu) VALUES 
 (N'Uniqlo'), (N'Zara'), (N'H&M'), (N'Levi''s'), (N'Gucci'), (N'Nike');
@@ -261,13 +496,13 @@ INSERT INTO MauSac (TenMau, MaMauHex) VALUES
 INSERT INTO KichThuoc (TenKichThuoc) VALUES ('S'), ('M'), ('L'), ('XL'), ('XXL');
 
 -- 4.3. Người dùng & Địa chỉ mẫu
--- Giữ nguyên cả tài khoản dùng BCrypt hash và tài khoản test đơn giản của bạn để tránh lỗi đăng nhập trên web
+-- Tất cả tài khoản demo dùng BCrypt. Không lưu mật khẩu dạng rõ trong database.
+DECLARE @DemoPasswordHash VARCHAR(255) = '$2a$12$AZGJYVN0XcX7Fb7oMA1/xebhH6AorfdkpNoPd/WgMVKtkzhWVGjpK';
+
 INSERT INTO NguoiDung (HoTen, Email, SoDienThoai, MatKhauHash, IDVaiTro) VALUES
-(N'Admin Account', 'admin@fashionhub.com', '0911111111', '$2a$11$7S.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5', 1),
-(N'Nguyễn Thị Lan', 'lan.nguyen@example.com', '0987654321', '$2a$11$7S.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5', 2),
-(N'Trần Văn Bình', 'binh.tran@example.com', '0912345678', '$2a$11$7S.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5.z/5', 2),
-(N'Admin Backup', 'admin@gmail.com', '0911111211', '123123', 1),
-(N'K Long', 'Klong@gmail.com', '0934842323', '123123', 1);
+(N'Admin FashionHub', 'admin@fashionhub.local', '0911111111', @DemoPasswordHash, 1),
+(N'Nguyễn Thị Lan', 'lan.nguyen@fashionhub.local', '0987654321', @DemoPasswordHash, 2),
+(N'Trần Văn Bình', 'binh.tran@fashionhub.local', '0912345678', @DemoPasswordHash, 2);
 
 INSERT INTO DiaChi (IDNguoiDung, TenNguoiNhan, SoDienThoai, ChiTiet, PhuongXa, QuanHuyen, TinhThanh, LaMacDinh) VALUES
 (2, N'Nguyễn Thị Lan', '0987654321', N'Số 123, Đường Lê Lợi', N'Bến Nghé', N'Quận 1', N'TP. Hồ Chí Minh', 1),
@@ -300,8 +535,8 @@ DECLARE @SizeL INT = (SELECT IDKichThuoc from KichThuoc WHERE TenKichThuoc = 'L'
 -- -----------------------------------------------------------------
 -- SẢN PHẨM 1: ÁO THUN BOXY FIT (IDDanhMuc = 4: Áo Nam)
 -- -----------------------------------------------------------------
-INSERT INTO SanPham (TenSanPham, MoTa, Gia, IDDanhMuc, IDThuongHieu, TrangThai)
-VALUES (N'Áo Thun Boxy Fit Basic', N'Form Boxy rộng rãi, thoải mái. Chất liệu cotton dày dặn.', 320000, 4, 1, 1);
+INSERT INTO SanPham (TenSanPham, Slug, MoTa, Gia, IDDanhMuc, IDThuongHieu, TrangThai)
+VALUES (N'Áo Thun Boxy Fit Basic', N'ao-thun-boxy-fit-basic', N'Form Boxy rộng rãi, thoải mái. Chất liệu cotton dày dặn.', 320000, 4, 1, 1);
 DECLARE @SP_Boxy INT = SCOPE_IDENTITY();
 
 -- Biến thể & Giá biến thể tương ứng
@@ -315,20 +550,20 @@ DECLARE @BT_Boxy_Den INT = (SELECT IDBienThe FROM BienTheSanPham WHERE SKU = 'TS
 DECLARE @BT_Boxy_Xam INT = (SELECT IDBienThe FROM BienTheSanPham WHERE SKU = 'TS-BOXY-GRY-M');
 
 -- Chèn ảnh biến thể
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/aothun1_be_boxy.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/aothun1_be_boxy.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Boxy_Be, 1);
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/aothun1_den_boxy.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/aothun1_den_boxy.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Boxy_Den, 1);
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/aothun1_xam_boxy.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/aothun1_xam_boxy.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Boxy_Xam, 1);
 
 -- -----------------------------------------------------------------
 -- SẢN PHẨM 2: ÁO THUN REGULAR (IDDanhMuc = 4: Áo Nam)
 -- -----------------------------------------------------------------
-INSERT INTO SanPham (TenSanPham, MoTa, Gia, IDDanhMuc, IDThuongHieu, TrangThai)
-VALUES (N'Áo Thun Regular Essential', N'Dáng Regular vừa vặn, phù hợp mặc hàng ngày.', 250000, 4, 2, 1);
+INSERT INTO SanPham (TenSanPham, Slug, MoTa, Gia, IDDanhMuc, IDThuongHieu, TrangThai)
+VALUES (N'Áo Thun Regular Essential', N'ao-thun-regular-essential', N'Dáng Regular vừa vặn, phù hợp mặc hàng ngày.', 250000, 4, 2, 1);
 DECLARE @SP_Regular INT = SCOPE_IDENTITY();
 
 INSERT INTO BienTheSanPham (IDSanPham, IDMauSac, IDKichThuoc, SKU, Gia, SoLuongTon) VALUES 
@@ -340,20 +575,20 @@ DECLARE @BT_Reg_Den INT = (SELECT IDBienThe FROM BienTheSanPham WHERE SKU = 'TS-
 DECLARE @BT_Reg_Trang INT = (SELECT IDBienThe FROM BienTheSanPham WHERE SKU = 'TS-REG-WHT-L');
 DECLARE @BT_Reg_Xam INT = (SELECT IDBienThe FROM BienTheSanPham WHERE SKU = 'TS-REG-GRY-L');
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/aothun2_den_regular.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/aothun2_den_regular.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Reg_Den, 1);
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/aothun2_trang_regular.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/aothun2_trang_regular.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Reg_Trang, 1);
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/aothun2_xam_regular.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/aothun2_xam_regular.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Reg_Xam, 1);
 
 -- -----------------------------------------------------------------
 -- SẢN PHẨM 3: QUẦN JEAN STRAIGHT (IDDanhMuc = 5: Quần Nam)
 -- -----------------------------------------------------------------
-INSERT INTO SanPham (TenSanPham, MoTa, Gia, IDDanhMuc, IDThuongHieu, TrangThai)
-VALUES (N'Quần Jeans Straight Xanh Đen', N'Quần bò ống đứng màu xanh đen nam tính. Vải denim không co giãn.', 550000, 5, 4, 1);
+INSERT INTO SanPham (TenSanPham, Slug, MoTa, Gia, IDDanhMuc, IDThuongHieu, TrangThai)
+VALUES (N'Quần Jeans Straight Xanh Đen', N'quan-jeans-straight-xanh-den', N'Quần bò ống đứng màu xanh đen nam tính. Vải denim không co giãn.', 550000, 5, 4, 1);
 DECLARE @SP_Jean INT = SCOPE_IDENTITY();
 
 INSERT INTO BienTheSanPham (IDSanPham, IDMauSac, IDKichThuoc, SKU, Gia, SoLuongTon) VALUES 
@@ -361,20 +596,20 @@ INSERT INTO BienTheSanPham (IDSanPham, IDMauSac, IDKichThuoc, SKU, Gia, SoLuongT
 DECLARE @BT_Jean INT = SCOPE_IDENTITY();
 
 -- Nhiều hình ảnh cho 1 biến thể
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/jean1_xanhden_straigh_truoc.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/jean1_xanhden_straigh_truoc.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Jean, 1);
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/jean1_xanhden_straigh_sau.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/jean1_xanhden_straigh_sau.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Jean, 0);
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/jean1_xanhden_straight_mau1.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/jean1_xanhden_straight_mau1.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Jean, 0);
 
 -- -----------------------------------------------------------------
 -- SẢN PHẨM 4: ÁO POLO PIQUE (IDDanhMuc = 4: Áo Nam)
 -- -----------------------------------------------------------------
-INSERT INTO SanPham (TenSanPham, MoTa, Gia, IDDanhMuc, IDThuongHieu, TrangThai)
-VALUES (N'Áo Polo Pique Cotton', N'Áo thun có cổ vải cá sấu. Nhiều màu sắc trẻ trung.', 350000, 4, 5, 1);
+INSERT INTO SanPham (TenSanPham, Slug, MoTa, Gia, IDDanhMuc, IDThuongHieu, TrangThai)
+VALUES (N'Áo Polo Pique Cotton', N'ao-polo-pique-cotton', N'Áo thun có cổ vải cá sấu. Nhiều màu sắc trẻ trung.', 350000, 4, 5, 1);
 DECLARE @SP_Polo INT = SCOPE_IDENTITY();
 
 INSERT INTO BienTheSanPham (IDSanPham, IDMauSac, IDKichThuoc, SKU, Gia, SoLuongTon) VALUES 
@@ -388,23 +623,23 @@ DECLARE @BT_Polo_Nau INT = (SELECT IDBienThe FROM BienTheSanPham WHERE SKU = 'PO
 DECLARE @BT_Polo_Trang INT = (SELECT IDBienThe FROM BienTheSanPham WHERE SKU = 'POLO-WHT-M');
 DECLARE @BT_Polo_Den INT = (SELECT IDBienThe FROM BienTheSanPham WHERE SKU = 'POLO-BLK-M');
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/polo3_tim_regular.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/polo3_tim_regular.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Polo_Tim, 1);
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/polo4_nau_regular.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/polo4_nau_regular.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Polo_Nau, 1);
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/polo3_trang_regular.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/polo3_trang_regular.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Polo_Trang, 1);
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/polo4_den_regular.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/polo4_den_regular.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Polo_Den, 1);
 
 -- -----------------------------------------------------------------
 -- SẢN PHẨM 5: ÁO SƠ MI OXFORD (IDDanhMuc = 4: Áo Nam)
 -- -----------------------------------------------------------------
-INSERT INTO SanPham (TenSanPham, MoTa, Gia, IDDanhMuc, IDThuongHieu, TrangThai)
-VALUES (N'Áo Sơ Mi Oxford Regular', N'Sơ mi vải Oxford đứng form, ít nhăn. Phù hợp công sở.', 420000, 4, 2, 1);
+INSERT INTO SanPham (TenSanPham, Slug, MoTa, Gia, IDDanhMuc, IDThuongHieu, TrangThai)
+VALUES (N'Áo Sơ Mi Oxford Regular', N'ao-so-mi-oxford-regular', N'Sơ mi vải Oxford đứng form, ít nhăn. Phù hợp công sở.', 420000, 4, 2, 1);
 DECLARE @SP_Somi INT = SCOPE_IDENTITY();
 
 INSERT INTO BienTheSanPham (IDSanPham, IDMauSac, IDKichThuoc, SKU, Gia, SoLuongTon) VALUES 
@@ -416,44 +651,17 @@ DECLARE @BT_Somi_Hong INT = (SELECT IDBienThe FROM BienTheSanPham WHERE SKU = 'S
 DECLARE @BT_Somi_Trang INT = (SELECT IDBienThe FROM BienTheSanPham WHERE SKU = 'SM-TRANG-L');
 DECLARE @BT_Somi_XD INT = (SELECT IDBienThe FROM BienTheSanPham WHERE SKU = 'SM-XD-L');
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/somi4_hong_regular.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/somi4_hong_regular.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Somi_Hong, 1);
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/somi4_hong_regular_nguoi.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/somi4_hong_regular_nguoi.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Somi_Hong, 0);
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/somi1_trang_regular.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/somi1_trang_regular.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Somi_Trang, 1);
 
-INSERT INTO HinhAnh (DuongDan) VALUES ('/Content/images/products/somi1_xanhden_regular.jpg');
+INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/somi1_xanhden_regular.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Somi_XD, 1);
 
-USE QL_SHOPQUANAO_PRO;
-GO
-
--- 1. Tự động kiểm tra và thêm cột VectorDacTrung vào bảng HinhAnh nếu chưa có
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'HinhAnh') AND name = 'VectorDacTrung')
-BEGIN
-    ALTER TABLE HinhAnh ADD VectorDacTrung NVARCHAR(MAX) NULL;
-    PRINT 'Da bo sung cot VectorDacTrung vao bang HinhAnh';
-END
-GO
-
--- 2. Tự động kiểm tra và thêm cột VectorDacTrung vào bảng SanPham nếu chưa có
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'SanPham') AND name = 'VectorDacTrung')
-BEGIN
-    ALTER TABLE SanPham ADD VectorDacTrung NVARCHAR(MAX) NULL;
-    PRINT 'Da bo sung cot VectorDacTrung vao bang SanPham';
-END
-GO
-
--- 3. Fix image paths for .NET Core migration (wwwroot/images instead of Content/images)
-PRINT 'Fixing image paths for .NET Core...';
-UPDATE HinhAnh
-SET DuongDan = REPLACE(DuongDan, '/Content/images/', '/images/')
-WHERE DuongDan LIKE '/Content/images/%';
-PRINT 'Updated ' + CAST(@@ROWCOUNT AS VARCHAR) + ' image paths';
-GO
-
-PRINT 'Database setup and seeding completed successfully!';
+PRINT 'Database schema and seed data completed successfully.';
 GO

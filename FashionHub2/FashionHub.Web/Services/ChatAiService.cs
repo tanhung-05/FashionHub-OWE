@@ -57,7 +57,7 @@ namespace FashionHub.Web.Services
                         return $"🧾 <b>Đơn hàng #{orderId}</b><br>" +
                                $"Trạng thái: <span class='text-primary fw-bold'>{status}</span><br>" +
                                $"Tổng tiền: {order.TongThanhToan:N0}đ<br>" +
-                               $"Ngày đặt: {(order.NgayTao.HasValue ? order.NgayTao.Value.ToString("dd/MM/yyyy") : "N/A")}";
+                               $"Ngày đặt: {order.NgayTao:dd/MM/yyyy}";
                     }
                     else
                     {
@@ -87,7 +87,7 @@ namespace FashionHub.Web.Services
             var productListStr = new StringBuilder();
 
             var products = await _context.SanPhams
-                .Where(p => p.TrangThai == true)
+                .Where(p => p.TrangThai == true && p.DeletedAt == null)
                 .OrderByDescending(p => p.IdsanPham)
                 .Take(20)
                 .Select(p => new { p.IdsanPham, p.TenSanPham, p.Gia })

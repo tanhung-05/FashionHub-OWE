@@ -1,9 +1,10 @@
 using System.Security.Claims;
+using FashionHub.Web.Application.Authentication;
 using FashionHub.Web.Data;
+using FashionHub.Web.Domain;
 using FashionHub.Web.Models.Generated;
+using FashionHub.Web.Services;
 using FashionHub.Web.ViewModels.Account;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,13 +13,21 @@ namespace FashionHub.Web.Controllers;
 
 public class AccountController : Controller
 {
-    private const int DefaultCustomerRoleId = 2;
-
     private readonly ApplicationDbContext dbContext;
+    private readonly ICartService cartService;
+    private readonly IAuthService authService;
+    private readonly IAuthenticationSessionService authenticationSession;
 
-    public AccountController(ApplicationDbContext dbContext)
+    public AccountController(
+        ApplicationDbContext dbContext,
+        ICartService cartService,
+        IAuthService authService,
+        IAuthenticationSessionService authenticationSession)
     {
         this.dbContext = dbContext;
+        this.cartService = cartService;
+        this.authService = authService;
+        this.authenticationSession = authenticationSession;
     }
 
     [AllowAnonymous]
@@ -41,23 +50,20 @@ public class AccountController : Controller
             return View(model);
         }
 
-        var user = await dbContext.NguoiDungs
-            .Include(u => u.IdvaiTroNavigation)
-            .FirstOrDefaultAsync(u => u.Email == model.Email);
-
-        if (user == null || !BCrypt.Net.BCrypt.Verify(model.Password, user.MatKhauHash))
+        var result = await authService.LoginAsync(new LoginRequest
         {
-            ModelState.AddModelError(string.Empty, "Email hoặc mật khẩu không đúng.");
+            Email = model.Email,
+            Password = model.Password,
+            RememberMe = model.RememberMe
+        });
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError(string.Empty, result.Error!.Message);
             return View(model);
         }
 
-        if (user.TrangThai == false)
-        {
-            ModelState.AddModelError(string.Empty, "Tài khoản đã bị khóa.");
-            return View(model);
-        }
-
-        await SignInUserAsync(user, model.RememberMe);
+        await authenticationSession.SignInAsync(result.Value!, model.RememberMe);
+        await cartService.MergeGuestCartAsync(result.Value!.Id);
 
         if (Url.IsLocalUrl(returnUrl))
         {
@@ -87,31 +93,21 @@ public class AccountController : Controller
             return View(model);
         }
 
-        var emailExists = await dbContext.NguoiDungs.AnyAsync(u => u.Email == model.Email);
-        if (emailExists)
+        var result = await authService.RegisterAsync(new RegisterRequest
         {
-            ModelState.AddModelError(nameof(model.Email), "Email này đã được sử dụng.");
+            FullName = model.FullName,
+            Email = model.Email,
+            Password = model.Password,
+            ConfirmPassword = model.ConfirmPassword
+        });
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError(nameof(model.Email), result.Error!.Message);
             return View(model);
         }
 
-        var newUser = new NguoiDung
-        {
-            HoTen = model.FullName,
-            Email = model.Email,
-            MatKhauHash = BCrypt.Net.BCrypt.HashPassword(model.Password),
-            IdvaiTro = DefaultCustomerRoleId,
-            NgayTao = DateTime.Now,
-            TrangThai = true
-        };
-
-        dbContext.NguoiDungs.Add(newUser);
-        await dbContext.SaveChangesAsync();
-
-        await dbContext.Entry(newUser)
-            .Reference(u => u.IdvaiTroNavigation)
-            .LoadAsync();
-
-        await SignInUserAsync(newUser, isPersistent: false);
+        await authenticationSession.SignInAsync(result.Value!, rememberMe: false);
+        await cartService.MergeGuestCartAsync(result.Value!.Id);
 
         if (Url.IsLocalUrl(returnUrl))
         {
@@ -126,7 +122,7 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
-        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        await authenticationSession.SignOutAsync();
         return RedirectToAction("Index", "Home");
     }
 
@@ -325,7 +321,7 @@ public class AccountController : Controller
             PhuongXa = address.PhuongXa ?? string.Empty,
             QuanHuyen = address.QuanHuyen ?? string.Empty,
             TinhThanh = address.TinhThanh ?? string.Empty,
-            LaMacDinh = address.LaMacDinh ?? false
+            LaMacDinh = address.LaMacDinh
         };
 
         return View(model);
@@ -542,16 +538,59 @@ public class AccountController : Controller
             return Json(new { success = false, message = "Vui lòng đăng nhập" });
 
         var order = await dbContext.DonHangs
+            .Include(d => d.ChiTietDonHangs)
             .FirstOrDefaultAsync(d => d.IddonHang == id && d.IdnguoiDung == userId.Value);
 
         if (order == null)
             return Json(new { success = false, message = "Không tìm thấy đơn hàng" });
 
-        // Only allow cancel if order is pending (IdtrangThai = 1)
-        if (order.IdtrangThai != 1)
+        if (order.IdtrangThai != OrderStatusIds.Pending)
             return Json(new { success = false, message = "Không thể hủy đơn hàng ở trạng thái hiện tại" });
 
-        order.IdtrangThai = 5; // Cancelled
+        foreach (var item in order.ChiTietDonHangs)
+        {
+            if (!item.IdbienThe.HasValue)
+            {
+                continue;
+            }
+
+            var variant = await dbContext.BienTheSanPhams.FindAsync(item.IdbienThe.Value);
+            if (variant == null)
+            {
+                continue;
+            }
+
+            var previousStock = variant.SoLuongTon;
+            variant.SoLuongTon += item.SoLuong;
+            variant.TongDaBan = Math.Max(0, variant.TongDaBan - item.SoLuong);
+            variant.NgayCapNhat = DateTime.Now;
+
+            dbContext.LichSuTonKhos.Add(new LichSuTonKho
+            {
+                IdbienThe = variant.IdbienThe,
+                IdnguoiThucHien = userId,
+                IddonHang = order.IddonHang,
+                LoaiThayDoi = InventoryChangeTypes.OrderCancelled,
+                SoLuongThayDoi = item.SoLuong,
+                TonTruoc = previousStock,
+                TonSau = variant.SoLuongTon,
+                GhiChu = $"Khách hàng hủy đơn #{order.IddonHang}",
+                NgayTao = DateTime.Now
+            });
+        }
+
+        order.IdtrangThai = OrderStatusIds.Cancelled;
+        order.GhiChu = string.IsNullOrWhiteSpace(reason) ? order.GhiChu : reason.Trim();
+        order.NgayCapNhat = DateTime.Now;
+        dbContext.LichSuDonHangs.Add(new LichSuDonHang
+        {
+            IddonHang = order.IddonHang,
+            IdtrangThaiCu = OrderStatusIds.Pending,
+            IdtrangThaiMoi = OrderStatusIds.Cancelled,
+            IdnguoiThucHien = userId,
+            GhiChu = string.IsNullOrWhiteSpace(reason) ? "Khách hàng hủy đơn" : reason.Trim(),
+            NgayTao = DateTime.Now
+        });
         await dbContext.SaveChangesAsync();
 
         return Json(new { success = true, message = "Hủy đơn hàng thành công" });
@@ -561,49 +600,16 @@ public class AccountController : Controller
     {
         return statusId switch
         {
-            1 => "warning",  // Pending
-            2 => "info",     // Confirmed
-            3 => "primary",  // Shipping
-            4 => "success",  // Delivered
-            5 => "danger",   // Cancelled
+            OrderStatusIds.Pending => "warning",
+            OrderStatusIds.Confirmed => "info",
+            OrderStatusIds.Shipping => "primary",
+            OrderStatusIds.Completed => "success",
+            OrderStatusIds.Cancelled => "danger",
             _ => "secondary"
         };
     }
 
     #endregion
-
-    private async Task SignInUserAsync(NguoiDung user, bool isPersistent)
-    {
-        var roleName = user.IdvaiTroNavigation?.TenVaiTro ?? user.IdvaiTro.ToString();
-
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.IdnguoiDung.ToString()),
-            new(ClaimTypes.Name, user.Email),
-            new(ClaimTypes.Email, user.Email),
-            new("FullName", user.HoTen),
-            new(ClaimTypes.Role, roleName)
-        };
-
-        var identity = new ClaimsIdentity(
-            claims,
-            CookieAuthenticationDefaults.AuthenticationScheme);
-
-        var principal = new ClaimsPrincipal(identity);
-
-        var authenticationProperties = new AuthenticationProperties
-        {
-            IsPersistent = isPersistent,
-            ExpiresUtc = isPersistent
-                ? DateTimeOffset.UtcNow.AddDays(14)
-                : null
-        };
-
-        await HttpContext.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme,
-            principal,
-            authenticationProperties);
-    }
 
     private int? GetCurrentUserId()
     {
