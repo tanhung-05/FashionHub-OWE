@@ -1,107 +1,99 @@
-@using FashionHub.Web.Models.Generated
-@using Microsoft.AspNetCore.Identity
 @using System.Security.Claims
-
 @{
-    var currentUser = User.Identity?.IsAuthenticated == true 
-        ? User 
-        : null;
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
 }
 
-<nav class="navbar navbar-expand-lg navbar-light fixed-top bg-white transition-all main-navbar" id="mainHeader">
-    <div class="container">
-        <a class="navbar-brand fw-bold fs-3 text-uppercase ls-1" asp-controller="Home" asp-action="Index">
-            OWE
-        </a>
+<header class="main-navbar fixed-top" id="mainHeader">
+    <nav class="navbar navbar-expand-lg" aria-label="Điều hướng chính">
+        <div class="container">
+            <a class="navbar-brand" asp-controller="Home" asp-action="Index" aria-label="OWE - Trang chủ">
+                OWE
+            </a>
 
-        <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar" aria-label="Mo menu">
-            <i class="bi bi-list fs-2"></i>
-        </button>
-
-        <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
-            <div class="offcanvas-header">
-                <h5 class="offcanvas-title fw-bold" id="offcanvasNavbarLabel">MENU</h5>
-                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Dong menu"></button>
+            <div class="header-mobile-actions">
+                <button type="button" class="header-icon-button"
+                        data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas"
+                        aria-controls="cartOffcanvas" aria-label="Mở giỏ hàng">
+                    <i class="bi bi-bag" aria-hidden="true"></i>
+                </button>
+                <button class="navbar-toggler" type="button"
+                        data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar"
+                        aria-controls="offcanvasNavbar" aria-label="Mở menu">
+                    <i class="bi bi-list" aria-hidden="true"></i>
+                </button>
             </div>
 
-            <div class="offcanvas-body d-flex flex-column flex-lg-row align-items-lg-center">
-                <ul class="navbar-nav mx-auto mb-2 mb-lg-0 fw-semibold text-uppercase gap-3">
-                    @await Component.InvokeAsync("Menu")
-                </ul>
+            <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar"
+                 aria-labelledby="offcanvasNavbarLabel">
+                <div class="offcanvas-header">
+                    <h2 class="offcanvas-title" id="offcanvasNavbarLabel">OWE Menu</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"
+                            aria-label="Đóng menu"></button>
+                </div>
 
-                <div class="d-flex align-items-center gap-3 mt-3 mt-lg-0">
-                    <form asp-controller="Products" asp-action="Index" method="get" class="search-form position-relative d-none d-lg-block">
-                        <div class="input-group input-group-sm border rounded-pill overflow-hidden bg-light">
-                            <input type="text"
-                                   id="main-search-input"
-                                   name="searchString"
-                                   class="form-control border-0 bg-transparent shadow-none ps-3"
-                                   placeholder="Tìm kiếm hoặc dán ảnh..."
+                <div class="offcanvas-body">
+                    <ul class="navbar-nav mx-auto">
+                        @await Component.InvokeAsync("Menu")
+                    </ul>
+
+                    <div class="header-tools">
+                        <form asp-controller="Products" asp-action="Index" method="get"
+                              class="header-search" role="search">
+                            <label for="main-search-input" class="visually-hidden">Tìm kiếm sản phẩm</label>
+                            <input type="search" id="main-search-input" name="searchString"
+                                   placeholder="Tìm sản phẩm"
                                    value="@Context.Request.Query["searchString"]"
-                                   autocomplete="off">
-
-                            <button class="btn btn-link text-secondary border-0 px-2" type="button" id="btn-trigger-image-search" title="Tim bang hinh anh" aria-label="Tim bang hinh anh">
-                                <i class="bi bi-camera"></i>
+                                   autocomplete="off" />
+                            <button type="submit" aria-label="Tìm kiếm">
+                                <i class="bi bi-search" aria-hidden="true"></i>
                             </button>
+                        </form>
 
-                            <button class="btn btn-link text-dark border-0 pe-3" type="submit" aria-label="Tim kiem">
-                                <i class="bi bi-search"></i>
-                            </button>
-                        </div>
-                    </form>
-
-                    <form asp-controller="Products" asp-action="SearchByImage" method="post" enctype="multipart/form-data" id="image-search-form" class="d-none">
-                        <input type="file" name="imageFile" id="hidden-file-input" accept="image/*">
-                    </form>
-
-                    <a asp-controller="Products" asp-action="Index" class="text-dark d-lg-none fs-5" aria-label="Tim kiem">
-                        <i class="bi bi-search"></i>
-                    </a>
-
-                    @if (currentUser != null)
-                    {
-                        <div class="dropdown">
-                            <a href="#" class="d-flex align-items-center text-decoration-none text-dark dropdown-toggle hide-arrow" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Tai khoan">
-                                <i class="bi bi-person-circle fs-4"></i>
+                        @if (isAuthenticated)
+                        {
+                            <div class="dropdown">
+                                <button type="button" class="header-icon-button dropdown-toggle hide-arrow"
+                                        id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false"
+                                        aria-label="Mở menu tài khoản">
+                                    <i class="bi bi-person" aria-hidden="true"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                    <li class="header-account-summary">
+                                        <strong>@User.FindFirstValue(ClaimTypes.Name)</strong>
+                                        <span>@User.FindFirstValue(ClaimTypes.Email)</span>
+                                    </li>
+                                    <li><a class="dropdown-item" asp-controller="Account" asp-action="Profile"><i class="bi bi-person-vcard"></i>Hồ sơ</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Account" asp-action="Addresses"><i class="bi bi-geo-alt"></i>Địa chỉ</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Account" asp-action="OrderHistory"><i class="bi bi-bag-check"></i>Đơn hàng</a></li>
+                                    @if (User.IsInRole("Admin"))
+                                    {
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li><a class="dropdown-item" asp-area="Admin" asp-controller="Dashboard" asp-action="Index"><i class="bi bi-speedometer2"></i>Quản trị</a></li>
+                                    }
+                                    <li><hr class="dropdown-divider" /></li>
+                                    <li>
+                                        <form asp-controller="Account" asp-action="Logout" method="post">
+                                            <button class="dropdown-item text-danger" type="submit">
+                                                <i class="bi bi-box-arrow-right"></i>Đăng xuất
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        }
+                        else
+                        {
+                            <a asp-controller="Account" asp-action="Login" class="header-login-link">
+                                Đăng nhập
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-3" aria-labelledby="userDropdown">
-                                <li>
-                                    <div class="px-3 py-2 border-bottom">
-                                        <div class="fw-bold text-truncate header-user-name">@User.FindFirstValue(ClaimTypes.Name)</div>
-                                        <div class="text-muted small text-truncate header-user-email">@User.FindFirstValue(ClaimTypes.Email)</div>
-                                    </div>
-                                </li>
-                                <li><a class="dropdown-item py-2" asp-controller="Account" asp-action="Profile"><i class="bi bi-person-vcard me-2"></i>Hồ sơ</a></li>
-                                <li><a class="dropdown-item py-2" asp-controller="Account" asp-action="Addresses"><i class="bi bi-geo-alt me-2"></i>Địa chỉ</a></li>
-                                <li><a class="dropdown-item py-2" asp-controller="Account" asp-action="OrderHistory"><i class="bi bi-bag-check me-2"></i>Đơn hàng của tôi</a></li>
+                        }
 
-                                @if (User.IsInRole("Admin"))
-                                {
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item fw-bold text-primary" asp-area="Admin" asp-controller="Dashboard" asp-action="Index"><i class="bi bi-speedometer2 me-2"></i>Quản trị</a></li>
-                                }
-
-                                <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <form asp-controller="Account" asp-action="Logout" method="post" id="logoutForm">
-                                        <a class="dropdown-item text-danger py-2" href="javascript:document.getElementById('logoutForm').submit()">
-                                            <i class="bi bi-box-arrow-right me-2"></i>Đăng xuất
-                                        </a>
-                                    </form>
-                                </li>
-                            </ul>
+                        <div class="header-cart-desktop">
+                            @await Component.InvokeAsync("CartIcon")
                         </div>
-                    }
-                    else
-                    {
-                        <a asp-controller="Account" asp-action="Login" class="btn btn-dark btn-sm rounded-pill px-3">Đăng nhập</a>
-                    }
-
-                    <div class="position-relative">
-                        @await Component.InvokeAsync("CartIcon")
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</nav>
+    </nav>
+</header>

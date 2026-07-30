@@ -39,10 +39,10 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory<Pro
             { "variantId", "1" },
             { "quantity", "1" }
         };
-        var content = new FormUrlEncodedContent(formData);
-        
         // Act
-        var response = await _client.PostAsync("/Cart/AddToCart", content);
+        var response = await _client.PostFormWithAntiforgeryAsync(
+            "/Cart/AddToCart",
+            formData);
         
         // Assert
         response.EnsureSuccessStatusCode();
@@ -57,10 +57,10 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory<Pro
             { "variantId", "99999" },
             { "quantity", "1" }
         };
-        var content = new FormUrlEncodedContent(formData);
-        
         // Act
-        var response = await _client.PostAsync("/Cart/AddToCart", content);
+        var response = await _client.PostFormWithAntiforgeryAsync(
+            "/Cart/AddToCart",
+            formData);
         
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -75,17 +75,17 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory<Pro
             { "variantId", "1" },
             { "quantity", "1" }
         };
-        await _client.PostAsync("/Cart/AddToCart", new FormUrlEncodedContent(addData));
+        await _client.PostFormWithAntiforgeryAsync("/Cart/AddToCart", addData);
         
         var updateData = new Dictionary<string, string>
         {
             { "variantId", "1" },
             { "quantity", "2" }
         };
-        var content = new FormUrlEncodedContent(updateData);
-        
         // Act
-        var response = await _client.PostAsync("/Cart/UpdateCart", content);
+        var response = await _client.PostFormWithAntiforgeryAsync(
+            "/Cart/UpdateCart",
+            updateData);
         
         // Assert
         response.EnsureSuccessStatusCode();
@@ -100,14 +100,15 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory<Pro
             { "variantId", "1" },
             { "quantity", "1" }
         };
-        await _client.PostAsync("/Cart/AddToCart", new FormUrlEncodedContent(addData));
+        await _client.PostFormWithAntiforgeryAsync("/Cart/AddToCart", addData);
         
         // Act
-        var response = await _client.PostAsync("/Cart/RemoveFromCart", 
-            new FormUrlEncodedContent(new Dictionary<string, string>
+        var response = await _client.PostFormWithAntiforgeryAsync(
+            "/Cart/RemoveFromCart",
+            new Dictionary<string, string>
             {
                 { "variantId", "1" }
-            }));
+            });
         
         // Assert
         response.EnsureSuccessStatusCode();
@@ -122,7 +123,7 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory<Pro
             { "variantId", "1" },
             { "quantity", "2" }
         };
-        await _client.PostAsync("/Cart/AddToCart", new FormUrlEncodedContent(addData));
+        await _client.PostFormWithAntiforgeryAsync("/Cart/AddToCart", addData);
         
         // Act
         var response = await _client.GetAsync("/Cart/GetCartItemCount");
@@ -136,13 +137,13 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory<Pro
     [Fact]
     public async Task GetCartOffcanvas_ReturnsItemsWithoutNestedOffcanvasShell()
     {
-        await _client.PostAsync(
+        await _client.PostFormWithAntiforgeryAsync(
             "/Cart/AddToCart",
-            new FormUrlEncodedContent(new Dictionary<string, string>
+            new Dictionary<string, string>
             {
                 ["variantId"] = "1",
                 ["quantity"] = "1"
-            }));
+            });
 
         var response = await _client.GetAsync("/Cart/GetCartOffcanvas");
 

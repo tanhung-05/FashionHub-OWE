@@ -1,0 +1,33 @@
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "Home";
+    var action = ViewContext.RouteData.Values["action"]?.ToString() ?? "Index";
+    var hideBreadcrumb = ViewData["HideBreadcrumb"] as bool? == true
+        || (controller.Equals("Home", StringComparison.OrdinalIgnoreCase)
+            && action.Equals("Index", StringComparison.OrdinalIgnoreCase))
+        || (controller.Equals("Products", StringComparison.OrdinalIgnoreCase)
+            && action.Equals("Details", StringComparison.OrdinalIgnoreCase));
+    var sectionName = controller switch
+    {
+        "Products" => "Sản phẩm",
+        "Cart" => "Giỏ hàng",
+        "Order" => "Đặt hàng",
+        "Account" => "Tài khoản",
+        "Blog" => "OWE Journal",
+        "Contact" => "Liên hệ",
+        _ => ViewData["Title"]?.ToString() ?? controller
+    };
+}
+
+@if (!hideBreadcrumb)
+{
+    <nav class="site-breadcrumb container" aria-label="Điều hướng phân cấp">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Trang chủ</a></li>
+            @if (!string.Equals(sectionName, ViewData["Title"]?.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                <li class="breadcrumb-item">@sectionName</li>
+            }
+            <li class="breadcrumb-item active" aria-current="page">@ViewData["Title"]</li>
+        </ol>
+    </nav>
+}

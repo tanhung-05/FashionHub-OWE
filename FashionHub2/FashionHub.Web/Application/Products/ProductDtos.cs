@@ -24,6 +24,8 @@ public sealed class ProductQueryParameters
     [Range(1, int.MaxValue)]
     public int? CategoryId { get; set; }
 
+    public List<int> BrandIds { get; set; } = new();
+
     [Range(0, double.MaxValue)]
     public decimal? MinPrice { get; set; }
 
@@ -97,6 +99,7 @@ public sealed record ProductDetailDto(
     DateTime? UpdatedAt,
     IReadOnlyList<ProductImageDto> Images,
     IReadOnlyList<ProductVariantDto> Variants,
+    IReadOnlyList<ProductReviewDto> Reviews,
     IReadOnlyList<ProductSummaryDto> RelatedProducts);
 
 public sealed record CategoryOptionDto(
@@ -113,8 +116,20 @@ public sealed record SizeOptionDto(
     int Id,
     string Name);
 
+public sealed record BrandOptionDto(
+    int Id,
+    string Name);
+
+public sealed record ProductReviewDto(
+    int Id,
+    string CustomerName,
+    byte Rating,
+    string? Content,
+    DateTime CreatedAt);
+
 public sealed record ProductFilterOptionsDto(
     IReadOnlyList<CategoryOptionDto> Categories,
+    IReadOnlyList<BrandOptionDto> Brands,
     IReadOnlyList<ColorOptionDto> Colors,
     IReadOnlyList<SizeOptionDto> Sizes);
 

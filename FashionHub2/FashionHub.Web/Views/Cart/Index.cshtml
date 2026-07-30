@@ -1,180 +1,116 @@
 @model List<FashionHub.Web.ViewModels.Cart.CartItemViewModel>
-
 @{
     ViewData["Title"] = "Giỏ hàng";
+    ViewData["MetaDescription"] = "Kiểm tra sản phẩm, biến thể và số lượng trong giỏ hàng OWE.";
 }
 
-<div class="container my-5">
-    <h2 class="text-center mb-4">Giỏ hàng của bạn</h2>
+<div class="cart-page">
+    <header class="cart-page-heading">
+        <div>
+            <p class="section-kicker">YOUR SELECTION</p>
+            <h1>Giỏ hàng</h1>
+        </div>
+        @if (Model.Any())
+        {
+            <p><strong id="cart-page-count">@Model.Sum(item => item.SoLuong)</strong> sản phẩm</p>
+        }
+    </header>
 
-    @if (Model != null && Model.Any())
+    @if (Model.Any())
     {
-        <div class="row">
-            <div class="col-lg-8">
-                <table class="table align-middle">
-                    <thead>
-                        <tr>
-                            <th scope="col" colspan="2">Sản phẩm</th>
-                            <th scope="col">Đơn giá</th>
-                            <th scope="col" class="text-center">Số lượng</th>
-                            <th scope="col" class="text-end">Tạm tính</th>
-                            <th scope="col"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var item in Model)
-                        {
-                            <tr id="row-@item.IdbienThe">
-                                <td style="width: 100px;">
-                                    <img src="@item.AnhDaiDien" class="img-fluid" alt="@item.TenSanPham">
-                                </td>
-                                <td>
-                                    <p class="mb-0 fw-bold">@item.TenSanPham</p>
-                                    <small class="text-muted">@item.TenMau / @item.TenKichThuoc</small>
-                                </td>
-                                <td>@item.DonGia.ToString("N0") VNĐ</td>
-                                <td>
-                                    <div class="input-group justify-content-center" style="width: 120px;">
-                                        <button class="btn btn-outline-secondary btn-sm btn-minus" data-id="@item.IdbienThe" type="button" aria-label="Giảm số lượng">-</button>
-                                        <input type="number" class="form-control form-control-sm text-center quantity-input" value="@item.SoLuong" min="1" data-id="@item.IdbienThe" aria-label="Số lượng @item.TenSanPham">
-                                        <button class="btn btn-outline-secondary btn-sm btn-plus" data-id="@item.IdbienThe" type="button" aria-label="Tăng số lượng">+</button>
-                                    </div>
-                                </td>
-                                <td class="text-end fw-bold" id="item-total-@item.IdbienThe">@item.ThanhTien.ToString("N0") VNĐ</td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-danger btn-remove" data-id="@item.IdbienThe" type="button" aria-label="Xóa @item.TenSanPham khỏi giỏ hàng">
-                                        <i class="bi bi-trash"></i>
+        <div class="cart-layout">
+            <section class="cart-items-panel" aria-labelledby="cart-items-title">
+                <h2 id="cart-items-title" class="visually-hidden">Sản phẩm trong giỏ</h2>
+                @foreach (var item in Model)
+                {
+                    <article class="cart-line-item" id="row-@item.IdbienThe"
+                             data-variant-id="@item.IdbienThe">
+                        <a class="cart-line-image" asp-controller="Products" asp-action="Details"
+                           asp-route-id="@item.IdsanPham" aria-label="Xem @item.TenSanPham">
+                            <img src="@item.AnhDaiDien" alt="@item.TenSanPham" />
+                        </a>
+                        <div class="cart-line-main">
+                            <div class="cart-line-heading">
+                                <div>
+                                    <h2>
+                                        <a asp-controller="Products" asp-action="Details"
+                                           asp-route-id="@item.IdsanPham">@item.TenSanPham</a>
+                                    </h2>
+                                    <p>@item.TenMau <span aria-hidden="true">/</span> @item.TenKichThuoc</p>
+                                </div>
+                                <strong>@item.DonGia.ToString("N0") ₫</strong>
+                            </div>
+                            <div class="cart-line-controls">
+                                <div class="cart-quantity-control" aria-label="Số lượng @item.TenSanPham">
+                                    <button type="button" class="js-cart-decrease"
+                                            data-id="@item.IdbienThe" aria-label="Giảm số lượng">
+                                        <i class="bi bi-dash" aria-hidden="true"></i>
                                     </button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="col-lg-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Tổng cộng</h5>
-                        <ul class="list-group list-group-flush">
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span>Tạm tính</span>
-                                <span id="cart-subtotal">@Model.Sum(item => item.ThanhTien).ToString("N0") VNĐ</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span>Giảm giá</span>
-                                <span>0 VNĐ</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between fw-bold">
-                                <span>Tổng tiền</span>
-                                <span id="cart-total">@Model.Sum(item => item.ThanhTien).ToString("N0") VNĐ</span>
-                            </li>
-                        </ul>
-                        <div class="d-grid mt-3">
-                            <a asp-controller="Order"
-                               asp-action="Checkout"
-                               asp-route-cartType="Normal"
-                               class="btn btn-dark">
-                                Tiến hành thanh toán
-                            </a>
+                                    <input type="number" class="quantity-input"
+                                           value="@item.SoLuong" min="1" max="@item.SoLuongTon"
+                                           data-id="@item.IdbienThe" inputmode="numeric"
+                                           aria-label="Số lượng @item.TenSanPham" />
+                                    <button type="button" class="js-cart-increase"
+                                            data-id="@item.IdbienThe" aria-label="Tăng số lượng">
+                                        <i class="bi bi-plus" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                                <span class="cart-stock-note">Còn @item.SoLuongTon sản phẩm</span>
+                                <button type="button" class="cart-remove-button js-cart-remove"
+                                        data-id="@item.IdbienThe">
+                                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                                    Xóa
+                                </button>
+                            </div>
                         </div>
+                        <strong class="cart-line-total" id="item-total-@item.IdbienThe">
+                            @item.ThanhTien.ToString("N0") ₫
+                        </strong>
+                    </article>
+                }
+            </section>
+
+            <aside class="cart-summary" aria-labelledby="cart-summary-title">
+                <p class="section-kicker">ORDER SUMMARY</p>
+                <h2 id="cart-summary-title">Tóm tắt đơn hàng</h2>
+                <dl>
+                    <div>
+                        <dt>Tạm tính</dt>
+                        <dd id="cart-subtotal">@Model.Sum(item => item.ThanhTien).ToString("N0") ₫</dd>
                     </div>
-                </div>
-            </div>
+                    <div>
+                        <dt>Phí vận chuyển</dt>
+                        <dd>Tính ở bước sau</dd>
+                    </div>
+                    <div class="cart-summary-total">
+                        <dt>Tổng dự kiến</dt>
+                        <dd id="cart-total">@Model.Sum(item => item.ThanhTien).ToString("N0") ₫</dd>
+                    </div>
+                </dl>
+                <a asp-controller="Order" asp-action="Checkout" asp-route-cartType="Normal"
+                   class="btn btn-dark w-100">
+                    Tiến hành thanh toán
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                </a>
+                <a asp-controller="Products" asp-action="Index" class="cart-continue-link">
+                    <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                    Tiếp tục mua sắm
+                </a>
+                <p class="cart-summary-note">
+                    <i class="bi bi-shield-check" aria-hidden="true"></i>
+                    Giá và tồn kho sẽ được kiểm tra lại khi đặt hàng.
+                </p>
+            </aside>
         </div>
     }
     else
     {
-        <div class="text-center">
-            <p>Giỏ hàng của bạn đang trống.</p>
-            <a asp-controller="Products" asp-action="Index" class="btn btn-dark">Tiếp tục mua sắm</a>
+        <div class="cart-empty-state">
+            <span><i class="bi bi-bag" aria-hidden="true"></i></span>
+            <p class="section-kicker">YOUR BAG IS EMPTY</p>
+            <h2>Giỏ hàng đang trống</h2>
+            <p>Khám phá bộ sưu tập mới và chọn món đồ phù hợp với bạn.</p>
+            <a asp-controller="Products" asp-action="Index" class="btn btn-dark">Bắt đầu mua sắm</a>
         </div>
     }
 </div>
-
-@section Scripts {
-    <script>
-        $(document).ready(function () {
-            function updateCartSummary(cartTotal, cartCount) {
-                $('#cart-subtotal').text(cartTotal + ' VNĐ');
-                $('#cart-total').text(cartTotal + ' VNĐ');
-                $('#cart-count').text(cartCount);
-            }
-
-            $('.btn-plus, .btn-minus').on('click', function () {
-                const variantId = $(this).data('id');
-                const input = $(`.quantity-input[data-id=${variantId}]`);
-                let quantity = parseInt(input.val());
-
-                if ($(this).hasClass('btn-plus')) {
-                    quantity++;
-                } else if (quantity > 1) {
-                    quantity--;
-                }
-
-                input.val(quantity);
-                updateQuantity(variantId, quantity);
-            });
-
-            $('.quantity-input').on('change', function () {
-                const variantId = $(this).data('id');
-                let quantity = parseInt($(this).val());
-
-                if (isNaN(quantity) || quantity < 1) {
-                    quantity = 1;
-                    $(this).val(1);
-                }
-
-                updateQuantity(variantId, quantity);
-            });
-
-            function updateQuantity(variantId, quantity) {
-                $.ajax({
-                    url: '@Url.Action("UpdateCart", "Cart")',
-                    type: 'POST',
-                    data: { variantId: variantId, quantity: quantity },
-                    success: function (response) {
-                        if (response.success) {
-                            $('#item-total-' + variantId).text(response.itemTotal + ' VNĐ');
-                            updateCartSummary(response.cartTotal, response.cartCount);
-                        } else {
-                            window.alert(response.message || 'Không thể cập nhật giỏ hàng.');
-                        }
-                    },
-                    error: function () {
-                        window.alert('Đã xảy ra lỗi khi cập nhật giỏ hàng.');
-                    }
-                });
-            }
-
-            $('.btn-remove').on('click', function () {
-                if (!window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
-                    return;
-                }
-
-                const variantId = $(this).data('id');
-
-                $.ajax({
-                    url: '@Url.Action("RemoveFromCart", "Cart")',
-                    type: 'POST',
-                    data: { variantId: variantId },
-                    success: function (response) {
-                        if (response.success) {
-                            $('#row-' + variantId).fadeOut(300, function () { $(this).remove(); });
-                            updateCartSummary(response.cartTotal, response.cartCount);
-
-                            if (response.cartCount === 0) {
-                                location.reload();
-                            }
-                        } else {
-                            window.alert(response.message || 'Không thể xóa sản phẩm.');
-                        }
-                    },
-                    error: function () {
-                        window.alert('Đã xảy ra lỗi khi xóa sản phẩm.');
-                    }
-                });
-            });
-        });
-    </script>
-}

@@ -38,6 +38,7 @@ public class HomeController : Controller
                 OnSaleOnly = true
             },
             cancellationToken);
+        var filterResult = await productService.GetFilterOptionsAsync(cancellationToken);
 
         var viewModel = new HomeViewModel
         {
@@ -46,7 +47,13 @@ public class HomeController : Controller
                 : new List<ProductCardViewModel>(),
             SanPhamKhuyenMai = saleResult.IsSuccess
                 ? saleResult.Value!.Items.Select(ProductMvcMapper.ToCard).ToList()
-                : new List<ProductCardViewModel>()
+                : new List<ProductCardViewModel>(),
+            DanhMuc = filterResult.IsSuccess
+                ? ProductMvcMapper.ToCategories(filterResult.Value!)
+                : new List<Models.Generated.DanhMuc>(),
+            ThuongHieu = filterResult.IsSuccess
+                ? ProductMvcMapper.ToBrands(filterResult.Value!)
+                : new List<Models.Generated.ThuongHieu>()
         };
 
         return View(viewModel);

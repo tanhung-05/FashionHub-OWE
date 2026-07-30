@@ -1,111 +1,129 @@
 @model IEnumerable<FashionHub.Web.Models.Generated.DiaChi>
 @{
-    ViewData["Title"] = "Quản lý địa chỉ";
+    ViewData["Title"] = "Địa chỉ giao hàng";
 }
 
-<div class="container py-5">
-    <div class="row">
-        <div class="col-lg-10 mx-auto">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h3><i class="bi bi-geo-alt me-2"></i>Địa chỉ giao hàng</h3>
-                <a asp-action="CreateAddress" class="btn btn-primary">
-                    <i class="bi bi-plus-circle me-1"></i>Thêm địa chỉ mới
-                </a>
-            </div>
-
-            @if (TempData["SuccessMessage"] != null)
-            {
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <i class="bi bi-check-circle me-2"></i>@TempData["SuccessMessage"]
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-
-            @if (!Model.Any())
-            {
-                <div class="text-center py-5">
-                    <i class="bi bi-geo-alt text-muted" style="font-size: 3rem;"></i>
-                    <p class="text-muted mt-3">Bạn chưa có địa chỉ nào</p>
-                    <a asp-action="CreateAddress" class="btn btn-primary">Thêm địa chỉ đầu tiên</a>
-                </div>
-            }
-            else
-            {
-                <div class="row g-3">
-                    @foreach (var address in Model)
-                    {
-                        <div class="col-md-6">
-                            <div class="card h-100 @(address.LaMacDinh == true ? "border-primary" : "")">
-                                <div class="card-body">
-                                    @if (address.LaMacDinh == true)
-                                    {
-                                        <span class="badge bg-primary mb-2">Mặc định</span>
-                                    }
-                                    <h6 class="card-title fw-bold">@address.TenNguoiNhan</h6>
-                                    <p class="card-text small text-muted mb-2">
-                                        <i class="bi bi-telephone me-1"></i>@address.SoDienThoai
-                                    </p>
-                                    <p class="card-text small">
-                                        @address.ChiTiet, @address.PhuongXa, @address.QuanHuyen, @address.TinhThanh
-                                    </p>
-                                </div>
-                                <div class="card-footer bg-white border-top-0 d-flex gap-2">
-                                    <a asp-action="EditAddress" asp-route-id="@address.IddiaChi" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-pencil me-1"></i>Sửa
-                                    </a>
-
-                                    @if (address.LaMacDinh != true)
-                                    {
-                                        <button type="button" class="btn btn-sm btn-outline-success" onclick="setDefault(@address.IddiaChi)">
-                                            <i class="bi bi-check2 me-1"></i>Đặt mặc định
-                                        </button>
-                                    }
-
-                                    <form asp-action="DeleteAddress" asp-route-id="@address.IddiaChi" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc muốn xóa địa chỉ này?')">
-                                        @Html.AntiForgeryToken()
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash me-1"></i>Xóa
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    }
-                </div>
-            }
-
-            <div class="mt-4">
-                <a asp-action="Profile" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left me-1"></i>Quay lại trang cá nhân
-                </a>
-            </div>
+<div class="account-page">
+    <header class="account-page-heading">
+        <div>
+            <p class="section-kicker">MY OWE</p>
+            <h1>Địa chỉ giao hàng</h1>
+            <p>Quản lý thông tin người nhận dùng khi thanh toán.</p>
         </div>
-    </div>
+        <a asp-action="CreateAddress" class="btn btn-dark">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+            Thêm địa chỉ
+        </a>
+    </header>
+
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="alert alert-success" role="status">@successMessage</div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="account-empty-state">
+            <i class="bi bi-geo-alt" aria-hidden="true"></i>
+            <h2>Chưa có địa chỉ nào</h2>
+            <p>Thêm địa chỉ đầu tiên để thanh toán nhanh hơn.</p>
+            <a asp-action="CreateAddress" class="btn btn-dark">Thêm địa chỉ</a>
+        </div>
+    }
+    else
+    {
+        <div class="address-grid">
+            @foreach (var address in Model)
+            {
+                <article class="address-item @(address.LaMacDinh == true ? "is-default" : "")">
+                    <header>
+                        <div>
+                            <h2>@address.TenNguoiNhan</h2>
+                            <a href="tel:@address.SoDienThoai">@address.SoDienThoai</a>
+                        </div>
+                        @if (address.LaMacDinh == true)
+                        {
+                            <span>Mặc định</span>
+                        }
+                    </header>
+                    <p>@address.ChiTiet, @address.PhuongXa, @address.QuanHuyen, @address.TinhThanh</p>
+                    <footer>
+                        <a asp-action="EditAddress" asp-route-id="@address.IddiaChi">
+                            <i class="bi bi-pencil" aria-hidden="true"></i>Sửa
+                        </a>
+                        @if (address.LaMacDinh != true)
+                        {
+                            <button type="button" class="js-set-default-address"
+                                    data-address-id="@address.IddiaChi">
+                                <i class="bi bi-check2-circle" aria-hidden="true"></i>Đặt mặc định
+                            </button>
+                        }
+                        <form asp-action="DeleteAddress" asp-route-id="@address.IddiaChi"
+                              method="post" class="js-delete-address-form">
+                            <button type="submit">
+                                <i class="bi bi-trash3" aria-hidden="true"></i>Xóa
+                            </button>
+                        </form>
+                    </footer>
+                </article>
+            }
+        </div>
+    }
+
+    <a asp-action="Profile" class="account-back-link">
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        Quay lại hồ sơ
+    </a>
 </div>
 
 @section Scripts {
-<script>
-function setDefault(addressId) {
-    if (!confirm('Đặt làm địa chỉ mặc định?')) return;
-    
-    fetch('/Account/SetDefaultAddress/' + addressId, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('input[name="__RequestVerificationToken"]').value
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.message || 'Có lỗi xảy ra');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Có lỗi xảy ra');
-    });
-}
-</script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.js-set-default-address').forEach(function (button) {
+                button.addEventListener('click', async function () {
+                    const confirmed = await window.AppAlert.Confirm(
+                        'Đặt địa chỉ này làm địa chỉ mặc định?');
+                    if (!confirmed) {
+                        return;
+                    }
+
+                    button.disabled = true;
+                    fetch('/Account/SetDefaultAddress/' + button.dataset.addressId, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': window.AppUtilities.getRequestVerificationToken(),
+                            'Accept': 'application/json'
+                        }
+                    })
+                        .then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('HTTP ' + response.status);
+                            }
+                            return response.json();
+                        })
+                        .then(function (response) {
+                            if (!response.success) {
+                                throw new Error(response.message || 'Không thể đặt địa chỉ mặc định.');
+                            }
+                            window.location.reload();
+                        })
+                        .catch(function () {
+                            button.disabled = false;
+                            window.AppAlert.ShowError('Không thể đặt địa chỉ mặc định.');
+                        });
+                });
+            });
+
+            document.querySelectorAll('.js-delete-address-form').forEach(function (form) {
+                form.addEventListener('submit', async function (event) {
+                    event.preventDefault();
+                    const confirmed = await window.AppAlert.Confirm(
+                        'Xóa địa chỉ này khỏi tài khoản?', { okText: 'Xóa địa chỉ' });
+                    if (confirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+    </script>
 }

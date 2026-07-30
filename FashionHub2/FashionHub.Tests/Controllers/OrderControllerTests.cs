@@ -75,20 +75,20 @@ public class OrderControllerTests : IClassFixture<CustomWebApplicationFactory<Pr
     public async Task Checkout_NormalCart_IgnoresStaleBuyNowCart()
     {
         await _client.LoginAsCustomerAsync();
-        await _client.PostAsync(
+        await _client.PostFormWithAntiforgeryAsync(
             "/Cart/AddToCart",
-            new FormUrlEncodedContent(new Dictionary<string, string>
+            new Dictionary<string, string>
             {
                 ["variantId"] = "1",
                 ["quantity"] = "1"
-            }));
-        await _client.PostAsync(
+            });
+        await _client.PostFormWithAntiforgeryAsync(
             "/Cart/BuyNow",
-            new FormUrlEncodedContent(new Dictionary<string, string>
+            new Dictionary<string, string>
             {
                 ["variantId"] = "2",
                 ["quantity"] = "1"
-            }));
+            });
 
         var response = await _client.GetAsync("/Order/Checkout?cartType=Normal");
 
@@ -103,13 +103,13 @@ public class OrderControllerTests : IClassFixture<CustomWebApplicationFactory<Pr
     public async Task PlaceOrder_WithoutAddress_ShowsValidationMessage()
     {
         await _client.LoginAsCustomerAsync();
-        await _client.PostAsync(
+        await _client.PostFormWithAntiforgeryAsync(
             "/Cart/AddToCart",
-            new FormUrlEncodedContent(new Dictionary<string, string>
+            new Dictionary<string, string>
             {
                 ["variantId"] = "1",
                 ["quantity"] = "1"
-            }));
+            });
         var token = await _client.GetAntiforgeryTokenAsync(
             "/Order/Checkout?cartType=Normal");
 
@@ -139,13 +139,13 @@ public class OrderControllerTests : IClassFixture<CustomWebApplicationFactory<Pr
     public async Task PlaceOrder_NormalCart_WithValidData_RedirectsToSuccess()
     {
         await _client.LoginAsCustomerAsync();
-        await _client.PostAsync(
+        await _client.PostFormWithAntiforgeryAsync(
             "/Cart/AddToCart",
-            new FormUrlEncodedContent(new Dictionary<string, string>
+            new Dictionary<string, string>
             {
                 ["variantId"] = "1",
                 ["quantity"] = "1"
-            }));
+            });
         var token = await _client.GetAntiforgeryTokenAsync(
             "/Order/Checkout?cartType=Normal");
 

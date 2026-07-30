@@ -2,6 +2,8 @@ namespace FashionHub.Web.ViewModels.Cart;
 
 public class CartItemViewModel
 {
+    public int IdsanPham { get; set; }
+
     public int IdbienThe { get; set; }
 
     public string TenSanPham { get; set; } = string.Empty;
@@ -14,7 +16,9 @@ public class CartItemViewModel
 
     public int SoLuong { get; set; }
 
-    public string AnhDaiDien { get; set; } = "/images/placeholder.png";
+    public string AnhDaiDien { get; set; } = "/images/products/aothun1_den_boxy.jpg";
+
+    public int SoLuongTon { get; set; }
 
     public decimal ThanhTien => SoLuong * DonGia;
 }

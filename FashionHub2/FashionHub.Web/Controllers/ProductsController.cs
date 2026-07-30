@@ -15,22 +15,36 @@ public class ProductsController : Controller
 
     public async Task<IActionResult> Index(
         string? searchString,
+        string? search,
         int? categoryId,
+        int? category,
+        List<int>? brandIds,
         List<int>? colorIds,
         List<int>? sizeIds,
-        string? priceRange,
-        string? sortBy,
+        decimal? minPrice,
+        decimal? maxPrice,
+        bool? inStock,
+        bool sale = false,
+        string? sortBy = null,
         int page = 1,
         CancellationToken cancellationToken = default)
     {
+        searchString = string.IsNullOrWhiteSpace(searchString) ? search : searchString;
+        categoryId ??= category;
+
         var query = new ProductQueryParameters
         {
             PageNumber = Math.Max(page, 1),
             PageSize = 9,
             Search = searchString,
             CategoryId = categoryId,
+            BrandIds = brandIds ?? new List<int>(),
             ColorIds = colorIds ?? new List<int>(),
             SizeIds = sizeIds ?? new List<int>(),
+            MinPrice = minPrice,
+            MaxPrice = maxPrice,
+            InStock = inStock,
+            OnSaleOnly = sale,
             SortBy = sortBy?.StartsWith("price", StringComparison.OrdinalIgnoreCase) == true
                 ? "price"
                 : "newest",
@@ -51,16 +65,22 @@ public class ProductsController : Controller
         {
             Products = products.Items.Select(ProductMvcMapper.ToCard).ToList(),
             Categories = ProductMvcMapper.ToCategories(filters),
+            Brands = ProductMvcMapper.ToBrands(filters),
             Colors = ProductMvcMapper.ToColors(filters),
             Sizes = ProductMvcMapper.ToSizes(filters),
             CurrentPage = products.PageNumber,
             TotalPages = products.TotalPages,
+            TotalItems = products.TotalItems,
             SelectedCategoryId = categoryId,
+            SelectedBrandIds = query.BrandIds,
             SelectedColorIds = query.ColorIds,
             SelectedSizeIds = query.SizeIds,
-            SelectedPriceRange = priceRange,
+            SelectedMinPrice = minPrice,
+            SelectedMaxPrice = maxPrice,
+            SelectedInStock = inStock,
+            OnSaleOnly = sale,
             SelectedSortBy = sortBy,
-            searchString = searchString
+            SearchString = searchString
         };
 
         return View(viewModel);
@@ -82,6 +102,7 @@ public class ProductsController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public IActionResult SearchByImage(IFormFile? imageFile)
     {
         return RedirectToAction("Index", new

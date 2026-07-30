@@ -13,6 +13,7 @@ namespace FashionHub.Web.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> GetResponse(string userMessage)
         {
             if (string.IsNullOrWhiteSpace(userMessage))
@@ -23,7 +24,7 @@ namespace FashionHub.Web.Controllers
                 string response = await _chatAiService.GetResponseAsync(userMessage);
                 return Json(new { success = true, response });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return Json(new { success = false, response = "Hệ thống đang bận, bạn thử lại sau chút nhé!" });
             }

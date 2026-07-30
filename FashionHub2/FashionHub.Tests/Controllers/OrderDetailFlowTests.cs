@@ -23,13 +23,13 @@ public class OrderDetailFlowTests : IClassFixture<CustomWebApplicationFactory<Pr
     public async Task OrderDetail_RendersItemAndCancelsOrder()
     {
         await client.LoginAsCustomerAsync();
-        await client.PostAsync(
+        await client.PostFormWithAntiforgeryAsync(
             "/Cart/AddToCart",
-            new FormUrlEncodedContent(new Dictionary<string, string>
+            new Dictionary<string, string>
             {
                 ["variantId"] = "1",
                 ["quantity"] = "1"
-            }));
+            });
         var checkoutToken = await client.GetAntiforgeryTokenAsync(
             "/Order/Checkout?cartType=Normal");
         var placeOrderResponse = await client.PostAsync(

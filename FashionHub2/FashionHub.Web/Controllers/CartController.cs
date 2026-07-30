@@ -30,6 +30,7 @@ public class CartController : Controller
     [HttpGet]
     public async Task<IActionResult> GetProductDetails(int productId)
     {
+        var now = DateTime.Now;
         var product = await dbContext.SanPhams
             .AsNoTracking()
             .Where(product => product.IdsanPham == productId
@@ -50,7 +51,12 @@ public class CartController : Controller
                         colorName = variant.IdmauSacNavigation != null ? variant.IdmauSacNavigation.TenMau : null,
                         sizeId = variant.IdkichThuoc,
                         sizeName = variant.IdkichThuocNavigation != null ? variant.IdkichThuocNavigation.TenKichThuoc : null,
-                        price = product.Gia,
+                        price = product.GiaKhuyenMai.HasValue
+                            && product.GiaKhuyenMai < product.Gia
+                            && product.NgayBatDauKm <= now
+                            && product.NgayKetThucKm >= now
+                                ? product.GiaKhuyenMai.Value
+                                : (variant.Gia > 0 ? variant.Gia : product.Gia),
                         stock = variant.SoLuongTon,
                         imageIds = variant.HinhAnhBienThes.Select(image => image.IdhinhAnh).ToList()
                     })
@@ -77,6 +83,7 @@ public class CartController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddToCart(int variantId, int quantity)
     {
         if (quantity < 1)
@@ -104,6 +111,7 @@ public class CartController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> BuyNow(int variantId, int quantity)
     {
         if (quantity < 1)
@@ -133,12 +141,14 @@ public class CartController : Controller
         {
             new()
             {
+                IdsanPham = variant.IdsanPham,
                 IdbienThe = variant.IdbienThe,
                 TenSanPham = variant.IdsanPhamNavigation.TenSanPham,
                 TenMau = variant.IdmauSacNavigation?.TenMau,
                 TenKichThuoc = variant.IdkichThuocNavigation?.TenKichThuoc,
                 DonGia = finalPrice,
                 SoLuong = quantity,
+                SoLuongTon = variant.SoLuongTon,
                 AnhDaiDien = GetVariantImageUrl(variant)
             }
         };
@@ -182,6 +192,7 @@ public class CartController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateCart(int variantId, int quantity)
     {
         if (quantity < 1)
@@ -207,6 +218,7 @@ public class CartController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> RemoveFromCart(int variantId)
     {
         var result = await cartService.RemoveAsync(variantId);
@@ -273,6 +285,6 @@ public class CartController : Controller
             ?? variant.HinhAnhBienThes
                 .Select(image => image.IdhinhAnhNavigation.DuongDan)
                 .FirstOrDefault()
-            ?? "/images/placeholder.png";
+            ?? "/images/products/aothun1_den_boxy.jpg";
     }
 }

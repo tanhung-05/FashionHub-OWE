@@ -19,6 +19,7 @@ public class ProductDetailViewModel
     public List<MauSac> AvailableColors { get; set; } = new();
     public List<KichThuoc> AvailableSizes { get; set; } = new();
     public List<HinhAnh> AllImages { get; set; } = new();
+    public List<ProductReviewViewModel> Reviews { get; set; } = new();
 
     // Dữ liệu JSON cho JavaScript
     public string VariantsJson { get; set; } = string.Empty;
@@ -39,4 +40,13 @@ public class ProductDetailViewModel
                    && DateTime.Now <= NgayKetThucKM.Value;
         }
     }
+}
+
+public sealed class ProductReviewViewModel
+{
+    public int Id { get; set; }
+    public string CustomerName { get; set; } = string.Empty;
+    public byte Rating { get; set; }
+    public string? Content { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

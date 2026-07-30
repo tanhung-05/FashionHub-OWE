@@ -1,23 +1,32 @@
-﻿<!DOCTYPE html>
+@{
+    var controllerName = ViewContext.RouteData.Values["controller"]?.ToString()?.ToLowerInvariant() ?? "home";
+    var actionName = ViewContext.RouteData.Values["action"]?.ToString()?.ToLowerInvariant() ?? "index";
+}
+<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="@(ViewData["MetaDescription"] ?? "OWE - thời trang nam hiện đại, dễ mặc mỗi ngày.")">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="@(ViewData["MetaDescription"] ?? "OWE - thời trang nam hiện đại, dễ mặc mỗi ngày.")" />
+    <meta name="theme-color" content="#ffffff" />
     <title>@ViewData["Title"] - OWE</title>
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
-<body>
+<body class="page-@controllerName page-@controllerName-@actionName">
+    <a class="skip-link" href="#main-content">Bỏ qua điều hướng</a>
     <partial name="_GlobalFeedbackPartial" />
     <partial name="_HeaderPartial" />
 
-    <div class="header-spacer"></div>
+    <div class="header-spacer" aria-hidden="true"></div>
+    <partial name="_BreadcrumbPartial" />
 
-    <main role="main" class="container my-4">
+    <main id="main-content" role="main" class="container site-main">
         @RenderBody()
     </main>
 
@@ -26,161 +35,16 @@
     <partial name="_FooterPartial" />
     <partial name="_ChatWidgetPartial" />
 
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js"></script>
-    <script src="~/js/vietnam-address-selector.js"></script>
+    <form id="global-antiforgery-form" class="d-none" aria-hidden="true">
+        @Html.AntiForgeryToken()
+    </form>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/vietnam-address-selector.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
-
-    <script>
-        window.addEventListener('pageshow', function (event) {
-            if (event.persisted) {
-                $.get('/Cart/GetCartItemCount', function (data) {
-                    if (data.success) {
-                        $('#cart-count').text(data.count);
-                    }
-                });
-            }
-        });
-
-        window.addEventListener("scroll", function () {
-            var header = document.getElementById("mainHeader");
-            if (!header) {
-                return;
-            }
-
-            if (window.scrollY > 50) {
-                header.classList.add("scrolled");
-            } else {
-                header.classList.remove("scrolled");
-            }
-        });
-
-        document.addEventListener("DOMContentLoaded", function () {
-            const textInput = document.getElementById('main-search-input');
-            const btnCamera = document.getElementById('btn-trigger-image-search');
-            const fileInput = document.getElementById('hidden-file-input');
-            const imageForm = document.getElementById('image-search-form');
-
-            if (!textInput || !btnCamera || !fileInput || !imageForm) {
-                return;
-            }
-
-            btnCamera.addEventListener('click', function () {
-                fileInput.click();
-            });
-
-            fileInput.addEventListener('change', function () {
-                if (fileInput.files.length > 0) {
-                    textInput.value = "Đang phân tích hình ảnh...";
-                    textInput.disabled = true;
-                    imageForm.submit();
-                }
-            });
-
-            textInput.addEventListener('paste', function (e) {
-                const clipboardData = e.clipboardData || e.originalEvent.clipboardData;
-                if (!clipboardData || !clipboardData.items) {
-                    return;
-                }
-
-                const items = clipboardData.items;
-
-                for (let i = 0; i < items.length; i++) {
-                    if (items[i].type.indexOf("image") !== -1) {
-                        e.preventDefault();
-
-                        const blob = items[i].getAsFile();
-                        const dataTransfer = new DataTransfer();
-                        dataTransfer.items.add(blob);
-                        fileInput.files = dataTransfer.files;
-
-                        textInput.value = "Đang tìm kiếm ảnh vừa dán...";
-                        textInput.disabled = true;
-                        imageForm.submit();
-
-                        return;
-                    }
-                }
-            });
-        });
-
-        $(document).ready(function () {
-            $('#chat-toggle-btn, #chat-close-btn').click(function () {
-                $('#chat-box').toggleClass('d-none');
-            });
-
-            function scrollToBottom() {
-                var chatContent = document.getElementById("chat-content");
-                if (chatContent) {
-                    chatContent.scrollTop = chatContent.scrollHeight;
-                }
-            }
-
-            function sendMessage() {
-                var message = $('#chat-input').val().trim();
-                if (message === "") {
-                    return;
-                }
-
-                $('#chat-content').append(`
-                    <div class="d-flex flex-row justify-content-end mb-3">
-                        <div class="p-3 bg-primary text-white rounded-3 shadow-sm chat-message">
-                            ${message}
-                        </div>
-                    </div>
-                `);
-
-                $('#chat-input').val('');
-                scrollToBottom();
-
-                var loadingId = 'loading-' + Date.now();
-                $('#chat-content').append(`
-                    <div id="${loadingId}" class="d-flex flex-row justify-content-start mb-3">
-                        <div class="p-3 bg-white border rounded-3 text-muted fst-italic">
-                            Đang suy nghĩ...
-                        </div>
-                    </div>
-                `);
-                scrollToBottom();
-
-                $.post('/Chat/GetResponse', { userMessage: message }, function (res) {
-                    $(`#${loadingId}`).remove();
-
-                    if (res.success) {
-                        $('#chat-content').append(`
-                            <div class="d-flex flex-row justify-content-start mb-3">
-                                <div class="p-3 bg-white border rounded-3 shadow-sm chat-message">
-                                    ${res.response}
-                                </div>
-                            </div>
-                        `);
-                    } else if (window.AppAlert) {
-                        AppAlert.ShowError("Lỗi: " + res.response);
-                    } else {
-                        alert("Lỗi: " + res.response);
-                    }
-
-                    scrollToBottom();
-                });
-            }
-
-            $('#chat-send-btn').click(function () {
-                sendMessage();
-            });
-
-            $('#chat-input').keypress(function (e) {
-                if (e.which == 13) {
-                    sendMessage();
-                }
-            });
-
-            $(document).on('click', '.quick-reply-btn', function () {
-                var text = $(this).text();
-                $('#chat-input').val(text);
-                $('#chat-send-btn').click();
-            });
-        });
-    </script>
 </body>
 </html>

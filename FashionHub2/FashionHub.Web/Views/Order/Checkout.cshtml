@@ -1,235 +1,174 @@
 @model FashionHub.Web.ViewModels.Order.CheckoutViewModel
 @{
-    ViewBag.Title = "Thanh toán";
+    ViewData["Title"] = "Thanh toán";
+    ViewData["MetaDescription"] = "Xác nhận địa chỉ, phương thức thanh toán và đơn hàng OWE.";
     var newAddressModel = new FashionHub.Web.ViewModels.Account.AddressManagementViewModel();
 }
 
-<div class="container my-5">
-    <h2 class="text-center mb-4">Thanh toán đơn hàng</h2>
+<div class="checkout-page">
+    <header class="checkout-heading">
+        <div>
+            <p class="section-kicker">SECURE CHECKOUT</p>
+            <h1>Thanh toán</h1>
+        </div>
+        <a asp-controller="Cart" asp-action="Index">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>
+            Quay lại giỏ hàng
+        </a>
+    </header>
 
-    @if (TempData["Error"] is string errorMessage)
+    @{
+        var checkoutError = TempData["Error"] as string
+            ?? ViewData["CheckoutError"] as string;
+    }
+    @if (!string.IsNullOrWhiteSpace(checkoutError))
     {
-        <div class="alert alert-danger d-flex align-items-center checkout-alert" role="alert">
-            <i class="bi bi-exclamation-circle-fill me-2"></i>
-            <span>@errorMessage</span>
+        <div class="alert alert-danger checkout-alert" role="alert">
+            <i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i>
+            @if (checkoutError == "Vui lòng chọn hoặc thêm địa chỉ giao hàng trước khi đặt hàng.")
+            {
+                <span>Vui lòng chọn hoặc thêm địa chỉ giao hàng trước khi đặt hàng.</span>
+            }
+            else if (checkoutError == "Vui lòng chọn phương thức thanh toán.")
+            {
+                <span>Vui lòng chọn phương thức thanh toán.</span>
+            }
+            else
+            {
+                <span>@checkoutError</span>
+            }
         </div>
     }
 
-    <div id="checkout-validation-summary"
-         class="alert alert-danger d-none checkout-alert"
-         role="alert"
-         aria-live="assertive"></div>
+    <div id="checkout-validation-summary" class="alert alert-danger d-none checkout-alert"
+         role="alert" aria-live="assertive"></div>
 
     <form asp-action="PlaceOrder" asp-controller="Order" method="post" id="checkout-form">
         <input type="hidden" name="cartType" value="@ViewBag.CartType" />
-        
-        <div class="row">
-            <!-- Cột thông tin giao hàng -->
-            <div class="col-lg-7">
-                <h4>Thông tin giao hàng</h4>
-                <div class="card">
-                    <div class="card-body" id="address-list-container">
+        <div class="checkout-layout">
+            <div class="checkout-sections">
+                <section class="checkout-section" aria-labelledby="shipping-address-title">
+                    <div class="checkout-section-heading">
+                        <span>01</span>
+                        <div>
+                            <h2 id="shipping-address-title">Địa chỉ giao hàng</h2>
+                            <p>Chọn địa chỉ chính xác để đơn hàng đến đúng nơi.</p>
+                        </div>
+                    </div>
+
+                    <div class="checkout-address-list" id="address-list-container">
                         @if (Model.UserAddresses.Any())
                         {
-                            foreach (var addr in Model.UserAddresses)
+                            @foreach (var address in Model.UserAddresses)
                             {
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="radio" name="addressId" 
-                                           id="addr-@addr.IddiaChi" value="@addr.IddiaChi" 
-                                           required
-                                           @(addr.LaMacDinh ? "checked" : "")>
-                                    <label class="form-check-label" for="addr-@addr.IddiaChi">
-                                        <strong>@addr.TenNguoiNhan</strong> - @addr.SoDienThoai <br />
-                                        @addr.FullAddress
-                                    </label>
-                                </div>
+                                <label class="checkout-choice-card">
+                                    <input type="radio" name="addressId" value="@address.IddiaChi"
+                                           required checked="@address.LaMacDinh" />
+                                    <span class="checkout-choice-indicator" aria-hidden="true"></span>
+                                    <span>
+                                        <strong>@address.TenNguoiNhan</strong>
+                                        <small>@address.SoDienThoai</small>
+                                        <em>@address.FullAddress</em>
+                                    </span>
+                                    @if (address.LaMacDinh)
+                                    {
+                                        <b>Mặc định</b>
+                                    }
+                                </label>
                             }
                         }
                         else
                         {
-                            <p class="text-muted">Bạn chưa có địa chỉ nào được lưu.</p>
+                            <div class="checkout-empty-address">
+                                <i class="bi bi-geo-alt" aria-hidden="true"></i>
+                                <div>
+                                    <strong>Chưa có địa chỉ giao hàng</strong>
+                                    <p>Thêm địa chỉ để có thể tiếp tục đặt hàng.</p>
+                                </div>
+                            </div>
                         }
-                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" 
+                        <button type="button" class="checkout-add-address"
                                 data-bs-toggle="modal" data-bs-target="#addAddressModal">
-                            + Thêm địa chỉ mới
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                            Thêm địa chỉ mới
                         </button>
                     </div>
-                </div>
+                </section>
 
-                <h4 class="mt-4">Phương thức thanh toán</h4>
-                <div class="card">
-                    <div class="card-body">
+                <section class="checkout-section" aria-labelledby="payment-method-title">
+                    <div class="checkout-section-heading">
+                        <span>02</span>
+                        <div>
+                            <h2 id="payment-method-title">Phương thức thanh toán</h2>
+                            <p>Chọn một phương thức đang khả dụng.</p>
+                        </div>
+                    </div>
+                    <div class="checkout-payment-list">
                         @foreach (var method in Model.PaymentMethods)
                         {
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="paymentMethodId" 
-                                       id="pm-@method.IdphuongThucThanhToan" 
-                                       value="@method.IdphuongThucThanhToan" 
-                                       required
-                                       @(method.IdphuongThucThanhToan == 1 ? "checked" : "")>
-                                <label class="form-check-label" for="pm-@method.IdphuongThucThanhToan">
-                                    @method.TenPhuongThuc
-                                </label>
-                            </div>
+                            <label class="checkout-choice-card payment">
+                                <input type="radio" name="paymentMethodId"
+                                       value="@method.IdphuongThucThanhToan" required
+                                       checked="@(method.IdphuongThucThanhToan == 1)" />
+                                <span class="checkout-choice-indicator" aria-hidden="true"></span>
+                                <i class="bi bi-cash-coin" aria-hidden="true"></i>
+                                <span>
+                                    <strong>@method.TenPhuongThuc</strong>
+                                    <small>Thông tin thanh toán được xác nhận khi đặt hàng.</small>
+                                </span>
+                            </label>
                         }
                     </div>
-                </div>
+                </section>
             </div>
 
-            <!-- Cột tóm tắt đơn hàng -->
-            <div class="col-lg-5">
-                <h4>Tóm tắt đơn hàng</h4>
-                <div class="card">
-                    <div class="card-body">
-                        @foreach (var item in Model.CartItems)
-                        {
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>@item.TenSanPham (@item.SoLuong)</span>
-                                <span>@item.ThanhTien.ToString("N0") VNĐ</span>
+            <aside class="checkout-summary" aria-labelledby="checkout-summary-title">
+                <p class="section-kicker">YOUR ORDER</p>
+                <h2 id="checkout-summary-title">Đơn hàng</h2>
+                <div class="checkout-order-items">
+                    @foreach (var item in Model.CartItems)
+                    {
+                        <article>
+                            <img src="@item.AnhDaiDien" alt="@item.TenSanPham" />
+                            <div>
+                                <h3>@item.TenSanPham</h3>
+                                <p>@item.TenMau / @item.TenKichThuoc · SL @item.SoLuong</p>
                             </div>
-                        }
-                        <hr />
+                            <strong>@item.ThanhTien.ToString("N0") ₫</strong>
+                        </article>
+                    }
+                </div>
 
-                        <div class="input-group mb-3">
-                            <input type="text" id="coupon-code" class="form-control" 
-                                   placeholder="Nhập mã giảm giá">
-                            <button class="btn btn-outline-secondary" type="button" 
-                                    id="apply-coupon-btn">Áp dụng</button>
-                        </div>
-                        <div id="coupon-message" class="small mb-2"></div>
-
-                        <div class="d-flex justify-content-between">
-                            <span>Tạm tính</span>
-                            <span>@Model.Subtotal.ToString("N0") VNĐ</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span>Phí vận chuyển</span>
-                            <span>@Model.ShippingFee.ToString("N0") VNĐ</span>
-                        </div>
-                        <div class="d-flex justify-content-between text-success">
-                            <span>Giảm giá</span>
-                            <span id="discount-amount">- @Model.Discount.ToString("N0") VNĐ</span>
-                        </div>
-                        <hr />
-                        <div class="d-flex justify-content-between fw-bold fs-5">
-                            <span>Tổng cộng</span>
-                            <span id="total-amount">@Model.Total.ToString("N0") VNĐ</span>
-                        </div>
+                <div class="checkout-coupon">
+                    <label for="coupon-code">Mã giảm giá</label>
+                    <div>
+                        <input type="text" id="coupon-code" class="form-control"
+                               placeholder="Nhập mã" autocomplete="off" />
+                        <button class="btn btn-outline-dark" type="button" id="apply-coupon-btn">
+                            Áp dụng
+                        </button>
                     </div>
+                    <p id="coupon-message" aria-live="polite"></p>
                 </div>
-                <div class="d-grid mt-3">
-                    <button type="submit" class="btn btn-dark btn-lg">Đặt hàng</button>
-                </div>
-            </div>
+
+                <dl class="checkout-totals">
+                    <div><dt>Tạm tính</dt><dd>@Model.Subtotal.ToString("N0") ₫</dd></div>
+                    <div><dt>Phí vận chuyển</dt><dd>@Model.ShippingFee.ToString("N0") ₫</dd></div>
+                    <div class="text-success"><dt>Giảm giá</dt><dd id="discount-amount">- @Model.Discount.ToString("N0") ₫</dd></div>
+                    <div class="checkout-grand-total"><dt>Tổng thanh toán</dt><dd id="total-amount">@Model.Total.ToString("N0") ₫</dd></div>
+                </dl>
+
+                <button type="submit" class="btn btn-dark w-100 checkout-submit" id="place-order-button">
+                    <span>Đặt hàng</span>
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                </button>
+                <p class="checkout-security-note">
+                    <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                    Giá trị đơn hàng được xác thực trên máy chủ.
+                </p>
+            </aside>
         </div>
     </form>
 </div>
 
 <partial name="_AddAddressModalPartial" model="newAddressModel" />
-
-@section Scripts {
-    <script>
-        $(document).ready(function () {
-            var addAddressModal = new bootstrap.Modal(document.getElementById('addAddressModal'));
-
-            $('#checkout-form').on('submit', function (event) {
-                const validationSummary = $('#checkout-validation-summary');
-                const selectedAddress = $('input[name="addressId"]:checked').val();
-                const selectedPaymentMethod = $('input[name="paymentMethodId"]:checked').val();
-                let message = '';
-
-                if (!selectedAddress) {
-                    message = 'Vui lòng chọn hoặc thêm địa chỉ giao hàng trước khi đặt hàng.';
-                } else if (!selectedPaymentMethod) {
-                    message = 'Vui lòng chọn phương thức thanh toán.';
-                }
-
-                if (message) {
-                    event.preventDefault();
-                    validationSummary
-                        .removeClass('d-none')
-                        .html('<i class="bi bi-exclamation-circle-fill me-2"></i>' + message);
-                    validationSummary[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return;
-                }
-
-                validationSummary.addClass('d-none').empty();
-            });
-
-            $('#save-address-btn').on('click', function () {
-                var form = $('#add-address-form');
-                var btn = $(this);
-
-                if (!form[0].checkValidity()) {
-                    form[0].reportValidity();
-                    return;
-                }
-
-                btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Đang lưu...');
-
-                $.post('/Account/AddAddressAjax', form.serialize())
-                    .done(function (response) {
-                        if (!response.success) {
-                            AppAlert.ShowError(response.message || 'Không thể lưu địa chỉ.');
-                            return;
-                        }
-
-                        addAddressModal.hide();
-                        form[0].reset();
-                        AppAlert.ShowSuccess(response.message);
-                        $(document).trigger('address:added', [response.newAddress]);
-                    })
-                    .fail(function (xhr) {
-                        const response = xhr.responseJSON;
-                        AppAlert.ShowError(response?.message || 'Không thể lưu địa chỉ. Vui lòng kiểm tra lại thông tin.');
-                    })
-                    .always(function () {
-                        btn.prop('disabled', false).text('Lưu địa chỉ');
-                    });
-            });
-
-            $(document).on('address:added', function (event, newAddress) {
-                const newAddressHtml = `
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="radio" name="addressId" id="addr-${newAddress.iddiaChi}" value="${newAddress.iddiaChi}" checked>
-                        <label class="form-check-label" for="addr-${newAddress.iddiaChi}">
-                            <strong>${newAddress.tenNguoiNhan}</strong> - ${newAddress.soDienThoai} <br />
-                            ${newAddress.fullAddress}
-                        </label>
-                    </div>`;
-
-                const addressContainer = $('#address-list-container');
-                addressContainer.find('p.text-muted').remove();
-                $(newAddressHtml).insertBefore(addressContainer.find('button[data-bs-target="#addAddressModal"]'));
-                $('#checkout-validation-summary').addClass('d-none').empty();
-            });
-
-            $('#apply-coupon-btn').click(function () {
-                var code = $('#coupon-code').val().trim();
-                var cartType = $('input[name="cartType"]').val();
-                var token = $('input[name="__RequestVerificationToken"]').val();
-
-                if (!code) {
-                    $('#coupon-message').text('Vui lòng nhập mã').addClass('text-danger');
-                    return;
-                }
-
-                var btn = $(this);
-                btn.prop('disabled', true).text('Đang check...');
-
-                $.post('/Order/ApplyCoupon', { couponCode: code, cartType: cartType, __RequestVerificationToken: token }, function (res) {
-                    if (res.success) {
-                        $('#coupon-message').text(res.message).removeClass('text-danger').addClass('text-success');
-                        $('#discount-amount').text('- ' + res.discount + ' VNĐ');
-                        $('#total-amount').text(res.newTotal + ' VNĐ');
-                    } else {
-                        $('#coupon-message').text(res.message).removeClass('text-success').addClass('text-danger');
-                        $('#discount-amount').text('- 0 VNĐ');
-                    }
-                }).always(function () {
-                    btn.prop('disabled', false).text('Áp dụng');
-                });
-            });
-        });
-    </script>
-}

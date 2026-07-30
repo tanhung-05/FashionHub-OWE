@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = Model.TenSanPham;
     ViewData["MetaDescription"] = Model.MoTa ?? $"Khám phá {Model.TenSanPham} tại OWE.";
+    ViewData["HideBreadcrumb"] = true;
 
     var primaryImage = Model.AllImages.FirstOrDefault();
     var imageCount = Model.AllImages.Count;
@@ -234,6 +235,54 @@
                 </button>
             </div>
         </aside>
+    </section>
+
+    <section class="product-reviews" aria-labelledby="product-reviews-title">
+        <div class="product-information-heading">
+            <p>Trải nghiệm thực tế</p>
+            <h2 id="product-reviews-title">Đánh giá khách hàng</h2>
+        </div>
+        @if (Model.Reviews.Any())
+        {
+            <div class="product-review-summary">
+                <strong>@Model.Reviews.Average(review => review.Rating).ToString("0.0")</strong>
+                <span>
+                    @for (var star = 1; star <= 5; star++)
+                    {
+                        <i class="bi bi-star-fill" aria-hidden="true"></i>
+                    }
+                    <small>@Model.Reviews.Count đánh giá đã xác thực</small>
+                </span>
+            </div>
+            <div class="product-review-list">
+                @foreach (var review in Model.Reviews)
+                {
+                    <article>
+                        <header>
+                            <strong>@review.CustomerName</strong>
+                            <span aria-label="@review.Rating trên 5 sao">
+                                @for (var star = 1; star <= 5; star++)
+                                {
+                                    <i class="bi @(star <= review.Rating ? "bi-star-fill" : "bi-star")" aria-hidden="true"></i>
+                                }
+                            </span>
+                        </header>
+                        <p>@(string.IsNullOrWhiteSpace(review.Content) ? "Khách hàng đã đánh giá sản phẩm này." : review.Content)</p>
+                        <time datetime="@review.CreatedAt.ToString("yyyy-MM-dd")">@review.CreatedAt.ToString("dd/MM/yyyy")</time>
+                    </article>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="product-review-empty">
+                <i class="bi bi-chat-square-heart" aria-hidden="true"></i>
+                <div>
+                    <h3>Chưa có đánh giá</h3>
+                    <p>Đánh giá từ khách đã mua sẽ xuất hiện tại đây.</p>
+                </div>
+            </div>
+        }
     </section>
 
     <section class="product-information" aria-labelledby="product-information-title">
@@ -548,7 +597,10 @@
                     '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>'
                     + '<span class="visually-hidden">Đang xử lý</span>');
 
-                $.post(url, { variantId: variant.IDBienThe, quantity: quantity })
+                $.post(url, window.AppUtilities.withAntiforgery({
+                    variantId: variant.IDBienThe,
+                    quantity: quantity
+                }))
                     .done(function (response) {
                         if (!response.success) {
                             showFeedback("error", response.message);

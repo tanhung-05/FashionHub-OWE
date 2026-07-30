@@ -6,6 +6,18 @@ namespace FashionHub.Tests;
 
 internal static partial class MvcTestClientExtensions
 {
+    public static async Task<HttpResponseMessage> PostFormWithAntiforgeryAsync(
+        this HttpClient client,
+        string path,
+        IReadOnlyDictionary<string, string> values,
+        string tokenPage = "/")
+    {
+        var token = await client.GetAntiforgeryTokenAsync(tokenPage);
+        var protectedValues = values.ToDictionary(entry => entry.Key, entry => entry.Value);
+        protectedValues["__RequestVerificationToken"] = token;
+        return await client.PostAsync(path, new FormUrlEncodedContent(protectedValues));
+    }
+
     public static async Task LoginAsCustomerAsync(this HttpClient client)
     {
         var token = await client.GetAntiforgeryTokenAsync("/Account/Login");

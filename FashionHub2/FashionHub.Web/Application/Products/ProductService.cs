@@ -7,7 +7,7 @@ namespace FashionHub.Web.Application.Products;
 
 public sealed class ProductService : IProductService
 {
-    private const string PlaceholderImage = "/images/placeholder.png";
+    private const string PlaceholderImage = "/images/products/aothun1_den_boxy.jpg";
     private readonly ApplicationDbContext dbContext;
 
     public ProductService(ApplicationDbContext dbContext)
@@ -34,8 +34,9 @@ public sealed class ProductService : IProductService
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var search = query.Search.Trim();
-            products = products.Where(product => product.TenSanPham.Contains(search));
+            var search = query.Search.Trim().ToLower();
+            products = products.Where(product =>
+                product.TenSanPham.ToLower().Contains(search));
         }
 
         if (query.CategoryId.HasValue)
@@ -44,6 +45,13 @@ public sealed class ProductService : IProductService
                 product.IddanhMuc == query.CategoryId.Value
                 || (product.IddanhMucNavigation != null
                     && product.IddanhMucNavigation.IddanhMucCha == query.CategoryId.Value));
+        }
+
+        if (query.BrandIds.Count > 0)
+        {
+            products = products.Where(product =>
+                product.IdthuongHieu.HasValue
+                && query.BrandIds.Contains(product.IdthuongHieu.Value));
         }
 
         if (query.ColorIds.Count > 0)
@@ -200,6 +208,21 @@ public sealed class ProductService : IProductService
             .Take(4)
             .ToListAsync(cancellationToken);
 
+        var reviews = await dbContext.DanhGia
+            .AsNoTracking()
+            .Where(review =>
+                review.IdsanPham == productId
+                && review.TrangThai
+                && review.DeletedAt == null)
+            .OrderByDescending(review => review.NgayTao)
+            .Select(review => new ProductReviewDto(
+                review.IddanhGia,
+                review.IdnguoiDungNavigation.HoTen,
+                review.DiemSo,
+                review.NoiDung,
+                review.NgayTao))
+            .ToListAsync(cancellationToken);
+
         var saleIsActive = IsSaleActive(product, now);
         var stockQuantity = variants.Sum(variant => variant.StockQuantity);
         var detail = new ProductDetailDto(
@@ -221,6 +244,7 @@ public sealed class ProductService : IProductService
             product.NgayCapNhat,
             images,
             variants,
+            reviews,
             relatedProducts);
 
         return ServiceResult<ProductDetailDto>.Success(detail);
@@ -248,6 +272,15 @@ public sealed class ProductService : IProductService
                 color.MaMauHex))
             .ToListAsync(cancellationToken);
 
+        var brands = await dbContext.ThuongHieus
+            .AsNoTracking()
+            .Where(brand => brand.TrangThai && brand.DeletedAt == null)
+            .OrderBy(brand => brand.TenThuongHieu)
+            .Select(brand => new BrandOptionDto(
+                brand.IdthuongHieu,
+                brand.TenThuongHieu))
+            .ToListAsync(cancellationToken);
+
         var sizes = await dbContext.KichThuocs
             .AsNoTracking()
             .OrderBy(size => size.IdkichThuoc)
@@ -257,7 +290,7 @@ public sealed class ProductService : IProductService
             .ToListAsync(cancellationToken);
 
         return ServiceResult<ProductFilterOptionsDto>.Success(
-            new ProductFilterOptionsDto(categories, colors, sizes));
+            new ProductFilterOptionsDto(categories, brands, colors, sizes));
     }
 
     private IQueryable<SanPham> BuildActiveProductsQuery()

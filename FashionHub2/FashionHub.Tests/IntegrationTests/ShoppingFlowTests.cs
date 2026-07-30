@@ -38,8 +38,9 @@ public class ShoppingFlowTests : IClassFixture<CustomWebApplicationFactory<Progr
             { "variantId", "1" },
             { "quantity", "1" }
         };
-        var addToCartResponse = await _client.PostAsync("/Cart/AddToCart", 
-            new FormUrlEncodedContent(addToCartData));
+        var addToCartResponse = await _client.PostFormWithAntiforgeryAsync(
+            "/Cart/AddToCart",
+            addToCartData);
         addToCartResponse.EnsureSuccessStatusCode();
         
         // 4. View cart
@@ -81,8 +82,9 @@ public class ShoppingFlowTests : IClassFixture<CustomWebApplicationFactory<Progr
             { "variantId", "1" },
             { "quantity", "1" }
         };
-        var addResponse = await _client.PostAsync("/Cart/AddToCart", 
-            new FormUrlEncodedContent(addData));
+        var addResponse = await _client.PostFormWithAntiforgeryAsync(
+            "/Cart/AddToCart",
+            addData);
         addResponse.EnsureSuccessStatusCode();
         
         // Update quantity
@@ -91,8 +93,9 @@ public class ShoppingFlowTests : IClassFixture<CustomWebApplicationFactory<Progr
             { "variantId", "1" },
             { "quantity", "3" }
         };
-        var updateResponse = await _client.PostAsync("/Cart/UpdateCart", 
-            new FormUrlEncodedContent(updateData));
+        var updateResponse = await _client.PostFormWithAntiforgeryAsync(
+            "/Cart/UpdateCart",
+            updateData);
         updateResponse.EnsureSuccessStatusCode();
         
         // Verify cart count
@@ -102,11 +105,12 @@ public class ShoppingFlowTests : IClassFixture<CustomWebApplicationFactory<Progr
         count.Should().Contain("3");
         
         // Remove item
-        var removeResponse = await _client.PostAsync("/Cart/RemoveFromCart",
-            new FormUrlEncodedContent(new Dictionary<string, string>
+        var removeResponse = await _client.PostFormWithAntiforgeryAsync(
+            "/Cart/RemoveFromCart",
+            new Dictionary<string, string>
             {
                 { "variantId", "1" }
-            }));
+            });
         removeResponse.EnsureSuccessStatusCode();
     }
     
@@ -119,6 +123,6 @@ public class ShoppingFlowTests : IClassFixture<CustomWebApplicationFactory<Progr
         // Assert
         response.EnsureSuccessStatusCode();
         var content = await response.Content.ReadAsStringAsync();
-        content.Should().Contain("FashionHub");
+        content.Should().Contain("OWE");
     }
 }

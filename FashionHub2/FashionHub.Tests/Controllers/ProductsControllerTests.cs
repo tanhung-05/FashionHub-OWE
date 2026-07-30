@@ -22,7 +22,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         
         // Assert
         response.EnsureSuccessStatusCode();
-        response.Content.Headers.ContentType.ToString()
+        response.Content.Headers.ContentType?.ToString()
             .Should().Contain("text/html");
     }
     
@@ -46,6 +46,9 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         
         // Assert
         response.EnsureSuccessStatusCode();
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("Test Product");
+        content.Should().NotContain("Premium Product");
     }
     
     [Fact]
@@ -56,6 +59,9 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         
         // Assert
         response.EnsureSuccessStatusCode();
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("Test Product");
+        content.Should().NotContain("Premium Product");
     }
     
     [Fact]

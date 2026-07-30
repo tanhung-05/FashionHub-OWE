@@ -77,6 +77,16 @@ public static class ProductMvcMapper
                     MoTa = image.AltText
                 })
                 .ToList(),
+            Reviews = product.Reviews
+                .Select(review => new ProductReviewViewModel
+                {
+                    Id = review.Id,
+                    CustomerName = review.CustomerName,
+                    Rating = review.Rating,
+                    Content = review.Content,
+                    CreatedAt = review.CreatedAt
+                })
+                .ToList(),
             VariantsJson = JsonConvert.SerializeObject(variants),
             RelatedProducts = product.RelatedProducts.Select(ToCard).ToList()
         };
@@ -113,6 +123,18 @@ public static class ProductMvcMapper
             {
                 IdkichThuoc = size.Id,
                 TenKichThuoc = size.Name
+            })
+            .ToList();
+    }
+
+    public static List<ThuongHieu> ToBrands(ProductFilterOptionsDto filters)
+    {
+        return filters.Brands
+            .Select(brand => new ThuongHieu
+            {
+                IdthuongHieu = brand.Id,
+                TenThuongHieu = brand.Name,
+                TrangThai = true
             })
             .ToList();
     }

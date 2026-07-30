@@ -442,7 +442,7 @@ public sealed class CartService : ICartService
             .ThenBy(image => image.ThuTuHienThi)
             .Select(image => image.IdhinhAnhNavigation.DuongDan)
             .FirstOrDefault()
-            ?? "/images/placeholder.png";
+            ?? "/images/products/aothun1_den_boxy.jpg";
     }
 
     private static ServiceResult<CartDto> InvalidQuantity() =>

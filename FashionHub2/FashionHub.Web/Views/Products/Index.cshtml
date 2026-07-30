@@ -1,160 +1,239 @@
 @model FashionHub.Web.ViewModels.Products.ProductsViewModel
 @{
-    ViewBag.Title = "Sản phẩm";
+    ViewData["Title"] = "Sản phẩm";
+    ViewData["MetaDescription"] = "Khám phá bộ sưu tập thời trang nam OWE theo danh mục, màu sắc, kích thước và mức giá.";
+    var hasFilters = Model.SelectedCategoryId.HasValue
+        || Model.SelectedBrandIds.Any()
+        || Model.SelectedColorIds.Any()
+        || Model.SelectedSizeIds.Any()
+        || Model.SelectedMinPrice.HasValue
+        || Model.SelectedMaxPrice.HasValue
+        || Model.SelectedInStock.HasValue
+        || Model.OnSaleOnly
+        || !string.IsNullOrWhiteSpace(Model.SearchString);
 }
 
 <div class="products-page">
-    <div class="products-hero mb-4">
+    <header class="products-hero">
         <div>
-            <p class="text-uppercase small fw-bold text-muted mb-2">OWE Collection</p>
-            <h1 class="fw-bold mb-1">Sản phẩm</h1>
-            <p class="text-muted mb-0">Khám phá các thiết kế thời trang tối giản, hiện đại.</p>
+            <p class="section-kicker">OWE COLLECTION</p>
+            <h1>Sản phẩm</h1>
+            <p>Chọn phom dáng, màu sắc và kích thước phù hợp với bạn.</p>
         </div>
-        <span class="products-count-badge">@Model.Products.Count sản phẩm</span>
-    </div>
+        <div class="products-result-count" aria-live="polite">
+            <strong>@Model.TotalItems</strong>
+            <span>sản phẩm</span>
+        </div>
+    </header>
 
-    <div class="row g-4">
-        <aside class="col-lg-3">
-            <form id="filter-form" method="get" asp-action="Index" asp-controller="Products" class="filter-panel">
-                <input type="hidden" name="page" id="page-input" value="1" />
-                <input type="hidden" name="searchString" value="@Model.searchString" />
+    <form id="filter-form" method="get" asp-action="Index" asp-controller="Products">
+        <div class="products-mobile-tools">
+            <button class="btn btn-outline-dark" type="button"
+                    data-bs-toggle="offcanvas" data-bs-target="#catalogFilters"
+                    aria-controls="catalogFilters">
+                <i class="bi bi-sliders" aria-hidden="true"></i>
+                Bộ lọc
+            </button>
+            @if (hasFilters)
+            {
+                <a asp-action="Index" class="catalog-clear-link">Xóa bộ lọc</a>
+            }
+        </div>
 
-                <div class="filter-panel-header">
-                    <div>
-                        <p class="text-uppercase small fw-bold text-muted mb-1">Refine</p>
-                        <h4 class="mb-0">Bộ lọc</h4>
+        <div class="row g-4">
+            <aside class="col-lg-3">
+                <div class="offcanvas-lg offcanvas-start catalog-filter-shell"
+                     tabindex="-1" id="catalogFilters" aria-labelledby="catalogFiltersLabel">
+                    <div class="offcanvas-header">
+                        <h2 class="offcanvas-title fs-5" id="catalogFiltersLabel">Bộ lọc</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"
+                                data-bs-target="#catalogFilters" aria-label="Đóng bộ lọc"></button>
                     </div>
-                    <a asp-action="Index" asp-controller="Products" class="filter-reset-link">Xóa</a>
-                </div>
+                    <div class="offcanvas-body">
+                        <div class="filter-panel">
+                            <div class="filter-panel-header">
+                                <div>
+                                    <p class="section-kicker mb-1">REFINE</p>
+                                    <h2>Bộ lọc</h2>
+                                </div>
+                                @if (hasFilters)
+                                {
+                                    <a asp-action="Index" class="filter-reset-link">Xóa tất cả</a>
+                                }
+                            </div>
 
-                <div class="filter-section">
-                    <h5 class="filter-title">Danh mục</h5>
-                    <div class="category-tree modern-category-list">
-                        <a asp-action="Index" asp-controller="Products" class="category-link @(Model.SelectedCategoryId == null ? "active" : "")">
-                            <span>Tất cả sản phẩm</span>
-                            <i class="bi bi-arrow-right-short"></i>
-                        </a>
-                        @foreach (var parentCat in Model.Categories.Where(c => c.IddanhMucCha == null))
-                        {
-                            <a asp-action="Index" asp-controller="Products" asp-route-categoryId="@parentCat.IddanhMuc"
-                               class="category-link parent-category @(Model.SelectedCategoryId == parentCat.IddanhMuc ? "active" : "")">
-                                <span>@parentCat.TenDanhMuc</span>
-                                <i class="bi bi-arrow-right-short"></i>
-                            </a>
-                            @foreach (var childCat in Model.Categories.Where(c => c.IddanhMucCha == parentCat.IddanhMuc))
+                            <fieldset class="filter-section">
+                                <legend class="filter-title">Danh mục</legend>
+                                <div class="filter-radio-list">
+                                    <label>
+                                        <input type="radio" name="categoryId" value=""
+                                               checked="@(!Model.SelectedCategoryId.HasValue)" />
+                                        <span>Tất cả sản phẩm</span>
+                                    </label>
+                                    @foreach (var category in Model.Categories.OrderBy(item => item.ThuTuHienThi))
+                                    {
+                                        <label class="@(category.IddanhMucCha.HasValue ? "is-child" : "")">
+                                            <input type="radio" name="categoryId" value="@category.IddanhMuc"
+                                                   checked="@(Model.SelectedCategoryId == category.IddanhMuc)" />
+                                            <span>@category.TenDanhMuc</span>
+                                        </label>
+                                    }
+                                </div>
+                            </fieldset>
+
+                            @if (Model.Brands.Any())
                             {
-                                <a asp-action="Index" asp-controller="Products" asp-route-categoryId="@childCat.IddanhMuc"
-                                   class="category-link child-category @(Model.SelectedCategoryId == childCat.IddanhMuc ? "active" : "")">
-                                    <span>@childCat.TenDanhMuc</span>
-                                </a>
+                                <fieldset class="filter-section">
+                                    <legend class="filter-title">Thương hiệu</legend>
+                                    <div class="filter-check-list">
+                                        @foreach (var brand in Model.Brands)
+                                        {
+                                            <label>
+                                                <input type="checkbox" name="brandIds" value="@brand.IdthuongHieu"
+                                                       checked="@Model.SelectedBrandIds.Contains(brand.IdthuongHieu)" />
+                                                <span>@brand.TenThuongHieu</span>
+                                            </label>
+                                        }
+                                    </div>
+                                </fieldset>
                             }
-                        }
-                    </div>
 
-                    <input type="hidden" name="categoryId" value="@Model.SelectedCategoryId" />
-                </div>
+                            <fieldset class="filter-section">
+                                <legend class="filter-title">Màu sắc</legend>
+                                <div class="filter-option-list">
+                                    @foreach (var color in Model.Colors)
+                                    {
+                                        <input class="filter-check-input visually-hidden" type="checkbox"
+                                               name="colorIds" value="@color.IdmauSac" id="color-@color.IdmauSac"
+                                               checked="@Model.SelectedColorIds.Contains(color.IdmauSac)" />
+                                        <label class="filter-chip color-chip" for="color-@color.IdmauSac">
+                                            <span class="color-swatch" style="background-color: @(color.MaMauHex ?? "#cccccc");"></span>
+                                            <span>@color.TenMau</span>
+                                        </label>
+                                    }
+                                </div>
+                            </fieldset>
 
-                <div class="filter-section">
-                    <h5 class="filter-title">Màu sắc</h5>
-                    <div class="filter-option-list">
-                        @foreach (var color in Model.Colors)
-                        {
-                            <input class="filter-check-input visually-hidden" type="checkbox" name="colorIds" value="@color.IdmauSac" id="color-@color.IdmauSac"
-                                   @(Model.SelectedColorIds.Contains(color.IdmauSac) ? "checked" : "")>
-                            <label class="filter-chip color-chip" for="color-@color.IdmauSac">
-                                <span class="color-swatch" style="background-color: @(color.MaMauHex ?? "#ccc");"></span>
-                                <span>@color.TenMau</span>
-                            </label>
-                        }
-                    </div>
-                </div>
+                            <fieldset class="filter-section">
+                                <legend class="filter-title">Kích thước</legend>
+                                <div class="filter-option-list size-option-list">
+                                    @foreach (var size in Model.Sizes)
+                                    {
+                                        <input class="filter-check-input visually-hidden" type="checkbox"
+                                               name="sizeIds" value="@size.IdkichThuoc" id="size-@size.IdkichThuoc"
+                                               checked="@Model.SelectedSizeIds.Contains(size.IdkichThuoc)" />
+                                        <label class="filter-chip size-chip" for="size-@size.IdkichThuoc">
+                                            @size.TenKichThuoc
+                                        </label>
+                                    }
+                                </div>
+                            </fieldset>
 
-                <div class="filter-section">
-                    <h5 class="filter-title">Kích thước</h5>
-                    <div class="filter-option-list size-option-list">
-                        @foreach (var size in Model.Sizes)
-                        {
-                            <input class="filter-check-input visually-hidden" type="checkbox" name="sizeIds" value="@size.IdkichThuoc" id="size-@size.IdkichThuoc"
-                                   @(Model.SelectedSizeIds.Contains(size.IdkichThuoc) ? "checked" : "")>
-                            <label class="filter-chip size-chip" for="size-@size.IdkichThuoc">
-                                @size.TenKichThuoc
-                            </label>
-                        }
-                    </div>
-                </div>
+                            <fieldset class="filter-section">
+                                <legend class="filter-title">Khoảng giá</legend>
+                                <div class="price-filter-inputs">
+                                    <label>
+                                        <span>Từ</span>
+                                        <input class="form-control" type="number" name="minPrice" min="0"
+                                               step="10000" value="@Model.SelectedMinPrice" placeholder="0" />
+                                    </label>
+                                    <span aria-hidden="true">—</span>
+                                    <label>
+                                        <span>Đến</span>
+                                        <input class="form-control" type="number" name="maxPrice" min="0"
+                                               step="10000" value="@Model.SelectedMaxPrice" placeholder="2.000.000" />
+                                    </label>
+                                </div>
+                            </fieldset>
 
-                <button type="submit" class="btn btn-dark w-100 filter-apply-btn" onclick="document.getElementById('page-input').value = 1">
-                    <i class="bi bi-sliders me-2"></i>Áp dụng bộ lọc
-                </button>
-            </form>
-        </aside>
+                            <fieldset class="filter-section">
+                                <legend class="filter-title">Tình trạng</legend>
+                                <div class="filter-check-list">
+                                    <label>
+                                        <input type="checkbox" name="inStock" value="true"
+                                               checked="@(Model.SelectedInStock == true)" />
+                                        <span>Còn hàng</span>
+                                    </label>
+                                    <label>
+                                        <input type="checkbox" name="sale" value="true"
+                                               checked="@Model.OnSaleOnly" />
+                                        <span>Đang ưu đãi</span>
+                                    </label>
+                                </div>
+                            </fieldset>
 
-        <section class="col-lg-9">
-            <div class="products-toolbar">
-                <div>
-                    <p class="text-uppercase small fw-bold text-muted mb-1">Catalog</p>
-                    <span class="fw-semibold">Hiển thị @Model.Products.Count sản phẩm</span>
-                </div>
-                <div class="sort-control">
-                    <label for="sortBy" class="form-label mb-0">Sắp xếp</label>
-                    <select class="form-select form-select-sm" id="sortBy" name="sortBy" form="filter-form" onchange="this.form.submit()">
-                        <option value="newest" selected="@(Model.SelectedSortBy == "newest")">Mới nhất</option>
-                        <option value="price_asc" selected="@(Model.SelectedSortBy == "price_asc")">Giá: Tăng dần</option>
-                        <option value="price_desc" selected="@(Model.SelectedSortBy == "price_desc")">Giá: Giảm dần</option>
-                    </select>
-                </div>
-            </div>
-
-            @if (Model.Products.Any())
-            {
-                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
-                    @foreach (var product in Model.Products)
-                    {
-                        <div class="col">
-                            <partial name="_ProductCardPartial" model="product" />
+                            <button type="submit" class="btn btn-dark w-100 filter-apply-btn">
+                                Áp dụng bộ lọc
+                            </button>
                         </div>
-                    }
+                    </div>
                 </div>
-            }
-            else
-            {
-                <div class="empty-product-state">
-                    <i class="bi bi-search display-5 mb-3"></i>
-                    <h4>Không tìm thấy sản phẩm nào</h4>
-                    <p>Vui lòng thử lại với bộ lọc khác hoặc <a asp-action="Index">xóa tất cả bộ lọc</a>.</p>
+            </aside>
+
+            <section class="col-lg-9" aria-labelledby="catalog-heading">
+                <div class="products-toolbar">
+                    <div class="catalog-search">
+                        <label for="catalog-search-input" class="visually-hidden">Tìm sản phẩm</label>
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <input id="catalog-search-input" class="form-control" type="search"
+                               name="searchString" value="@Model.SearchString"
+                               placeholder="Tìm theo tên sản phẩm" />
+                    </div>
+                    <div class="sort-control">
+                        <label for="sortBy">Sắp xếp</label>
+                        <select class="form-select" id="sortBy" name="sortBy"
+                                onchange="this.form.requestSubmit()">
+                            <option value="newest" selected="@(Model.SelectedSortBy is null or "newest")">Mới nhất</option>
+                            <option value="price_asc" selected="@(Model.SelectedSortBy == "price_asc")">Giá tăng dần</option>
+                            <option value="price_desc" selected="@(Model.SelectedSortBy == "price_desc")">Giá giảm dần</option>
+                        </select>
+                    </div>
                 </div>
-            }
 
-            @if (Model.TotalPages > 1)
-            {
-                <nav aria-label="Page navigation" class="mt-4">
-                    <ul class="pagination justify-content-center">
-                        <li class="page-item @(Model.CurrentPage == 1 ? "disabled" : "")">
-                            <a class="page-link" href="javascript:void(0)" onclick="goToPage(@(Model.CurrentPage - 1))">Trước</a>
-                        </li>
-
-                        @for (int i = 1; i <= Model.TotalPages; i++)
+                <h2 id="catalog-heading" class="visually-hidden">Danh sách sản phẩm</h2>
+                @if (Model.Products.Any())
+                {
+                    <div class="row row-cols-2 row-cols-md-3 g-3 g-xl-4">
+                        @foreach (var product in Model.Products)
                         {
-                            <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
-                                <a class="page-link" href="javascript:void(0)" onclick="goToPage(@i)">@i</a>
-                            </li>
+                            <div class="col">
+                                <partial name="_ProductCardPartial" model="product" />
+                            </div>
                         }
+                    </div>
+                }
+                else
+                {
+                    <div class="catalog-empty">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <h2>Không tìm thấy sản phẩm phù hợp</h2>
+                        <p>Thử thay đổi từ khóa, mức giá hoặc bỏ bớt bộ lọc đang chọn.</p>
+                        <a asp-action="Index" class="btn btn-dark">Xem toàn bộ sản phẩm</a>
+                    </div>
+                }
 
-                        <li class="page-item @(Model.CurrentPage == Model.TotalPages ? "disabled" : "")">
-                            <a class="page-link" href="javascript:void(0)" onclick="goToPage(@(Model.CurrentPage + 1))">Sau</a>
-                        </li>
-                    </ul>
-                </nav>
-            }
-        </section>
-    </div>
+                @if (Model.TotalPages > 1)
+                {
+                    <nav aria-label="Phân trang sản phẩm" class="catalog-pagination">
+                        <button class="page-link" type="submit" form="filter-form" name="page"
+                                value="@(Model.CurrentPage - 1)" disabled="@(Model.CurrentPage <= 1)"
+                                aria-label="Trang trước">
+                            <i class="bi bi-arrow-left"></i>
+                        </button>
+                        @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                        {
+                            <button class="page-link @(pageNumber == Model.CurrentPage ? "active" : "")"
+                                    type="submit" form="filter-form" name="page" value="@pageNumber"
+                                    aria-current="@(pageNumber == Model.CurrentPage ? "page" : null)">@pageNumber</button>
+                        }
+                        <button class="page-link" type="submit" form="filter-form" name="page"
+                                value="@(Model.CurrentPage + 1)" disabled="@(Model.CurrentPage >= Model.TotalPages)"
+                                aria-label="Trang sau">
+                            <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </nav>
+                }
+            </section>
+        </div>
+    </form>
 </div>
-
-@section scripts {
-    <script>
-        function goToPage(pageNumber) {
-            document.getElementById('page-input').value = pageNumber;
-            document.getElementById('filter-form').submit();
-        }
-    </script>
-}

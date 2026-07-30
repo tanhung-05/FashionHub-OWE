@@ -17,22 +17,26 @@
     };
 }
 
-<!-- TRANG CHỦ - Active động -->
 <li class="nav-item">
     <a class="nav-link @isActive("Home", "Index")" aria-current="page" asp-controller="Home" asp-action="Index">Trang chủ</a>
 </li>
 
-<!-- DROPDOWN DANH MỤC SẢN PHẨM -->
 <li class="nav-item dropdown nav-products">
-    <a class="nav-link dropdown-toggle hide-arrow @isActive("Products", "Index")"
-       asp-controller="Products" asp-action="Index"
-       id="categoryDropdown"
-       role="button"
-       data-bs-toggle="dropdown"
-       aria-expanded="false">
-        Sản phẩm
-    </a>
+    <div class="nav-products-trigger">
+        <a class="nav-link @isActive("Products", "Index")"
+           asp-controller="Products" asp-action="Index">Sản phẩm</a>
+        <button type="button" class="nav-category-toggle dropdown-toggle hide-arrow"
+                id="categoryDropdown" data-bs-toggle="dropdown" aria-expanded="false"
+                aria-label="Mở danh mục sản phẩm">
+            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+        </button>
+    </div>
     <ul class="dropdown-menu" aria-labelledby="categoryDropdown">
+        <li>
+            <a class="dropdown-item" asp-controller="Products" asp-action="Index">
+                Tất cả sản phẩm
+            </a>
+        </li>
         @foreach (var parent in parentCategories)
         {
             var childCategories = Model.Where(c => c.IddanhMucCha == parent.IddanhMuc).ToList();
@@ -61,13 +65,11 @@
     </ul>
 </li>
 
-<!-- BLOG -->
 <li class="nav-item">
     <a class="nav-link @isActive("Blog", "Index")"
        asp-controller="Blog" asp-action="Index">Blog</a>
 </li>
 
-<!-- LIÊN HỆ -->
 <li class="nav-item">
     <a class="nav-link @isActive("Contact", "Index")"
        asp-controller="Contact" asp-action="Index">Liên hệ</a>

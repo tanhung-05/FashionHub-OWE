@@ -35,7 +35,9 @@ public class OrderController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Checkout(string cartType = "Normal")
+    public async Task<IActionResult> Checkout(
+        string cartType = "Normal",
+        string? validationError = null)
     {
         var normalizedCartType = string.Equals(
             cartType,
@@ -116,6 +118,12 @@ public class OrderController : Controller
         };
 
         ViewBag.CartType = normalizedCartType;
+        ViewData["CheckoutError"] = validationError switch
+        {
+            "address" => "Vui lòng chọn hoặc thêm địa chỉ giao hàng trước khi đặt hàng.",
+            "payment" => "Vui lòng chọn phương thức thanh toán.",
+            _ => null
+        };
         return View(viewModel);
     }
 
@@ -138,13 +146,21 @@ public class OrderController : Controller
         if (addressId <= 0)
         {
             TempData["Error"] = "Vui lòng chọn hoặc thêm địa chỉ giao hàng trước khi đặt hàng.";
-            return RedirectToAction("Checkout", new { cartType = normalizedCartType });
+            return RedirectToAction("Checkout", new
+            {
+                cartType = normalizedCartType,
+                validationError = "address"
+            });
         }
 
         if (paymentMethodId <= 0)
         {
             TempData["Error"] = "Vui lòng chọn phương thức thanh toán.";
-            return RedirectToAction("Checkout", new { cartType = normalizedCartType });
+            return RedirectToAction("Checkout", new
+            {
+                cartType = normalizedCartType,
+                validationError = "payment"
+            });
         }
 
         if (normalizedCartType == "Normal")

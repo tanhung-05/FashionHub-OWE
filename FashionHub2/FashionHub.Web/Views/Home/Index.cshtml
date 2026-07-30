@@ -1,75 +1,163 @@
-﻿@model FashionHub.Web.ViewModels.Home.HomeViewModel
+@model FashionHub.Web.ViewModels.Home.HomeViewModel
 @{
-    ViewBag.Title = "Trang Chủ";
+    ViewData["Title"] = "Trang chủ";
+    ViewData["MetaDescription"] = "OWE - thời trang nam tối giản, hiện đại và dễ mặc mỗi ngày.";
+    var heroProduct = Model.SanPhamMoi.FirstOrDefault();
+    var heroImage = heroProduct?.AnhChinhURL ?? "/images/products/somi4_hong_regular_nguoi.jpg";
+    var heroAction = heroProduct == null ? "Index" : "Details";
+    var parentCategories = Model.DanhMuc
+        .Where(category => category.IddanhMucCha == null)
+        .OrderBy(category => category.ThuTuHienThi)
+        .Take(4)
+        .ToList();
 }
 
-<!-- Hero Carousel -->
-<div id="heroCarousel" class="carousel slide mb-5" data-bs-ride="carousel">
-    <div class="carousel-indicators">
-        <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
-        <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button>
-    </div>
-    <div class="carousel-inner">
-        <div class="carousel-item active">
-            <div class="p-5 bg-white rounded-3 text-center shadow-sm" style="min-height: 400px; display: flex; align-items: center; justify-content: center;">
-                <div class="container-fluid py-5">
-                    <h1 class="display-5 fw-bold">Chào Mừng Đến OWE</h1>
-                    <p class="fs-4">Nơi phong cách của bạn được định hình.</p>
-                    <a class="btn btn-primary btn-lg" href="@Url.Action("Index", "Products")">Khám Phá Ngay</a>
-                </div>
+<div class="home-page">
+    <section class="home-hero" aria-labelledby="home-hero-title">
+        <div class="home-hero-copy">
+            <p class="section-kicker">OWE / NEW SEASON</p>
+            <h1 id="home-hero-title">Tối giản để phong cách lên tiếng.</h1>
+            <p>
+                Những thiết kế nam hiện đại, phom dáng dễ mặc và bảng màu
+                linh hoạt cho mọi nhịp sống.
+            </p>
+            <div class="home-hero-actions">
+                <a class="btn btn-dark" asp-controller="Products" asp-action="Index">
+                    Khám phá bộ sưu tập
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                </a>
+                <a class="home-text-link" asp-controller="Blog" asp-action="Index">
+                    Đọc OWE Journal
+                </a>
             </div>
-        </div>
-        <div class="carousel-item">
-            <div class="p-5 bg-light rounded-3 text-center shadow-sm" style="min-height: 400px; display: flex; align-items: center; justify-content: center;">
-                <div class="container-fluid py-5">
-                    <h1 class="display-5 fw-bold">Ưu Đãi Đặc Biệt</h1>
-                    <p class="fs-4">Giảm giá lên đến 50% cho các sản phẩm khuyến mãi.</p>
-                    <a class="btn btn-danger btn-lg" href="@Url.Action("Index", "Products", new { sale = true })">Mua Ngay</a>
+            <dl class="home-hero-notes">
+                <div>
+                    <dt>Đổi trả</dt>
+                    <dd>Trong 07 ngày</dd>
                 </div>
-            </div>
+                <div>
+                    <dt>Giao hàng</dt>
+                    <dd>Toàn quốc</dd>
+                </div>
+                <div>
+                    <dt>Tư vấn</dt>
+                    <dd>Chọn phom &amp; size</dd>
+                </div>
+            </dl>
         </div>
-    </div>
-    <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
-        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Previous</span>
-    </button>
-    <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
-        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Next</span>
-    </button>
-</div>
 
-<!-- Sản phẩm mới -->
-<section class="mb-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="m-0">Hàng Mới Về</h2>
-        <a href="@Url.Action("Index", "Products", new { sortBy = "newest" })" class="btn btn-outline-dark">Xem tất cả</a>
-    </div>
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
-        @foreach (var product in Model.SanPhamMoi)
+        <a class="home-hero-media"
+           asp-controller="Products"
+           asp-action="@heroAction"
+           asp-route-id="@heroProduct?.IDSanPham"
+           aria-label="@(heroProduct == null ? "Xem bộ sưu tập OWE" : $"Xem {heroProduct.TenSanPham}")">
+            <img src="@heroImage"
+                 alt="@(heroProduct?.TenSanPham ?? "Bộ sưu tập thời trang nam OWE")"
+                 fetchpriority="high" />
+            <span class="home-hero-caption">
+                <small>NEW ARRIVAL</small>
+                <strong>@(heroProduct?.TenSanPham ?? "OWE Essential Collection")</strong>
+            </span>
+        </a>
+    </section>
+
+    @if (parentCategories.Any())
+    {
+        <section class="home-section" aria-labelledby="home-categories-title">
+            <div class="section-heading">
+                <div>
+                    <p class="section-kicker">SHOP BY CATEGORY</p>
+                    <h2 id="home-categories-title">Bắt đầu từ món bạn cần</h2>
+                </div>
+                <a asp-controller="Products" asp-action="Index">Xem tất cả <i class="bi bi-arrow-up-right"></i></a>
+            </div>
+            <div class="home-category-grid">
+                @for (var index = 0; index < parentCategories.Count; index++)
+                {
+                    var category = parentCategories[index];
+                    <a asp-controller="Products"
+                       asp-action="Index"
+                       asp-route-categoryId="@category.IddanhMuc"
+                       class="home-category-link">
+                        <span>@((index + 1).ToString("00"))</span>
+                        <strong>@category.TenDanhMuc</strong>
+                        <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    </a>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="home-section" aria-labelledby="new-products-title">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">JUST IN</p>
+                <h2 id="new-products-title">Hàng mới về</h2>
+            </div>
+            <a asp-controller="Products" asp-action="Index" asp-route-sortBy="newest">
+                Xem tất cả <i class="bi bi-arrow-up-right"></i>
+            </a>
+        </div>
+
+        @if (Model.SanPhamMoi.Any())
         {
-            <div class="col">
-                <partial name="_ProductCardPartial" model="product" />
+            <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3 g-lg-4">
+                @foreach (var product in Model.SanPhamMoi)
+                {
+                    <div class="col">
+                        <partial name="_ProductCardPartial" model="product" />
+                    </div>
+                }
             </div>
         }
-    </div>
-</section>
-
-<!-- Sản phẩm khuyến mãi -->
-@if (Model.SanPhamKhuyenMai.Any())
-{
-    <section class="mb-5">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="m-0">Sản Phẩm Khuyến Mãi</h2>
-            <a href="@Url.Action("Index", "Products", new { sale = true })" class="btn btn-outline-danger">Xem tất cả</a>
-        </div>
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
-            @foreach (var product in Model.SanPhamKhuyenMai)
-            {
-                <div class="col">
-                    <partial name="_ProductCardPartial" model="product" />
-                </div>
-            }
-        </div>
+        else
+        {
+            <div class="catalog-empty compact">
+                <i class="bi bi-bag" aria-hidden="true"></i>
+                <p>Sản phẩm mới đang được cập nhật.</p>
+            </div>
+        }
     </section>
-}
+
+    @if (Model.SanPhamKhuyenMai.Any())
+    {
+        <section class="home-editorial-section" aria-labelledby="sale-products-title">
+            <div class="home-editorial-copy">
+                <p class="section-kicker">SELECTED OFFERS</p>
+                <h2 id="sale-products-title">Ưu đãi cho những lựa chọn đúng lúc.</h2>
+                <p>Giá tốt trên các thiết kế đang có sẵn, số lượng theo từng biến thể.</p>
+                <a class="btn btn-light" asp-controller="Products" asp-action="Index" asp-route-sale="true">
+                    Xem sản phẩm ưu đãi
+                </a>
+            </div>
+            <div class="home-sale-products">
+                @foreach (var product in Model.SanPhamKhuyenMai.Take(2))
+                {
+                    <partial name="_ProductCardPartial" model="product" />
+                }
+            </div>
+        </section>
+    }
+
+    @if (Model.ThuongHieu.Any())
+    {
+        <section class="home-brand-section" aria-labelledby="brands-title">
+            <p class="section-kicker">BRANDS</p>
+            <h2 id="brands-title" class="visually-hidden">Thương hiệu</h2>
+            <div class="home-brand-list">
+                @foreach (var brand in Model.ThuongHieu)
+                {
+                    <a asp-controller="Products"
+                       asp-action="Index"
+                       asp-route-brandIds="@brand.IdthuongHieu">@brand.TenThuongHieu</a>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="home-service-strip" aria-label="Dịch vụ OWE">
+        <div><i class="bi bi-box-seam"></i><span><strong>Đóng gói cẩn thận</strong>Kiểm tra trước khi gửi</span></div>
+        <div><i class="bi bi-arrow-repeat"></i><span><strong>Đổi trả rõ ràng</strong>Hỗ trợ trong 07 ngày</span></div>
+        <div><i class="bi bi-chat-dots"></i><span><strong>Tư vấn nhanh</strong>Liên hệ 0392 410 917</span></div>
+    </section>
+</div>

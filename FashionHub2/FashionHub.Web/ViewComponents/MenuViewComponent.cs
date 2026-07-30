@@ -16,7 +16,10 @@ namespace FashionHub.Web.ViewComponents
         public async Task<IViewComponentResult> InvokeAsync()
         {
             var categories = await _context.DanhMucs
-                .OrderBy(c => c.IddanhMucCha)
+                .AsNoTracking()
+                .Where(category => category.TrangThai && category.DeletedAt == null)
+                .OrderBy(category => category.IddanhMucCha)
+                .ThenBy(category => category.ThuTuHienThi)
                 .ToListAsync();
 
             return View(categories);
