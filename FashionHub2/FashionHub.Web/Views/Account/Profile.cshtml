@@ -1,59 +1,170 @@
 @model FashionHub.Web.ViewModels.Account.ProfileViewModel
+
 @{
-    ViewData["Title"] = "Thông tin tài khoản";
+    ViewData["Title"] = "Hồ sơ cá nhân";
+    var nameParts = Model.HoTen
+        .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    var initials = nameParts.Length switch
+    {
+        0 => "OW",
+        1 => nameParts[0][..1].ToUpperInvariant(),
+        _ => string.Concat(nameParts[0][..1], nameParts[^1][..1]).ToUpperInvariant()
+    };
 }
 
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white border-bottom py-3">
-                    <h4 class="mb-0"><i class="bi bi-person-circle me-2"></i>Thông tin tài khoản</h4>
-                </div>
-                <div class="card-body p-4">
-                    @if (TempData["SuccessMessage"] != null)
-                    {
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="bi bi-check-circle me-2"></i>@TempData["SuccessMessage"]
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    }
-
-                    <form asp-action="Profile" method="post">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label asp-for="HoTen" class="form-label"></label>
-                                <input asp-for="HoTen" class="form-control" />
-                                <span asp-validation-for="HoTen" class="text-danger small"></span>
-                            </div>
-
-                            <div class="col-md-6 mb-3">
-                                <label asp-for="Email" class="form-label"></label>
-                                <input asp-for="Email" class="form-control" />
-                                <span asp-validation-for="Email" class="text-danger small"></span>
-                            </div>
-
-                            <div class="col-md-6 mb-3">
-                                <label asp-for="SoDienThoai" class="form-label"></label>
-                                <input asp-for="SoDienThoai" class="form-control" />
-                                <span asp-validation-for="SoDienThoai" class="text-danger small"></span>
-                            </div>
-                        </div>
-
-                        <div class="d-flex gap-2 mt-4">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-circle me-1"></i>Cập nhật
-                            </button>
-                            <a asp-action="ChangePassword" class="btn btn-outline-secondary">
-                                <i class="bi bi-key me-1"></i>Đổi mật khẩu
-                            </a>
-                            <a asp-action="Addresses" class="btn btn-outline-secondary">
-                                <i class="bi bi-geo-alt me-1"></i>Quản lý địa chỉ
-                            </a>
-                        </div>
-                    </form>
+<div class="profile-page">
+    <header class="profile-header">
+        <div class="profile-identity">
+            <div class="profile-avatar" aria-hidden="true">@initials</div>
+            <div>
+                <p class="profile-eyebrow">Tài khoản OWE</p>
+                <h1>@Model.HoTen</h1>
+                <div class="profile-meta">
+                    <span><i class="bi bi-envelope"></i>@Model.Email</span>
+                    <span><i class="bi bi-calendar3"></i>Tham gia @Model.NgayThamGia.ToString("MM/yyyy")</span>
+                    <span><i class="bi bi-person-check"></i>@Model.TenVaiTro</span>
                 </div>
             </div>
+        </div>
+        <a asp-action="OrderHistory" class="btn btn-dark">
+            <i class="bi bi-bag-check me-2"></i>Xem đơn hàng
+        </a>
+    </header>
+
+    <section class="profile-stats" aria-label="Tổng quan tài khoản">
+        <a asp-action="OrderHistory" class="profile-stat">
+            <i class="bi bi-receipt"></i>
+            <span>
+                <strong>@Model.SoDonHang</strong>
+                <small>Tổng đơn hàng</small>
+            </span>
+        </a>
+        <a asp-action="OrderHistory" class="profile-stat">
+            <i class="bi bi-clock-history"></i>
+            <span>
+                <strong>@Model.SoDonDangXuLy</strong>
+                <small>Đơn đang xử lý</small>
+            </span>
+        </a>
+        <a asp-action="Addresses" class="profile-stat">
+            <i class="bi bi-geo-alt"></i>
+            <span>
+                <strong>@Model.SoDiaChi</strong>
+                <small>Địa chỉ đã lưu</small>
+            </span>
+        </a>
+    </section>
+
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="alert alert-success d-flex align-items-center" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>
+            <span>@successMessage</span>
+        </div>
+    }
+
+    <div class="profile-layout">
+        <aside class="profile-navigation" aria-label="Điều hướng tài khoản">
+            <a asp-action="Profile" class="active" aria-current="page">
+                <i class="bi bi-person"></i>
+                <span>Thông tin cá nhân</span>
+            </a>
+            <a asp-action="OrderHistory">
+                <i class="bi bi-bag-check"></i>
+                <span>Đơn hàng của tôi</span>
+            </a>
+            <a asp-action="Addresses">
+                <i class="bi bi-geo-alt"></i>
+                <span>Sổ địa chỉ</span>
+            </a>
+            <a asp-action="ChangePassword">
+                <i class="bi bi-shield-lock"></i>
+                <span>Đổi mật khẩu</span>
+            </a>
+        </aside>
+
+        <div class="profile-content">
+            <section class="profile-section">
+                <div class="profile-section-heading">
+                    <div>
+                        <p>Thông tin liên hệ</p>
+                        <h2>Thông tin cá nhân</h2>
+                    </div>
+                    <i class="bi bi-person-vcard"></i>
+                </div>
+
+                <form asp-action="Profile" method="post" class="profile-form">
+                    <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="HoTen" class="form-label"></label>
+                            <div class="profile-input">
+                                <i class="bi bi-person"></i>
+                                <input asp-for="HoTen" class="form-control" autocomplete="name" />
+                            </div>
+                            <span asp-validation-for="HoTen" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Email" class="form-label"></label>
+                            <div class="profile-input">
+                                <i class="bi bi-envelope"></i>
+                                <input asp-for="Email" class="form-control" autocomplete="email" />
+                            </div>
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="SoDienThoai" class="form-label"></label>
+                            <div class="profile-input">
+                                <i class="bi bi-telephone"></i>
+                                <input asp-for="SoDienThoai" class="form-control" autocomplete="tel" />
+                            </div>
+                            <span asp-validation-for="SoDienThoai" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <div class="profile-form-actions">
+                        <button type="submit" class="btn btn-dark">
+                            <i class="bi bi-check2 me-2"></i>Lưu thay đổi
+                        </button>
+                        <a asp-action="ChangePassword" class="btn btn-outline-dark">
+                            <i class="bi bi-shield-lock me-2"></i>Đổi mật khẩu
+                        </a>
+                    </div>
+                </form>
+            </section>
+
+            <section class="profile-section profile-address-section">
+                <div class="profile-section-heading">
+                    <div>
+                        <p>Giao hàng</p>
+                        <h2>Địa chỉ ưu tiên</h2>
+                    </div>
+                    <a asp-action="Addresses" class="btn btn-sm btn-outline-dark">Quản lý</a>
+                </div>
+
+                @if (Model.DiaChiMacDinh == null)
+                {
+                    <div class="profile-empty-address">
+                        <i class="bi bi-geo-alt"></i>
+                        <div>
+                            <strong>Chưa có địa chỉ giao hàng</strong>
+                            <p>Thêm địa chỉ để thanh toán nhanh hơn ở lần mua tiếp theo.</p>
+                        </div>
+                        <a asp-action="CreateAddress" class="btn btn-dark">Thêm địa chỉ</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="profile-address">
+                        <i class="bi bi-house-check"></i>
+                        <div>
+                            <strong>@Model.DiaChiMacDinh.TenNguoiNhan</strong>
+                            <span>@Model.DiaChiMacDinh.SoDienThoai</span>
+                            <p>@Model.DiaChiMacDinh.DiaChiDayDu</p>
+                        </div>
+                    </div>
+                }
+            </section>
         </div>
     </div>
 </div>

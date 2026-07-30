@@ -22,6 +22,8 @@ public partial class ApplicationDbContext : DbContext
 
     public virtual DbSet<DanhGia> DanhGia { get; set; }
 
+    public virtual DbSet<DatLaiMatKhauToken> DatLaiMatKhauTokens { get; set; }
+
     public virtual DbSet<DiaChi> DiaChis { get; set; }
 
     public virtual DbSet<DonHang> DonHangs { get; set; }
@@ -132,6 +134,43 @@ public partial class ApplicationDbContext : DbContext
             entity.HasOne(d => d.IdsanPhamNavigation).WithMany(p => p.BienTheSanPhams)
                 .HasForeignKey(d => d.IdsanPham)
                 .HasConstraintName("FK_BienTheSanPham_SanPham");
+        });
+
+        modelBuilder.Entity<DatLaiMatKhauToken>(entity =>
+        {
+            entity.HasKey(e => e.Idtoken).HasName("PK_DatLaiMatKhauToken");
+
+            entity.ToTable("DatLaiMatKhauToken");
+
+            entity.HasIndex(
+                e => new { e.IdnguoiDung, e.NgayHetHanUtc },
+                "IX_DatLaiMatKhauToken_NguoiDung_HetHan")
+                .IsDescending(false, true);
+
+            entity.HasIndex(e => e.TokenHash, "UX_DatLaiMatKhauToken_TokenHash")
+                .IsUnique();
+
+            entity.Property(e => e.Idtoken).HasColumnName("IDToken");
+            entity.Property(e => e.IdnguoiDung).HasColumnName("IDNguoiDung");
+            entity.Property(e => e.TokenHash)
+                .HasMaxLength(64)
+                .IsUnicode(false)
+                .IsFixedLength();
+            entity.Property(e => e.NgayHetHanUtc).HasColumnType("datetime2(0)");
+            entity.Property(e => e.NgayTaoUtc)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnType("datetime2(0)");
+            entity.Property(e => e.NgaySuDungUtc).HasColumnType("datetime2(0)");
+            entity.Property(e => e.DiaChiIp)
+                .HasMaxLength(45)
+                .IsUnicode(false)
+                .HasColumnName("DiaChiIP");
+
+            entity.HasOne(d => d.IdnguoiDungNavigation)
+                .WithMany(p => p.DatLaiMatKhauTokens)
+                .HasForeignKey(d => d.IdnguoiDung)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_DatLaiMatKhauToken_NguoiDung");
         });
 
         modelBuilder.Entity<ChiTietDonHang>(entity =>
@@ -520,6 +559,8 @@ public partial class ApplicationDbContext : DbContext
             entity.Property(e => e.MatKhauHash)
                 .HasMaxLength(255)
                 .IsUnicode(false);
+            entity.Property(e => e.SecurityStamp)
+                .HasDefaultValueSql("(newid())");
             entity.Property(e => e.NgayTao)
                 .HasDefaultValueSql("(sysdatetime())")
                 .HasColumnType("datetime2(0)");

@@ -1,0 +1,62 @@
+@model List<FashionHub.Web.ViewModels.Cart.CartItemViewModel>
+
+@if (Model.Count == 0)
+{
+    <div class="cart-offcanvas-empty">
+        <i class="bi bi-bag"></i>
+        <h6>Giỏ hàng đang trống</h6>
+        <p>Chọn một món đồ phù hợp để bắt đầu đơn hàng.</p>
+        <a asp-controller="Products" asp-action="Index" class="btn btn-dark w-100" data-bs-dismiss="offcanvas">
+            Tiếp tục mua sắm
+        </a>
+    </div>
+}
+else
+{
+    <div class="cart-offcanvas-content">
+        <div class="cart-offcanvas-items">
+            @foreach (var item in Model)
+            {
+                <article class="cart-offcanvas-item" id="offcanvas-item-@item.IdbienThe">
+                    <img src="@item.AnhDaiDien" alt="@item.TenSanPham" loading="lazy" />
+                    <div class="cart-offcanvas-item-info">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <h6>@item.TenSanPham</h6>
+                            <button type="button"
+                                    class="btn cart-offcanvas-remove js-offcanvas-remove"
+                                    data-variant-id="@item.IdbienThe"
+                                    aria-label="Xóa @item.TenSanPham khỏi giỏ hàng"
+                                    title="Xóa sản phẩm">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                        <p>@item.TenMau · @item.TenKichThuoc</p>
+                        <div class="d-flex justify-content-between align-items-end gap-2">
+                            <span>Số lượng @item.SoLuong</span>
+                            <strong>@item.ThanhTien.ToString("N0") ₫</strong>
+                        </div>
+                    </div>
+                </article>
+            }
+        </div>
+
+        <div class="cart-offcanvas-summary">
+            <div class="d-flex justify-content-between align-items-center">
+                <span>Tạm tính</span>
+                <strong>@Model.Sum(item => item.ThanhTien).ToString("N0") ₫</strong>
+            </div>
+            <p>Phí vận chuyển được tính ở bước thanh toán.</p>
+            <div class="d-grid gap-2">
+                <a asp-controller="Order"
+                   asp-action="Checkout"
+                   asp-route-cartType="Normal"
+                   class="btn btn-dark">
+                    Tiến hành thanh toán
+                </a>
+                <a asp-controller="Cart" asp-action="Index" class="btn btn-outline-dark">
+                    Xem giỏ hàng
+                </a>
+            </div>
+        </div>
+    </div>
+}

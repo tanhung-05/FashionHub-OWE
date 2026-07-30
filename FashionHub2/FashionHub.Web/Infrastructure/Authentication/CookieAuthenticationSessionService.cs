@@ -22,7 +22,8 @@ public sealed class CookieAuthenticationSessionService : IAuthenticationSessionS
             new(ClaimTypes.Name, user.Email),
             new(ClaimTypes.Email, user.Email),
             new("FullName", user.FullName),
-            new(ClaimTypes.Role, user.Role)
+            new(ClaimTypes.Role, user.Role),
+            new("SecurityStamp", user.SecurityStamp.ToString("D"))
         };
         var identity = new ClaimsIdentity(
             claims,

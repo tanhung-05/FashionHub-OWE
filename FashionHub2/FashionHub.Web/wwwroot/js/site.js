@@ -130,6 +130,37 @@ const AppAlert = (function () {
 
 window.AppAlert = AppAlert;
 
+function renderCartOffcanvasError() {
+    $('#cartOffcanvasBody').html(`
+        <div class="cart-offcanvas-empty">
+            <i class="bi bi-exclamation-circle"></i>
+            <h6>Không thể tải giỏ hàng</h6>
+            <p>Đường truyền đang có vấn đề. Vui lòng thử lại.</p>
+            <button type="button" class="btn btn-outline-dark w-100" id="retry-cart-offcanvas">
+                Tải lại
+            </button>
+        </div>
+    `);
+}
+
+function loadCartOffcanvas(showAfterLoad) {
+    const cartOffcanvasElement = document.getElementById('cartOffcanvas');
+    if (!cartOffcanvasElement) {
+        return;
+    }
+
+    const cartOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(cartOffcanvasElement);
+    $('#cartOffcanvasBody').load('/Cart/GetCartOffcanvas', function (_response, status) {
+        if (status !== 'success') {
+            renderCartOffcanvasError();
+        }
+
+        if (showAfterLoad) {
+            cartOffcanvas.show();
+        }
+    });
+}
+
 /**
  * Gửi yêu cầu AJAX để thêm một sản phẩm vào giỏ hàng.
  * Sau khi thành công, cập nhật icon giỏ hàng và hiển thị offcanvas.
@@ -141,9 +172,6 @@ function addToCartAjax(variantId, quantity, actionType = 'add-to-cart') {
         AppAlert.ShowWarning("Vui lòng chọn đầy đủ thông tin sản phẩm và số lượng hợp lệ.");
         return;
     }
-
-    const cartOffcanvasElement = document.getElementById('cartOffcanvas');
-    const cartOffcanvas = cartOffcanvasElement ? bootstrap.Offcanvas.getOrCreateInstance(cartOffcanvasElement) : null;
 
     $.ajax({
         url: '/Cart/AddToCart',
@@ -164,11 +192,7 @@ function addToCartAjax(variantId, quantity, actionType = 'add-to-cart') {
                         modalInstance.hide();
                     }
 
-                    $('#cartOffcanvasBody').load('/Cart/GetCartOffcanvas', function () {
-                        if (cartOffcanvas) {
-                            cartOffcanvas.show();
-                        }
-                    });
+                    loadCartOffcanvas(true);
                 }
             } else {
                 AppAlert.ShowError(response.message);
@@ -222,6 +246,32 @@ $(document).ready(function () {
     const quickViewModal = quickViewModalElement ? bootstrap.Modal.getOrCreateInstance(quickViewModalElement) : null;
 
     let modalSelectedVariant = null;
+
+    $(document).on('click', '#retry-cart-offcanvas', function () {
+        loadCartOffcanvas(false);
+    });
+
+    $(document).on('click', '.js-offcanvas-remove', function () {
+        const button = $(this);
+        const variantId = Number.parseInt(button.data('variant-id'), 10);
+        button.prop('disabled', true);
+
+        $.post('/Cart/RemoveFromCart', { variantId: variantId })
+            .done(function (response) {
+                if (!response.success) {
+                    AppAlert.ShowError(response.message || 'Không thể xóa sản phẩm.');
+                    button.prop('disabled', false);
+                    return;
+                }
+
+                $('#cart-count').text(response.cartCount);
+                loadCartOffcanvas(false);
+            })
+            .fail(function () {
+                AppAlert.ShowError('Không thể cập nhật giỏ hàng. Vui lòng thử lại.');
+                button.prop('disabled', false);
+            });
+    });
 
     $(document).on('click', '.quick-view-btn', function (e) {
         e.preventDefault();

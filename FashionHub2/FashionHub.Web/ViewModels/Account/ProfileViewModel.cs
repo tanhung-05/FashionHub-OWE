@@ -17,6 +17,27 @@ namespace FashionHub.Web.ViewModels.Account
         [Phone(ErrorMessage = "Số điện thoại không hợp lệ")]
         [Display(Name = "Số điện thoại")]
         public string? SoDienThoai { get; set; }
+
+        public DateTime NgayThamGia { get; set; }
+
+        public string TenVaiTro { get; set; } = "Khách hàng";
+
+        public int SoDonHang { get; set; }
+
+        public int SoDonDangXuLy { get; set; }
+
+        public int SoDiaChi { get; set; }
+
+        public ProfileAddressSummaryViewModel? DiaChiMacDinh { get; set; }
+    }
+
+    public class ProfileAddressSummaryViewModel
+    {
+        public string TenNguoiNhan { get; set; } = string.Empty;
+
+        public string SoDienThoai { get; set; } = string.Empty;
+
+        public string DiaChiDayDu { get; set; } = string.Empty;
     }
 
     public class ChangePasswordViewModel

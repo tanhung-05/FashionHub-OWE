@@ -15,6 +15,8 @@ public partial class NguoiDung
 
     public string MatKhauHash { get; set; } = null!;
 
+    public Guid SecurityStamp { get; set; }
+
     public int IdvaiTro { get; set; }
 
     public DateTime NgayTao { get; set; }
@@ -28,6 +30,8 @@ public partial class NguoiDung
     public virtual ICollection<AdminActivityLog> AdminActivityLogs { get; set; } = new List<AdminActivityLog>();
 
     public virtual ICollection<DanhGia> DanhGia { get; set; } = new List<DanhGia>();
+
+    public virtual ICollection<DatLaiMatKhauToken> DatLaiMatKhauTokens { get; set; } = new List<DatLaiMatKhauToken>();
 
     public virtual ICollection<DiaChi> DiaChis { get; set; } = new List<DiaChi>();
 

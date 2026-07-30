@@ -1,309 +1,581 @@
 @model FashionHub.Web.ViewModels.Products.ProductDetailViewModel
 @{
-    ViewBag.Title = Model.TenSanPham;
+    ViewData["Title"] = Model.TenSanPham;
+    ViewData["MetaDescription"] = Model.MoTa ?? $"Khám phá {Model.TenSanPham} tại OWE.";
+
+    var primaryImage = Model.AllImages.FirstOrDefault();
+    var imageCount = Model.AllImages.Count;
 }
 
 <div class="product-detail-page">
-    <nav aria-label="breadcrumb" class="mb-4">
+    <nav aria-label="breadcrumb" class="product-breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Trang chủ</a></li>
-            <li class="breadcrumb-item"><a asp-controller="Products" asp-action="Index">Sản phẩm</a></li>
-            <li class="breadcrumb-item"><a asp-controller="Products" asp-action="Index" asp-route-categoryId="@Model.IDDanhMuc">@Model.TenDanhMuc</a></li>
+            <li class="breadcrumb-item">
+                <a asp-controller="Home" asp-action="Index">Trang chủ</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a asp-controller="Products" asp-action="Index">Sản phẩm</a>
+            </li>
+            @if (Model.IDDanhMuc > 0 && !string.IsNullOrWhiteSpace(Model.TenDanhMuc))
+            {
+                <li class="breadcrumb-item">
+                    <a asp-controller="Products" asp-action="Index"
+                       asp-route-categoryId="@Model.IDDanhMuc">@Model.TenDanhMuc</a>
+                </li>
+            }
             <li class="breadcrumb-item active" aria-current="page">@Model.TenSanPham</li>
         </ol>
     </nav>
 
-    <div class="row g-4 mb-5">
-        <div class="col-lg-6">
-            <div class="product-gallery">
-                <div class="main-image-container mb-3">
+    <section class="product-purchase-layout" aria-labelledby="product-title">
+        <div class="product-gallery-shell">
+            @if (imageCount > 0)
+            {
+                <div class="product-thumbnail-list" aria-label="Ảnh sản phẩm">
+                    @for (var index = 0; index < imageCount; index++)
+                    {
+                        var image = Model.AllImages[index];
+                        <button type="button"
+                                class="product-thumbnail @(index == 0 ? "active" : string.Empty)"
+                                data-image-index="@index"
+                                data-image-id="@image.IdhinhAnh"
+                                data-image-src="@image.DuongDan"
+                                aria-label="Xem ảnh @(index + 1)"
+                                aria-pressed="@(index == 0 ? "true" : "false")">
+                            <img src="@image.DuongDan"
+                                 alt="@(image.MoTa ?? $"{Model.TenSanPham} - ảnh {index + 1}")" />
+                        </button>
+                    }
+                </div>
+            }
+
+            <div class="product-image-stage">
+                <div class="product-badge-stack">
                     @if (Model.IsSaleActive)
                     {
-                        <span class="sale-badge">
-                            <i class="bi bi-tag-fill me-1"></i>SALE
+                        <span class="product-status-badge sale">
+                            <i class="bi bi-tag-fill" aria-hidden="true"></i>
+                            Sale
                         </span>
                     }
                     @if (Model.IsOutStock)
                     {
-                        <span class="stock-badge out-of-stock">Hết hàng</span>
+                        <span class="product-status-badge sold-out">Hết hàng</span>
                     }
+                </div>
+
+                @if (primaryImage != null)
+                {
                     <img id="main-product-image"
-                         src="@(Model.AllImages.FirstOrDefault()?.DuongDan ?? "/images/placeholder.png")"
-                         alt="@Model.TenSanPham"
-                         class="img-fluid rounded shadow-sm" />
-                </div>
-                <div class="thumbnail-carousel">
-                    @foreach (var img in Model.AllImages)
+                         src="@primaryImage.DuongDan"
+                         alt="@(primaryImage.MoTa ?? Model.TenSanPham)" />
+
+                    <button type="button"
+                            class="product-zoom-button"
+                            data-bs-toggle="modal"
+                            data-bs-target="#productImageModal"
+                            title="Phóng to ảnh"
+                            aria-label="Phóng to ảnh">
+                        <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i>
+                    </button>
+
+                    @if (imageCount > 1)
                     {
-                        <img src="@img.DuongDan"
-                             alt="@Model.TenSanPham"
-                             class="thumbnail-image"
-                             data-image-id="@img.IdhinhAnh"
-                             onclick="$('#main-product-image').attr('src', '@img.DuongDan')" />
+                        <button type="button"
+                                class="product-gallery-arrow previous"
+                                id="previousProductImage"
+                                title="Ảnh trước"
+                                aria-label="Ảnh trước">
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                        </button>
+                        <button type="button"
+                                class="product-gallery-arrow next"
+                                id="nextProductImage"
+                                title="Ảnh tiếp theo"
+                                aria-label="Ảnh tiếp theo">
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </button>
                     }
-                </div>
+
+                    <span class="product-image-counter" aria-live="polite">
+                        <span id="currentImageNumber">1</span> / @imageCount
+                    </span>
+                }
+                else
+                {
+                    <div class="product-image-empty">
+                        <i class="bi bi-image" aria-hidden="true"></i>
+                        <span>Chưa có ảnh sản phẩm</span>
+                    </div>
+                }
             </div>
         </div>
 
-        <div class="col-lg-6">
-            <div class="product-info">
-                <p class="text-uppercase small fw-bold text-muted mb-2">@Model.TenThuongHieu</p>
-                <h1 class="product-title mb-3">@Model.TenSanPham</h1>
-
-                <div class="product-price mb-4">
-                    @if (Model.IsSaleActive)
+        <aside class="product-buy-panel">
+            <div class="product-heading">
+                <p class="product-eyebrow">
+                    @if (!string.IsNullOrWhiteSpace(Model.TenThuongHieu))
                     {
-                        <span class="current-price sale-price">@Model.GiaKhuyenMai?.ToString("N0") đ</span>
-                        <span class="original-price">@Model.Gia.ToString("N0") đ</span>
-                        <span class="discount-percent">
-                            -@(((Model.Gia - (Model.GiaKhuyenMai ?? 0)) / Model.Gia * 100).ToString("0"))%
-                        </span>
+                        <span>@Model.TenThuongHieu</span>
                     }
-                    else
+                    @if (!string.IsNullOrWhiteSpace(Model.TenDanhMuc))
                     {
-                        <span class="current-price">@Model.Gia.ToString("N0") đ</span>
+                        <span>@Model.TenDanhMuc</span>
                     }
-                </div>
+                </p>
+                <h1 id="product-title">@Model.TenSanPham</h1>
+            </div>
 
-                <div class="variant-selector mb-4">
-                    <div class="variant-group mb-3">
-                        <label class="variant-label d-flex align-items-center justify-content-between mb-2">
+            <div class="product-price-block">
+                @if (Model.IsSaleActive)
+                {
+                    <span class="product-current-price sale-price">
+                        @Model.GiaKhuyenMai?.ToString("N0") đ
+                    </span>
+                    <span class="product-original-price">@Model.Gia.ToString("N0") đ</span>
+                    <span class="product-discount">
+                        -@(((Model.Gia - (Model.GiaKhuyenMai ?? 0)) / Model.Gia * 100).ToString("0"))%
+                    </span>
+                }
+                else
+                {
+                    <span class="product-current-price">@Model.Gia.ToString("N0") đ</span>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.MoTa))
+            {
+                <p class="product-summary">@Model.MoTa</p>
+            }
+
+            <div class="product-configurator">
+                @if (Model.AvailableColors.Any())
+                {
+                    <fieldset class="product-option-group">
+                        <legend>
                             <span>Màu sắc</span>
-                            <span id="selected-color-name" class="text-muted small"></span>
-                        </label>
-                        <div class="variant-options">
+                            <strong id="selected-color-name"></strong>
+                        </legend>
+                        <div class="product-color-options">
                             @foreach (var color in Model.AvailableColors)
                             {
-                                <button type="button" class="color-option"
+                                <button type="button"
+                                        class="product-color-option color-option"
                                         data-color-id="@color.IdmauSac"
-                                        style="background-color: @(color.MaMauHex ?? "#ccc");"
-                                        title="@color.TenMau">
-                                    <span class="visually-hidden">@color.TenMau</span>
+                                        data-color-name="@color.TenMau"
+                                        title="@color.TenMau"
+                                        aria-label="Màu @color.TenMau"
+                                        aria-pressed="false">
+                                    <span class="product-color-swatch"
+                                          style="--swatch-color: @(color.MaMauHex ?? "#cccccc");"></span>
+                                    <span>@color.TenMau</span>
                                 </button>
                             }
                         </div>
-                    </div>
+                    </fieldset>
+                }
 
-                    <div class="variant-group mb-3">
-                        <label class="variant-label d-flex align-items-center justify-content-between mb-2">
+                @if (Model.AvailableSizes.Any())
+                {
+                    <fieldset class="product-option-group">
+                        <legend>
                             <span>Kích thước</span>
-                            <span id="selected-size-name" class="text-muted small"></span>
-                        </label>
-                        <div class="variant-options">
+                            <strong id="selected-size-name"></strong>
+                        </legend>
+                        <div class="product-size-options">
                             @foreach (var size in Model.AvailableSizes)
                             {
-                                <button type="button" class="size-option" data-size-id="@size.IdkichThuoc">
+                                <button type="button"
+                                        class="product-size-option size-option"
+                                        data-size-id="@size.IdkichThuoc"
+                                        data-size-name="@size.TenKichThuoc"
+                                        aria-label="Kích thước @size.TenKichThuoc"
+                                        aria-pressed="false">
                                     @size.TenKichThuoc
                                 </button>
                             }
                         </div>
-                    </div>
-                </div>
+                    </fieldset>
+                }
+            </div>
 
-                <div class="stock-info mb-3">
-                    <i class="bi bi-box-seam me-2"></i>
-                    <span id="stock-info" class="text-muted"></span>
-                </div>
+            <div class="product-availability" aria-live="polite">
+                <span class="product-stock-dot" aria-hidden="true"></span>
+                <span id="stock-info"></span>
+                <span id="selected-sku" class="product-selected-sku"></span>
+            </div>
 
-                <div class="quantity-selector mb-4">
-                    <label class="form-label">Số lượng</label>
-                    <div class="input-group quantity-control">
-                        <button class="btn btn-outline-secondary" type="button" id="btn-minus">
-                            <i class="bi bi-dash"></i>
-                        </button>
-                        <input type="number" class="form-control text-center" id="quantity" value="1" min="1" max="999">
-                        <button class="btn btn-outline-secondary" type="button" id="btn-plus">
-                            <i class="bi bi-plus"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="action-buttons">
-                    <button id="add-to-cart-btn" class="btn btn-outline-dark flex-fill" disabled data-action-type="add-to-cart">
-                        <i class="bi bi-cart-plus me-2"></i> Thêm vào giỏ
+            <div class="product-quantity-row">
+                <span class="product-quantity-label">Số lượng</span>
+                <div class="product-quantity-control">
+                    <button type="button" id="btn-minus" title="Giảm số lượng"
+                            aria-label="Giảm số lượng">
+                        <i class="bi bi-dash" aria-hidden="true"></i>
                     </button>
-                    <button id="buy-now-btn" class="btn btn-dark flex-fill" disabled data-action-type="buy-now">
-                        <i class="bi bi-lightning-fill me-2"></i> Mua ngay
+                    <input type="number" id="quantity" value="1" min="1" max="999"
+                           inputmode="numeric" aria-label="Số lượng sản phẩm" />
+                    <button type="button" id="btn-plus" title="Tăng số lượng"
+                            aria-label="Tăng số lượng">
+                        <i class="bi bi-plus" aria-hidden="true"></i>
                     </button>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div class="row mt-5">
-        <div class="col-12">
-            <ul class="nav nav-tabs" id="productTab" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active fw-bold" id="description-tab" data-bs-toggle="tab" data-bs-target="#description" type="button" role="tab">Mô tả sản phẩm</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link fw-bold" id="reviews-tab" data-bs-toggle="tab" data-bs-target="#reviews" type="button" role="tab">Đánh giá</button>
-                </li>
-            </ul>
-            <div class="tab-content p-4 border border-top-0 bg-white rounded-bottom shadow-sm" id="productTabContent">
-                <div class="tab-pane fade show active" id="description" role="tabpanel">
-                    <p class="product-description">@Model.MoTa</p>
-                </div>
-                <div class="tab-pane fade" id="reviews" role="tabpanel">
-                    <p class="text-muted fst-italic">Chưa có đánh giá nào cho sản phẩm này.</p>
-                </div>
+            <div class="product-purchase-actions">
+                <button id="add-to-cart-btn" class="btn btn-outline-dark"
+                        disabled data-action-type="add-to-cart">
+                    <i class="bi bi-bag-plus" aria-hidden="true"></i>
+                    Thêm vào giỏ
+                </button>
+                <button id="buy-now-btn" class="btn btn-dark"
+                        disabled data-action-type="buy-now">
+                    Mua ngay
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                </button>
             </div>
+        </aside>
+    </section>
+
+    <section class="product-information" aria-labelledby="product-information-title">
+        <div class="product-information-heading">
+            <p>Thông tin sản phẩm</p>
+            <h2 id="product-information-title">Chi tiết</h2>
         </div>
-    </div>
+        <div class="product-information-copy">
+            <p>@(Model.MoTa ?? "Thông tin mô tả đang được cập nhật.")</p>
+            <dl>
+                @if (!string.IsNullOrWhiteSpace(Model.TenThuongHieu))
+                {
+                    <div>
+                        <dt>Thương hiệu</dt>
+                        <dd>@Model.TenThuongHieu</dd>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.TenDanhMuc))
+                {
+                    <div>
+                        <dt>Danh mục</dt>
+                        <dd>@Model.TenDanhMuc</dd>
+                    </div>
+                }
+                <div>
+                    <dt>Tình trạng</dt>
+                    <dd>@(Model.IsOutStock ? "Tạm hết hàng" : "Còn hàng")</dd>
+                </div>
+            </dl>
+        </div>
+    </section>
 
     @if (Model.RelatedProducts.Any())
     {
-        <div class="row mt-5 mb-5">
-            <div class="col-12">
-                <h4 class="mb-4 fw-bold text-uppercase border-bottom pb-2">Sản phẩm liên quan</h4>
-                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-4">
-                    @foreach (var product in Model.RelatedProducts)
-                    {
-                        <div class="col">
-                            <partial name="_ProductCardPartial" model="product" />
-                        </div>
-                    }
+        <section class="product-related" aria-labelledby="related-products-title">
+            <div class="product-related-heading">
+                <div>
+                    <p>Có thể bạn sẽ thích</p>
+                    <h2 id="related-products-title">Sản phẩm liên quan</h2>
                 </div>
+                <a asp-controller="Products" asp-action="Index">
+                    Xem tất cả
+                    <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+                </a>
             </div>
-        </div>
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
+                @foreach (var product in Model.RelatedProducts)
+                {
+                    <div class="col">
+                        <partial name="_ProductCardPartial" model="product" />
+                    </div>
+                }
+            </div>
+        </section>
     }
 </div>
 
-@section scripts {
+@if (primaryImage != null)
+{
+    <div class="modal fade product-image-modal" id="productImageModal" tabindex="-1"
+         aria-labelledby="productImageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-6" id="productImageModalLabel">@Model.TenSanPham</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Đóng"></button>
+                </div>
+                <div class="modal-body">
+                    <img id="zoomed-product-image"
+                         src="@primaryImage.DuongDan"
+                         alt="@(primaryImage.MoTa ?? Model.TenSanPham)" />
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
     <script>
         $(document).ready(function () {
-            const variants = @Json.Serialize(
-                Newtonsoft.Json.JsonConvert.DeserializeObject(Model.VariantsJson));
-            let selectedColorId = null;
-            let selectedSizeId = null;
+            const variants = JSON.parse(@Json.Serialize(Model.VariantsJson));
+            const thumbnails = Array.from(document.querySelectorAll(".product-thumbnail"));
+            const mainImage = document.getElementById("main-product-image");
+            const zoomedImage = document.getElementById("zoomed-product-image");
+            const imageCounter = document.getElementById("currentImageNumber");
+            let currentImageIndex = 0;
 
-            function checkAvailability() {
-                $('.color-option').each(function() {
-                    const colorId = parseInt($(this).data('color-id'));
-                    let isAvailable = false;
-                    if (selectedSizeId) {
-                        isAvailable = variants.some(v => v.IDMauSac === colorId && v.IDKichThuoc === selectedSizeId && v.SoLuongTon > 0);
-                    } else {
-                        isAvailable = variants.some(v => v.IDMauSac === colorId && v.SoLuongTon > 0);
-                    }
-                    $(this).prop('disabled', !isAvailable);
+            const firstAvailableVariant = variants.find(variant => variant.SoLuongTon > 0)
+                ?? variants[0]
+                ?? null;
+            let selectedColorId = firstAvailableVariant?.IDMauSac ?? null;
+            let selectedSizeId = firstAvailableVariant?.IDKichThuoc ?? null;
+
+            function setActiveImage(index) {
+                if (!mainImage || thumbnails.length === 0) {
+                    return;
+                }
+
+                const normalizedIndex = (index + thumbnails.length) % thumbnails.length;
+                const thumbnail = thumbnails[normalizedIndex];
+                const nextSource = thumbnail.dataset.imageSrc;
+                const thumbnailImage = thumbnail.querySelector("img");
+
+                thumbnails.forEach(item => {
+                    const isActive = item === thumbnail;
+                    item.classList.toggle("active", isActive);
+                    item.setAttribute("aria-pressed", isActive.toString());
                 });
 
-                $('.size-option').each(function() {
-                    const sizeId = parseInt($(this).data('size-id'));
-                    let isAvailable = false;
-                    if (selectedColorId) {
-                        isAvailable = variants.some(v => v.IDKichThuoc === sizeId && v.IDMauSac === selectedColorId && v.SoLuongTon > 0);
-                    } else {
-                        isAvailable = variants.some(v => v.IDKichThuoc === sizeId && v.SoLuongTon > 0);
+                currentImageIndex = normalizedIndex;
+                if (imageCounter) {
+                    imageCounter.textContent = String(normalizedIndex + 1);
+                }
+
+                if (!nextSource || mainImage.getAttribute("src") === nextSource) {
+                    return;
+                }
+
+                mainImage.classList.add("is-switching");
+                const preloadedImage = new Image();
+                preloadedImage.onload = function () {
+                    mainImage.src = nextSource;
+                    mainImage.alt = thumbnailImage?.alt ?? "@Model.TenSanPham";
+                    if (zoomedImage) {
+                        zoomedImage.src = nextSource;
+                        zoomedImage.alt = mainImage.alt;
                     }
-                    $(this).prop('disabled', !isAvailable);
+                    requestAnimationFrame(() => mainImage.classList.remove("is-switching"));
+                };
+                preloadedImage.onerror = function () {
+                    mainImage.classList.remove("is-switching");
+                };
+                preloadedImage.src = nextSource;
+            }
+
+            function selectVariantImage(variant) {
+                const imageIds = variant?.HinhAnhIDs ?? [];
+                if (imageIds.length === 0) {
+                    return;
+                }
+
+                const matchingIndex = thumbnails.findIndex(
+                    thumbnail => Number(thumbnail.dataset.imageId) === Number(imageIds[0]));
+                if (matchingIndex >= 0) {
+                    setActiveImage(matchingIndex);
+                }
+            }
+
+            function getSelectedVariant() {
+                return variants.find(variant =>
+                    (selectedColorId === null || variant.IDMauSac === selectedColorId)
+                    && (selectedSizeId === null || variant.IDKichThuoc === selectedSizeId))
+                    ?? null;
+            }
+
+            function showFeedback(type, message) {
+                if (window.AppAlert) {
+                    if (type === "success") {
+                        window.AppAlert.ShowSuccess(message);
+                    } else {
+                        window.AppAlert.ShowError(message);
+                    }
+                    return;
+                }
+
+                alert(message);
+            }
+
+            function normalizeQuantity(maximum) {
+                const quantityInput = document.getElementById("quantity");
+                let quantity = Number.parseInt(quantityInput.value, 10);
+
+                if (!Number.isFinite(quantity) || quantity < 1) {
+                    quantity = 1;
+                }
+                if (Number.isFinite(maximum)) {
+                    quantity = Math.min(quantity, maximum);
+                }
+
+                quantityInput.value = String(quantity);
+                return quantity;
+            }
+
+            function renderSelection() {
+                const selectedVariant = getSelectedVariant();
+
+                $(".color-option").each(function () {
+                    const colorId = Number.parseInt($(this).data("color-id"), 10);
+                    const hasStock = variants.some(
+                        variant => variant.IDMauSac === colorId && variant.SoLuongTon > 0);
+                    const isSelected = colorId === selectedColorId;
+                    $(this)
+                        .prop("disabled", !hasStock)
+                        .toggleClass("active", isSelected)
+                        .attr("aria-pressed", isSelected.toString());
                 });
+
+                $(".size-option").each(function () {
+                    const sizeId = Number.parseInt($(this).data("size-id"), 10);
+                    const hasStock = variants.some(variant =>
+                        variant.IDKichThuoc === sizeId
+                        && (selectedColorId === null || variant.IDMauSac === selectedColorId)
+                        && variant.SoLuongTon > 0);
+                    const isSelected = sizeId === selectedSizeId;
+                    $(this)
+                        .prop("disabled", !hasStock)
+                        .toggleClass("active", isSelected)
+                        .attr("aria-pressed", isSelected.toString());
+                });
+
+                const selectedColor = $(".color-option.active").data("color-name") ?? "";
+                const selectedSize = $(".size-option.active").data("size-name") ?? "";
+                $("#selected-color-name").text(selectedColor);
+                $("#selected-size-name").text(selectedSize);
+
+                const stockContainer = $(".product-availability");
+                if (selectedVariant && selectedVariant.SoLuongTon > 0) {
+                    $("#stock-info").text(`Còn ${selectedVariant.SoLuongTon} sản phẩm`);
+                    $("#selected-sku").text(selectedVariant.Sku ? `SKU ${selectedVariant.Sku}` : "");
+                    $("#quantity").attr("max", selectedVariant.SoLuongTon);
+                    normalizeQuantity(selectedVariant.SoLuongTon);
+                    $("#add-to-cart-btn, #buy-now-btn").prop("disabled", false);
+                    stockContainer.removeClass("unavailable");
+                } else {
+                    $("#stock-info").text("Biến thể này tạm hết hàng");
+                    $("#selected-sku").text("");
+                    $("#quantity").attr("max", 1).val(1);
+                    $("#add-to-cart-btn, #buy-now-btn").prop("disabled", true);
+                    stockContainer.addClass("unavailable");
+                }
             }
 
-            function updateFinalState() {
-                const variant = variants.find(v => v.IDMauSac === selectedColorId && v.IDKichThuoc === selectedSizeId);
-                if (variant && variant.SoLuongTon > 0) {
-                    $('#stock-info').text(`Còn lại: ${variant.SoLuongTon} sản phẩm`).removeClass('text-danger').addClass('text-muted');
-                    $('#quantity').attr('max', variant.SoLuongTon);
-                    $('#add-to-cart-btn, #buy-now-btn').prop('disabled', false);
-                } else {
-                    $('#add-to-cart-btn, #buy-now-btn').prop('disabled', true);
-                    if (selectedColorId && selectedSizeId) {
-                         $('#stock-info').text('Sản phẩm này tạm hết hàng').addClass('text-danger');
-                    } else {
-                         $('#stock-info').text('');
-                    }
-                }
-            }
-
-            $('.color-option').click(function() {
-                const clickedId = parseInt($(this).data('color-id'));
-                if (selectedColorId === clickedId) {
-                    selectedColorId = null;
-                    $(this).removeClass('active');
-                    $('#selected-color-name').text('');
-                } else {
-                    selectedColorId = clickedId;
-                    $('.color-option').removeClass('active');
-                    $(this).addClass('active');
-                    $('#selected-color-name').text($(this).attr('title'));
-                    const variantImg = variants.find(v => v.IDMauSac === selectedColorId);
-                    if (variantImg && variantImg.HinhAnhIDs.length > 0) {
-                        const imgId = variantImg.HinhAnhIDs[0];
-                        const src = $(`[data-image-id=${imgId}]`).attr('src');
-                        if (src) $('#main-product-image').attr('src', src);
-                    }
-                }
-                if (selectedSizeId) {
-                    const isValidCombination = variants.some(v => v.IDMauSac === selectedColorId && v.IDKichThuoc === selectedSizeId && v.SoLuongTon > 0);
-                    if (!isValidCombination && selectedColorId !== null) {
-                        selectedSizeId = null;
-                        $('.size-option').removeClass('active');
-                        $('#selected-size-name').text('');
-                    }
-                }
-                checkAvailability();
-                updateFinalState();
+            thumbnails.forEach((thumbnail, index) => {
+                thumbnail.addEventListener("click", () => setActiveImage(index));
             });
 
-            $('.size-option').click(function() {
-                const clickedId = parseInt($(this).data('size-id'));
-                if (selectedSizeId === clickedId) {
-                    selectedSizeId = null;
-                    $(this).removeClass('active');
-                    $('#selected-size-name').text('');
-                } else {
-                    selectedSizeId = clickedId;
-                    $('.size-option').removeClass('active');
-                    $(this).addClass('active');
-                    $('#selected-size-name').text($(this).text());
+            document.getElementById("previousProductImage")?.addEventListener(
+                "click", () => setActiveImage(currentImageIndex - 1));
+            document.getElementById("nextProductImage")?.addEventListener(
+                "click", () => setActiveImage(currentImageIndex + 1));
+
+            $(".color-option").on("click", function () {
+                if ($(this).prop("disabled")) {
+                    return;
                 }
-                if (selectedColorId) {
-                    const isValidCombination = variants.some(v => v.IDMauSac === selectedColorId && v.IDKichThuoc === selectedSizeId && v.SoLuongTon > 0);
-                    if (!isValidCombination && selectedSizeId !== null) {
-                        selectedColorId = null;
-                        $('.color-option').removeClass('active');
-                        $('#selected-color-name').text('');
-                    }
+
+                selectedColorId = Number.parseInt($(this).data("color-id"), 10);
+                const variantsForColor = variants.filter(variant =>
+                    variant.IDMauSac === selectedColorId && variant.SoLuongTon > 0);
+                const currentCombinationIsAvailable = variantsForColor.some(
+                    variant => variant.IDKichThuoc === selectedSizeId);
+
+                if (!currentCombinationIsAvailable) {
+                    selectedSizeId = variantsForColor[0]?.IDKichThuoc ?? null;
                 }
-                checkAvailability();
-                updateFinalState();
+
+                const selectedVariant = getSelectedVariant() ?? variantsForColor[0] ?? null;
+                selectVariantImage(selectedVariant);
+                renderSelection();
             });
 
-            $('#btn-plus').click(function () {
-                let qty = parseInt($('#quantity').val());
-                let max = parseInt($('#quantity').attr('max')) || 999;
-                if (qty < max) $('#quantity').val(qty + 1);
+            $(".size-option").on("click", function () {
+                if ($(this).prop("disabled")) {
+                    return;
+                }
+
+                selectedSizeId = Number.parseInt($(this).data("size-id"), 10);
+                const variantsForSize = variants.filter(variant =>
+                    variant.IDKichThuoc === selectedSizeId && variant.SoLuongTon > 0);
+                const currentCombinationIsAvailable = variantsForSize.some(
+                    variant => variant.IDMauSac === selectedColorId);
+
+                if (!currentCombinationIsAvailable) {
+                    selectedColorId = variantsForSize[0]?.IDMauSac ?? null;
+                }
+
+                renderSelection();
             });
 
-            $('#btn-minus').click(function () {
-                let qty = parseInt($('#quantity').val());
-                if (qty > 1) $('#quantity').val(qty - 1);
+            $("#btn-plus").on("click", function () {
+                const maximum = Number.parseInt($("#quantity").attr("max"), 10) || 1;
+                const quantity = normalizeQuantity(maximum);
+                $("#quantity").val(Math.min(quantity + 1, maximum));
             });
 
-            $('#add-to-cart-btn, #buy-now-btn').click(function () {
-                const variant = variants.find(v => v.IDMauSac === selectedColorId && v.IDKichThuoc === selectedSizeId);
-                if (!variant) return;
-                const quantity = parseInt($('#quantity').val());
-                const url = $(this).data('action-type') === 'buy-now' ? '/Cart/BuyNow' : '/Cart/AddToCart';
-                const btn = $(this);
-                const originalText = btn.html();
-                btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
-                $.post(url, { variantId: variant.IDBienThe, quantity: quantity }, function (res) {
-                    if (res.success) {
-                        if (res.redirectUrl) window.location.href = res.redirectUrl;
-                        else {
-                            $('#cart-count').text(res.cartCount);
-                            alert(res.message);
+            $("#btn-minus").on("click", function () {
+                const maximum = Number.parseInt($("#quantity").attr("max"), 10) || 1;
+                const quantity = normalizeQuantity(maximum);
+                $("#quantity").val(Math.max(quantity - 1, 1));
+            });
+
+            $("#quantity").on("change blur", function () {
+                const maximum = Number.parseInt($(this).attr("max"), 10) || 1;
+                normalizeQuantity(maximum);
+            });
+
+            $("#add-to-cart-btn, #buy-now-btn").on("click", function () {
+                const variant = getSelectedVariant();
+                if (!variant || variant.SoLuongTon < 1) {
+                    return;
+                }
+
+                const quantity = normalizeQuantity(variant.SoLuongTon);
+                const isBuyNow = $(this).data("action-type") === "buy-now";
+                const url = isBuyNow ? "/Cart/BuyNow" : "/Cart/AddToCart";
+                const button = $(this);
+                const originalContent = button.html();
+
+                $("#add-to-cart-btn, #buy-now-btn").prop("disabled", true);
+                button.html(
+                    '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>'
+                    + '<span class="visually-hidden">Đang xử lý</span>');
+
+                $.post(url, { variantId: variant.IDBienThe, quantity: quantity })
+                    .done(function (response) {
+                        if (!response.success) {
+                            showFeedback("error", response.message);
+                            return;
                         }
-                    } else {
-                        alert(res.message);
-                    }
-                }).always(() => btn.prop('disabled', false).html(originalText));
+
+                        if (response.redirectUrl) {
+                            window.location.href = response.redirectUrl;
+                            return;
+                        }
+
+                        $("#cart-count").text(response.cartCount);
+                        showFeedback("success", response.message);
+                    })
+                    .fail(function () {
+                        showFeedback("error", "Không thể xử lý yêu cầu. Vui lòng thử lại.");
+                    })
+                    .always(function () {
+                        button.html(originalContent);
+                        renderSelection();
+                    });
             });
 
-            checkAvailability();
+            if (firstAvailableVariant) {
+                selectVariantImage(firstAvailableVariant);
+            }
+            renderSelection();
         });
     </script>
 }

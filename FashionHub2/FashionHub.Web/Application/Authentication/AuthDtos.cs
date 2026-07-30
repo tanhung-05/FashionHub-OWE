@@ -41,7 +41,8 @@ public sealed record AuthUserDto(
     int Id,
     string FullName,
     string Email,
-    string Role);
+    string Role,
+    Guid SecurityStamp);
 
 public interface IAuthService
 {

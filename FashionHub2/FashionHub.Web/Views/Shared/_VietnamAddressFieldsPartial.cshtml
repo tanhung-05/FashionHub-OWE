@@ -1,0 +1,85 @@
+@model FashionHub.Web.ViewModels.Account.AddressManagementViewModel
+
+@{
+    var fieldPrefix = ViewData["AddressSelectorPrefix"] as string ?? "account-address";
+}
+
+<div class="address-selector"
+     data-vn-address-selector
+     data-current-province="@Model.TinhThanh"
+     data-current-district="@Model.QuanHuyen"
+     data-current-ward="@Model.PhuongXa">
+    <input asp-for="TinhThanh" type="hidden" data-vn-province-name />
+    <input asp-for="QuanHuyen" type="hidden" data-vn-district-name />
+    <input asp-for="PhuongXa" type="hidden" data-vn-ward-name />
+
+    <div class="row g-3" data-vn-select-fields>
+        <div class="col-md-4">
+            <label for="@($"{fieldPrefix}-province")" class="form-label">
+                Tỉnh/Thành phố <span class="text-danger">*</span>
+            </label>
+            <select id="@($"{fieldPrefix}-province")"
+                    class="form-select"
+                    data-vn-province
+                    required>
+                <option value="">Đang tải tỉnh/thành...</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label for="@($"{fieldPrefix}-district")" class="form-label">
+                Quận/Huyện <span class="text-danger">*</span>
+            </label>
+            <select id="@($"{fieldPrefix}-district")"
+                    class="form-select"
+                    data-vn-district
+                    required
+                    disabled>
+                <option value="">Chọn quận/huyện</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label for="@($"{fieldPrefix}-ward")" class="form-label">
+                Phường/Xã <span class="text-danger">*</span>
+            </label>
+            <select id="@($"{fieldPrefix}-ward")"
+                    class="form-select"
+                    data-vn-ward
+                    required
+                    disabled>
+                <option value="">Chọn phường/xã</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="row g-3 d-none" data-vn-manual-fields>
+        <div class="col-md-4">
+            <label for="@($"{fieldPrefix}-manual-province")" class="form-label">Tỉnh/Thành phố</label>
+            <input id="@($"{fieldPrefix}-manual-province")"
+                   type="text"
+                   class="form-control"
+                   data-vn-manual-province
+                   value="@Model.TinhThanh" />
+        </div>
+        <div class="col-md-4">
+            <label for="@($"{fieldPrefix}-manual-district")" class="form-label">Quận/Huyện</label>
+            <input id="@($"{fieldPrefix}-manual-district")"
+                   type="text"
+                   class="form-control"
+                   data-vn-manual-district
+                   value="@Model.QuanHuyen" />
+        </div>
+        <div class="col-md-4">
+            <label for="@($"{fieldPrefix}-manual-ward")" class="form-label">Phường/Xã</label>
+            <input id="@($"{fieldPrefix}-manual-ward")"
+                   type="text"
+                   class="form-control"
+                   data-vn-manual-ward
+                   value="@Model.PhuongXa" />
+        </div>
+    </div>
+
+    <div class="address-selector-status" data-vn-address-status aria-live="polite"></div>
+    <span asp-validation-for="TinhThanh" class="text-danger small d-block"></span>
+    <span asp-validation-for="QuanHuyen" class="text-danger small d-block"></span>
+    <span asp-validation-for="PhuongXa" class="text-danger small d-block"></span>
+</div>

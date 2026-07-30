@@ -76,6 +76,7 @@ public sealed class AuthService : IAuthService
             HoTen = request.FullName.Trim(),
             Email = normalizedEmail,
             MatKhauHash = passwordHasher.Hash(request.Password),
+            SecurityStamp = Guid.NewGuid(),
             IdvaiTro = customerRole.IdvaiTro,
             IdvaiTroNavigation = customerRole,
             NgayTao = DateTime.Now,
@@ -119,7 +120,8 @@ public sealed class AuthService : IAuthService
             user.IdnguoiDung,
             user.HoTen,
             user.Email,
-            user.IdvaiTroNavigation.TenVaiTro);
+            user.IdvaiTroNavigation.TenVaiTro,
+            user.SecurityStamp);
 
     private static ServiceResult<AuthUserDto> InvalidCredentials() =>
         ServiceResult<AuthUserDto>.Failure(

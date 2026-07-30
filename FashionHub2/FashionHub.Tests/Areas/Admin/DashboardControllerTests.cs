@@ -43,4 +43,15 @@ public class DashboardControllerTests : IClassFixture<CustomWebApplicationFactor
             HttpStatusCode.Unauthorized
         );
     }
+
+    [Fact]
+    public async Task AdminRoot_AfterAdminLogin_ReturnsDashboard()
+    {
+        var loginResponse = await _client.LoginAsAdminAsync();
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.Redirect);
+
+        var response = await _client.GetAsync("/Admin");
+
+        response.EnsureSuccessStatusCode();
+    }
 }

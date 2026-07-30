@@ -145,7 +145,11 @@ public class CartController : Controller
 
         SaveCart(BuyNowCartSessionKey, buyNowCart);
 
-        return Json(new { success = true, redirectUrl = Url.Action("Checkout", "Order") });
+        return Json(new
+        {
+            success = true,
+            redirectUrl = Url.Action("Checkout", "Order", new { cartType = "BuyNow" })
+        });
     }
 
     [HttpGet]
@@ -153,7 +157,7 @@ public class CartController : Controller
     {
         var result = await cartService.GetCartAsync();
         return PartialView(
-            "_CartOffcanvasPartial",
+            "_CartOffcanvasItemsPartial",
             result.Value?.ToViewModels() ?? new List<CartItemViewModel>());
     }
 

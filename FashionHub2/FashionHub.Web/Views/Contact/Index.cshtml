@@ -1,0 +1,128 @@
+@{
+    ViewData["Title"] = "Liên hệ";
+    ViewData["MetaDescription"] = "Liên hệ OWE qua điện thoại, SMS hoặc Zalo để được hỗ trợ.";
+}
+
+<section class="contact-heading" aria-labelledby="contact-title">
+    <p class="contact-kicker">OWE Support</p>
+    <h1 id="contact-title">Liên hệ với OWE</h1>
+    <p>
+        Cần tư vấn sản phẩm, kích thước hoặc hỗ trợ đơn hàng?
+        Chọn cách liên hệ thuận tiện nhất cho bạn.
+    </p>
+</section>
+
+<section class="contact-layout">
+    <div class="contact-owner">
+        <div class="contact-monogram" aria-hidden="true">LH</div>
+        <p class="contact-owner-label">Người phụ trách liên hệ</p>
+        <h2>Lương Tấn Hùng</h2>
+        <a class="contact-phone" href="tel:0392410917">0392 410 917</a>
+
+        <div class="contact-actions">
+            <a class="btn btn-light" href="tel:0392410917">
+                <i class="bi bi-telephone" aria-hidden="true"></i>
+                Gọi ngay
+            </a>
+            <a class="btn contact-zalo" href="https://zalo.me/0392410917"
+               target="_blank" rel="noopener">
+                <i class="bi bi-chat-square-text" aria-hidden="true"></i>
+                Nhắn Zalo
+            </a>
+        </div>
+
+        <div class="contact-copy-row">
+            <button type="button" class="contact-copy-button" id="copyPhoneButton"
+                    title="Sao chép số điện thoại" aria-label="Sao chép số điện thoại">
+                <i class="bi bi-copy" aria-hidden="true"></i>
+            </button>
+            <span id="copyPhoneStatus" aria-live="polite">Sao chép số điện thoại</span>
+        </div>
+    </div>
+
+    <div class="contact-help">
+        <div class="contact-help-heading">
+            <p class="contact-kicker">Hỗ trợ nhanh</p>
+            <h2>Bạn đang cần trao đổi về điều gì?</h2>
+        </div>
+
+        <div class="contact-topic-list">
+            <div class="contact-topic">
+                <span class="contact-topic-icon"><i class="bi bi-bag-check"></i></span>
+                <div>
+                    <h3>Đơn hàng và giao nhận</h3>
+                    <p>Chuẩn bị mã đơn hàng trước khi liên hệ để việc kiểm tra nhanh hơn.</p>
+                </div>
+            </div>
+            <div class="contact-topic">
+                <span class="contact-topic-icon"><i class="bi bi-rulers"></i></span>
+                <div>
+                    <h3>Sản phẩm và kích thước</h3>
+                    <p>Gửi tên sản phẩm cùng chiều cao, cân nặng để nhận gợi ý phù hợp.</p>
+                </div>
+            </div>
+            <div class="contact-topic">
+                <span class="contact-topic-icon"><i class="bi bi-people"></i></span>
+                <div>
+                    <h3>Hợp tác và góp ý</h3>
+                    <p>Chia sẻ ngắn gọn nội dung bạn muốn trao đổi qua Zalo hoặc SMS.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="contact-secondary-actions">
+            <a href="sms:0392410917">
+                <i class="bi bi-chat-left-text" aria-hidden="true"></i>
+                Gửi SMS
+            </a>
+            <a asp-controller="Products" asp-action="Index">
+                <i class="bi bi-grid" aria-hidden="true"></i>
+                Xem sản phẩm
+            </a>
+        </div>
+    </div>
+</section>
+
+<section class="contact-faq" aria-labelledby="faq-title">
+    <div class="contact-faq-heading">
+        <p class="contact-kicker">Trước khi liên hệ</p>
+        <h2 id="faq-title">Thông tin hữu ích</h2>
+    </div>
+    <div class="contact-faq-list">
+        <details>
+            <summary>Tôi cần chuẩn bị gì khi hỏi về đơn hàng?</summary>
+            <p>Hãy gửi mã đơn hàng và số điện thoại đã dùng khi đặt hàng.</p>
+        </details>
+        <details>
+            <summary>Làm sao để được tư vấn kích thước?</summary>
+            <p>Gửi tên sản phẩm, chiều cao, cân nặng và phom bạn thích: vừa người hay rộng thoải mái.</p>
+        </details>
+        <details>
+            <summary>Tôi có thể gửi hình ảnh sản phẩm qua đâu?</summary>
+            <p>Zalo là lựa chọn thuận tiện nhất khi cần gửi ảnh hoặc ảnh chụp màn hình.</p>
+        </details>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const copyButton = document.getElementById("copyPhoneButton");
+            const copyStatus = document.getElementById("copyPhoneStatus");
+
+            if (!copyButton || !copyStatus) {
+                return;
+            }
+
+            copyButton.addEventListener("click", async function () {
+                try {
+                    await navigator.clipboard.writeText("0392410917");
+                    copyStatus.textContent = "Đã sao chép 0392 410 917";
+                    copyButton.classList.add("is-copied");
+                } catch {
+                    copyStatus.textContent = "Số điện thoại: 0392 410 917";
+                }
+            });
+        });
+    </script>
+}

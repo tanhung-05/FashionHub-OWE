@@ -109,7 +109,7 @@
                                     </div>
                                     <div class="col-md-2 text-center">
                                         <small class="text-muted d-block">Số lượng</small>
-                                        <strong>x@item.SoLuong</strong>
+                                        <strong>x@(item.SoLuong)</strong>
                                     </div>
                                     <div class="col-md-2 text-end">
                                         <small class="text-muted d-block">Thành tiền</small>
@@ -174,64 +174,96 @@
 @if (canCancel)
 {
     <!-- Cancel Order Modal -->
-    <div class="modal fade" id="cancelOrderModal" tabindex="-1">
+    <div class="modal fade"
+         id="cancelOrderModal"
+         tabindex="-1"
+         aria-labelledby="cancelOrderModalLabel"
+         aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Xác nhận hủy đơn hàng</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Bạn có chắc chắn muốn hủy đơn hàng #@Model.IddonHang?</p>
-                    <div class="mb-3">
-                        <label for="cancelReason" class="form-label">Lý do hủy (tùy chọn)</label>
-                        <textarea class="form-control" id="cancelReason" rows="3"></textarea>
+                <form id="cancelOrderForm" asp-action="CancelOrder" asp-controller="Account" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.IddonHang" />
+
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="cancelOrderModalLabel">Xác nhận hủy đơn hàng</h5>
+                        <button type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                                aria-label="Đóng"></button>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                    <button type="button" class="btn btn-danger" id="btnConfirmCancel">Xác nhận hủy</button>
-                </div>
+                    <div class="modal-body">
+                        <p>Bạn có chắc chắn muốn hủy đơn hàng #@Model.IddonHang?</p>
+                        <div class="mb-3">
+                            <label for="cancelReason" class="form-label">Lý do hủy (tùy chọn)</label>
+                            <textarea class="form-control"
+                                      id="cancelReason"
+                                      name="reason"
+                                      rows="3"
+                                      maxlength="500"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                        <button type="submit" class="btn btn-danger" id="btnConfirmCancel">Xác nhận hủy</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
     @section Scripts {
         <script>
-            document.getElementById('btnCancelOrder').addEventListener('click', function() {
-                new bootstrap.Modal(document.getElementById('cancelOrderModal')).show();
+            const cancelOrderModalElement = document.getElementById('cancelOrderModal');
+            const cancelOrderModal = bootstrap.Modal.getOrCreateInstance(cancelOrderModalElement);
+            const cancelOrderTrigger = document.getElementById('btnCancelOrder');
+            const cancelOrderForm = document.getElementById('cancelOrderForm');
+            const confirmCancelButton = document.getElementById('btnConfirmCancel');
+
+            cancelOrderTrigger.addEventListener('click', function () {
+                cancelOrderModal.show();
             });
 
-            document.getElementById('btnConfirmCancel').addEventListener('click', async function() {
-                const reason = document.getElementById('cancelReason').value;
-                const btn = this;
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Đang xử lý...';
+            cancelOrderModalElement.addEventListener('hide.bs.modal', function () {
+                if (cancelOrderModalElement.contains(document.activeElement)) {
+                    document.activeElement.blur();
+                }
+            });
+
+            cancelOrderForm.addEventListener('submit', async function (event) {
+                event.preventDefault();
+                const originalButtonContent = confirmCancelButton.innerHTML;
+                confirmCancelButton.disabled = true;
+                confirmCancelButton.innerHTML =
+                    '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Đang xử lý...';
 
                 try {
-                    const response = await fetch('@Url.Action("CancelOrder", "Account")', {
+                    const response = await fetch(cancelOrderForm.action, {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
-                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                            'X-Requested-With': 'XMLHttpRequest'
                         },
-                        body: JSON.stringify({ id: @Model.IddonHang, reason: reason })
+                        body: new FormData(cancelOrderForm)
                     });
 
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        showToast(result.message || 'Hủy đơn hàng thành công', 'success');
-                        setTimeout(() => window.location.reload(), 1500);
-                    } else {
-                        showToast(result.message || 'Có lỗi xảy ra', 'error');
-                        btn.disabled = false;
-                        btn.innerHTML = 'Xác nhận hủy';
+                    const result = await response.json().catch(function () {
+                        return { success: false, message: 'Phản hồi từ máy chủ không hợp lệ.' };
+                    });
+
+                    if (!response.ok || !result.success) {
+                        AppAlert.ShowError(result.message || 'Không thể hủy đơn hàng.');
+                        return;
                     }
-                } catch (error) {
-                    showToast('Có lỗi xảy ra khi hủy đơn hàng', 'error');
-                    btn.disabled = false;
-                    btn.innerHTML = 'Xác nhận hủy';
+
+                    cancelOrderModalElement.addEventListener('hidden.bs.modal', function () {
+                        window.location.reload();
+                    }, { once: true });
+                    cancelOrderModal.hide();
+                } catch (_error) {
+                    AppAlert.ShowError('Có lỗi xảy ra khi hủy đơn hàng.');
+                } finally {
+                    confirmCancelButton.disabled = false;
+                    confirmCancelButton.innerHTML = originalButtonContent;
                 }
             });
         </script>

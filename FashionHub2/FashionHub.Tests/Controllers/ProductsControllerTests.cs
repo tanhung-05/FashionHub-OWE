@@ -78,6 +78,12 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         response.EnsureSuccessStatusCode();
         var content = await response.Content.ReadAsStringAsync();
         content.Should().Contain("Test Product");
+        content.Should().Contain("product-gallery-shell");
+        content.Should().Contain("product-buy-panel");
+        content.Should().Contain("add-to-cart-btn");
+        content.Should().Contain("JSON.parse(");
+        content.Should().Contain("IDBienThe");
+        content.Should().Contain("SoLuongTon");
     }
     
     [Fact]

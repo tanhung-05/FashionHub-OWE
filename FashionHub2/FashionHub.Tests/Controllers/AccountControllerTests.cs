@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using FluentAssertions;
 
 namespace FashionHub.Tests.Controllers;
@@ -29,6 +30,16 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory<
         content.Should().Contain("Tạo tài khoản");
     }
     
+    [Fact]
+    public async Task Login_Get_RendersForgotPasswordLink()
+    {
+        var response = await _client.GetAsync("/Account/Login");
+
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync();
+        html.Should().Contain("href=\"/Account/ForgotPassword\"");
+    }
+
     [Fact]
     public async Task Profile_WithoutAuth_RedirectsToLogin()
     {
@@ -73,4 +84,80 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory<
         var content = await response.Content.ReadAsStringAsync();
         content.Should().Contain("Truy cập bị từ chối");
     }
+
+    [Fact]
+    public async Task Login_AsAdmin_RedirectsToAdminDashboard()
+    {
+        var response = await _client.LoginAsAdminAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location?.ToString()
+            .Should().Be("/Admin");
+    }
+
+    [Fact]
+    public async Task OrderHistory_AfterLogin_ReturnsOrderHistoryPage()
+    {
+        await _client.LoginAsCustomerAsync();
+
+        var response = await _client.GetAsync("/Account/OrderHistory");
+
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync();
+        html.Should().Contain("Lịch sử đơn hàng");
+    }
+
+    [Fact]
+    public async Task Profile_AfterLogin_ReturnsCompleteProfileDashboard()
+    {
+        await _client.LoginAsCustomerAsync();
+
+        var response = await _client.GetAsync("/Account/Profile");
+
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync();
+        html.Should().Contain("profile-stats");
+        html.Should().Contain("Thông tin cá nhân");
+        html.Should().Contain("Địa chỉ ưu tiên");
+    }
+
+    [Fact]
+    public async Task AddAddressAjax_WithValidData_SavesAddress()
+    {
+        await _client.LoginAsCustomerAsync();
+        var token = await _client.GetAntiforgeryTokenAsync("/Account/CreateAddress");
+
+        var response = await _client.PostAsync(
+            "/Account/AddAddressAjax",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["TenNguoiNhan"] = "Nguyen Van Test",
+                ["SoDienThoai"] = "0912345678",
+                ["ChiTiet"] = "45 Nguyen Hue",
+                ["PhuongXa"] = "Phuong Ben Nghe",
+                ["QuanHuyen"] = "Quan 1",
+                ["TinhThanh"] = "Thanh pho Ho Chi Minh",
+                ["LaMacDinh"] = "false",
+                ["__RequestVerificationToken"] = token
+            }));
+
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<AddressAjaxResponse>();
+        payload.Should().NotBeNull();
+        payload!.Success.Should().BeTrue();
+        payload.NewAddress.Should().NotBeNull();
+        payload.NewAddress!.FullAddress.Should().Contain("45 Nguyen Hue");
+    }
+
+    private sealed record AddressAjaxResponse(
+        bool Success,
+        string Message,
+        AddressAjaxItem? NewAddress);
+
+    private sealed record AddressAjaxItem(
+        int IddiaChi,
+        string TenNguoiNhan,
+        string SoDienThoai,
+        bool LaMacDinh,
+        string FullAddress);
 }

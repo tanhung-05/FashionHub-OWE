@@ -1,0 +1,140 @@
+@{
+    ViewData["Title"] = "Blog";
+    ViewData["MetaDescription"] = "OWE Journal - gợi ý phối đồ, chọn phom và chăm sóc trang phục nam.";
+}
+
+<section class="editorial-hero" aria-labelledby="blog-title">
+    <img src="~/images/products/somi4_hong_regular_nguoi.jpg"
+         alt="Phong cách sơ mi nam tối giản của OWE" />
+    <div class="editorial-hero-shade" aria-hidden="true"></div>
+    <div class="editorial-hero-content">
+        <span class="editorial-kicker">Góc nhìn về phong cách nam</span>
+        <h1 id="blog-title">OWE Journal</h1>
+        <p>
+            Những ghi chú ngắn gọn về cách chọn phom, phối màu và xây dựng
+            một tủ đồ dễ mặc mỗi ngày.
+        </p>
+        <a class="btn btn-light editorial-hero-action" href="#bai-viet-moi">
+            <i class="bi bi-arrow-down" aria-hidden="true"></i>
+            Đọc bài mới
+        </a>
+    </div>
+</section>
+
+<section class="journal-intro" aria-labelledby="journal-intro-title">
+    <p class="journal-section-index">01 / OWE EDIT</p>
+    <div>
+        <h2 id="journal-intro-title">Mặc đẹp không cần bắt đầu từ quá nhiều món đồ.</h2>
+        <p>
+            OWE chọn cách tiếp cận thực tế: hiểu dáng người, ưu tiên chất liệu
+            dễ chịu và để từng món đồ phối được với nhau lâu hơn một mùa.
+        </p>
+    </div>
+</section>
+
+<section class="journal-feature" id="bai-viet-moi" aria-labelledby="feature-title">
+    <div class="journal-feature-media">
+        <img src="~/images/products/polo1_regular_bonus.jpg"
+             alt="Chi tiết chất liệu và họa tiết áo polo" loading="lazy" />
+    </div>
+    <article class="journal-feature-copy">
+        <span class="journal-tag">Cẩm nang tủ đồ</span>
+        <h2 id="feature-title">Bắt đầu tủ đồ tinh gọn từ ba nguyên tắc</h2>
+        <p class="journal-lead">
+            Một tủ đồ tốt không được đo bằng số lượng. Nó được đo bằng số lần
+            bạn có thể mặc lại một món mà vẫn thấy đúng với mình.
+        </p>
+        <ol class="journal-principles">
+            <li>
+                <span>01</span>
+                <div>
+                    <strong>Chọn phom trước màu sắc</strong>
+                    <p>Regular cho sự cân bằng, boxy tạo nét trẻ và straight giữ tổng thể gọn.</p>
+                </div>
+            </li>
+            <li>
+                <span>02</span>
+                <div>
+                    <strong>Giữ một bảng màu có chủ đích</strong>
+                    <p>Đen, trắng và denim làm nền; thêm một màu nhấn để bộ đồ có điểm nhớ.</p>
+                </div>
+            </li>
+            <li>
+                <span>03</span>
+                <div>
+                    <strong>Ưu tiên món đồ phối được nhiều lần</strong>
+                    <p>Mỗi lựa chọn mới nên kết hợp được với ít nhất hai món bạn đang có.</p>
+                </div>
+            </li>
+        </ol>
+        <a class="journal-text-link" asp-controller="Products" asp-action="Index">
+            Khám phá sản phẩm
+            <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+        </a>
+    </article>
+</section>
+
+<section class="journal-stories" aria-labelledby="stories-title">
+    <div class="journal-section-heading">
+        <div>
+            <p class="journal-section-index">02 / STYLE NOTES</p>
+            <h2 id="stories-title">Gợi ý để mặc dễ hơn</h2>
+        </div>
+        <p>Ba chủ đề có thể áp dụng ngay với những món đồ quen thuộc.</p>
+    </div>
+
+    <div class="journal-story-grid">
+        <article class="journal-story">
+            <a asp-controller="Products" asp-action="Index" class="journal-story-media"
+               aria-label="Xem các mẫu sơ mi">
+                <img src="~/images/products/somi4_hong_regular_nguoi.jpg"
+                     alt="Sơ mi hồng phom regular" loading="lazy" />
+            </a>
+            <div class="journal-story-body">
+                <span class="journal-tag">Phối màu</span>
+                <h3>Sơ mi pastel: đủ nổi bật, vẫn dễ mặc</h3>
+                <p>Giữ quần và phụ kiện ở gam trung tính để màu áo trở thành điểm nhấn duy nhất.</p>
+                <a asp-controller="Products" asp-action="Index">Xem sơ mi <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </article>
+
+        <article class="journal-story">
+            <a asp-controller="Products" asp-action="Index" class="journal-story-media"
+               aria-label="Xem các mẫu quần jeans">
+                <img src="~/images/products/jean1_xanhden_straigh_truoc.jpg"
+                     alt="Quần jeans xanh đen phom straight" loading="lazy" />
+            </a>
+            <div class="journal-story-body">
+                <span class="journal-tag">Chọn phom</span>
+                <h3>Vì sao straight jeans luôn có chỗ trong tủ đồ?</h3>
+                <p>Ống thẳng tạo đường nét sạch, cân bằng tốt với cả áo ôm vừa lẫn áo rộng.</p>
+                <a asp-controller="Products" asp-action="Index">Xem jeans <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </article>
+
+        <article class="journal-story">
+            <a asp-controller="Products" asp-action="Index" class="journal-story-media"
+               aria-label="Xem hướng dẫn chọn kích thước">
+                <img src="~/images/products/size_form_regular.png"
+                     alt="Minh họa phom áo regular" loading="lazy" />
+            </a>
+            <div class="journal-story-body">
+                <span class="journal-tag">Fit guide</span>
+                <h3>Regular, boxy hay straight: chọn theo cảm giác muốn mặc</h3>
+                <p>Đừng chỉ nhìn số đo. Hãy chọn phom theo độ thoải mái và tỷ lệ bạn muốn tạo ra.</p>
+                <a asp-controller="Contact" asp-action="Index">Nhờ tư vấn <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </article>
+    </div>
+</section>
+
+<section class="journal-contact-band">
+    <div>
+        <p class="journal-section-index">CẦN MỘT GỢI Ý RIÊNG?</p>
+        <h2>Chưa chắc về phom hoặc kích thước?</h2>
+    </div>
+    <a class="btn btn-dark" asp-controller="Contact" asp-action="Index">
+        <i class="bi bi-chat-dots" aria-hidden="true"></i>
+        Liên hệ OWE
+    </a>
+</section>

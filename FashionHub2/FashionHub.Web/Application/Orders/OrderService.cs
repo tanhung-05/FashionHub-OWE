@@ -103,220 +103,226 @@ public sealed class OrderService : IOrderService
         }
 
         var userId = currentUser.UserId.Value;
-        var cartResult = await cartService.GetCartAsync(cancellationToken);
-        if (!cartResult.IsSuccess)
+        var executionStrategy = dbContext.Database.CreateExecutionStrategy();
+        return await executionStrategy.ExecuteAsync(async () =>
         {
-            return ServiceResult<OrderDetailDto>.Failure(
-                cartResult.Error!.Type,
-                cartResult.Error.Code,
-                cartResult.Error.Message);
-        }
+            dbContext.ChangeTracker.Clear();
 
-        if (cartResult.Value!.Items.Count == 0)
-        {
-            return Failure(
-                ServiceErrorType.Conflict,
-                "empty-cart",
-                "Giỏ hàng đang trống.");
-        }
+            var cartResult = await cartService.GetCartAsync(cancellationToken);
+            if (!cartResult.IsSuccess)
+            {
+                return ServiceResult<OrderDetailDto>.Failure(
+                    cartResult.Error!.Type,
+                    cartResult.Error.Code,
+                    cartResult.Error.Message);
+            }
 
-        var address = await dbContext.DiaChis
-            .AsNoTracking()
-            .FirstOrDefaultAsync(item =>
-                item.IddiaChi == request.AddressId
-                && item.IdnguoiDung == userId,
-                cancellationToken);
-        if (address == null)
-        {
-            return Failure(
-                ServiceErrorType.NotFound,
-                "shipping-address-not-found",
-                "Địa chỉ giao hàng không hợp lệ.");
-        }
-
-        var paymentMethodIsActive = await dbContext.PhuongThucThanhToans
-            .AsNoTracking()
-            .AnyAsync(method =>
-                method.IdphuongThucThanhToan == request.PaymentMethodId
-                && method.TrangThai,
-                cancellationToken);
-        if (!paymentMethodIsActive)
-        {
-            return Failure(
-                ServiceErrorType.NotFound,
-                "payment-method-not-found",
-                "Phương thức thanh toán không hợp lệ.");
-        }
-
-        var cartItems = cartResult.Value.Items;
-        var variantIds = cartItems.Select(item => item.VariantId).ToList();
-        var variants = await dbContext.BienTheSanPhams
-            .Where(variant =>
-                variantIds.Contains(variant.IdbienThe)
-                && variant.TrangThai
-                && variant.DeletedAt == null
-                && variant.IdsanPhamNavigation.TrangThai
-                && variant.IdsanPhamNavigation.DeletedAt == null)
-            .Include(variant => variant.IdsanPhamNavigation)
-            .Include(variant => variant.IdmauSacNavigation)
-            .Include(variant => variant.IdkichThuocNavigation)
-            .ToDictionaryAsync(variant => variant.IdbienThe, cancellationToken);
-
-        var orderLines = new List<ValidatedOrderLine>();
-        foreach (var cartItem in cartItems)
-        {
-            if (!variants.TryGetValue(cartItem.VariantId, out var variant))
+            if (cartResult.Value!.Items.Count == 0)
             {
                 return Failure(
                     ServiceErrorType.Conflict,
-                    "cart-product-unavailable",
-                    $"Sản phẩm '{cartItem.ProductName}' không còn khả dụng.");
+                    "empty-cart",
+                    "Giỏ hàng đang trống.");
             }
 
-            if (variant.SoLuongTon < cartItem.Quantity)
+            var address = await dbContext.DiaChis
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item =>
+                    item.IddiaChi == request.AddressId
+                    && item.IdnguoiDung == userId,
+                    cancellationToken);
+            if (address == null)
             {
                 return Failure(
-                    ServiceErrorType.Conflict,
-                    "insufficient-stock",
-                    $"Sản phẩm '{cartItem.ProductName}' chỉ còn {variant.SoLuongTon}.");
+                    ServiceErrorType.NotFound,
+                    "shipping-address-not-found",
+                    "Địa chỉ giao hàng không hợp lệ.");
             }
 
-            orderLines.Add(new ValidatedOrderLine(
-                variant,
-                cartItem.Quantity,
-                GetFinalPrice(variant)));
-        }
-
-        var subtotal = orderLines.Sum(item => item.UnitPrice * item.Quantity);
-        var couponResult = await GetCouponAsync(
-            request.CouponCode,
-            subtotal,
-            cancellationToken);
-        if (!couponResult.IsSuccess)
-        {
-            return ServiceResult<OrderDetailDto>.Failure(
-                couponResult.Error!.Type,
-                couponResult.Error.Code,
-                couponResult.Error.Message);
-        }
-
-        var coupon = couponResult.Value;
-        var discount = coupon == null ? 0 : CalculateDiscount(coupon, subtotal);
-        IDbContextTransaction? transaction = null;
-
-        try
-        {
-            if (dbContext.Database.IsRelational())
+            var paymentMethodIsActive = await dbContext.PhuongThucThanhToans
+                .AsNoTracking()
+                .AnyAsync(method =>
+                    method.IdphuongThucThanhToan == request.PaymentMethodId
+                    && method.TrangThai,
+                    cancellationToken);
+            if (!paymentMethodIsActive)
             {
-                transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+                return Failure(
+                    ServiceErrorType.NotFound,
+                    "payment-method-not-found",
+                    "Phương thức thanh toán không hợp lệ.");
             }
 
-            var now = DateTime.Now;
-            var order = new DonHang
-            {
-                IdnguoiDung = userId,
-                IdmaGiamGia = coupon?.IdmaGiamGia,
-                TenNguoiNhan = address.TenNguoiNhan,
-                DiaChiGiao = FormatAddress(address),
-                SoDienThoai = address.SoDienThoai,
-                TongTienHang = subtotal,
-                PhiVanChuyen = ShippingFees.Standard,
-                TienGiamGia = discount,
-                TongThanhToan = subtotal + ShippingFees.Standard - discount,
-                IdphuongThucThanhToan = request.PaymentMethodId,
-                IdtrangThai = OrderStatusIds.Pending,
-                GhiChu = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
-                NgayTao = now
-            };
-            dbContext.DonHangs.Add(order);
-            await dbContext.SaveChangesAsync(cancellationToken);
+            var cartItems = cartResult.Value.Items;
+            var variantIds = cartItems.Select(item => item.VariantId).ToList();
+            var variants = await dbContext.BienTheSanPhams
+                .Where(variant =>
+                    variantIds.Contains(variant.IdbienThe)
+                    && variant.TrangThai
+                    && variant.DeletedAt == null
+                    && variant.IdsanPhamNavigation.TrangThai
+                    && variant.IdsanPhamNavigation.DeletedAt == null)
+                .Include(variant => variant.IdsanPhamNavigation)
+                .Include(variant => variant.IdmauSacNavigation)
+                .Include(variant => variant.IdkichThuocNavigation)
+                .ToDictionaryAsync(variant => variant.IdbienThe, cancellationToken);
 
-            foreach (var line in orderLines)
+            var orderLines = new List<ValidatedOrderLine>();
+            foreach (var cartItem in cartItems)
             {
-                dbContext.ChiTietDonHangs.Add(new ChiTietDonHang
+                if (!variants.TryGetValue(cartItem.VariantId, out var variant))
+                {
+                    return Failure(
+                        ServiceErrorType.Conflict,
+                        "cart-product-unavailable",
+                        $"Sản phẩm '{cartItem.ProductName}' không còn khả dụng.");
+                }
+
+                if (variant.SoLuongTon < cartItem.Quantity)
+                {
+                    return Failure(
+                        ServiceErrorType.Conflict,
+                        "insufficient-stock",
+                        $"Sản phẩm '{cartItem.ProductName}' chỉ còn {variant.SoLuongTon}.");
+                }
+
+                orderLines.Add(new ValidatedOrderLine(
+                    variant,
+                    cartItem.Quantity,
+                    GetFinalPrice(variant)));
+            }
+
+            var subtotal = orderLines.Sum(item => item.UnitPrice * item.Quantity);
+            var couponResult = await GetCouponAsync(
+                request.CouponCode,
+                subtotal,
+                cancellationToken);
+            if (!couponResult.IsSuccess)
+            {
+                return ServiceResult<OrderDetailDto>.Failure(
+                    couponResult.Error!.Type,
+                    couponResult.Error.Code,
+                    couponResult.Error.Message);
+            }
+
+            var coupon = couponResult.Value;
+            var discount = coupon == null ? 0 : CalculateDiscount(coupon, subtotal);
+            IDbContextTransaction? transaction = null;
+
+            try
+            {
+                if (dbContext.Database.IsRelational())
+                {
+                    transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+                }
+
+                var now = DateTime.Now;
+                var order = new DonHang
+                {
+                    IdnguoiDung = userId,
+                    IdmaGiamGia = coupon?.IdmaGiamGia,
+                    TenNguoiNhan = address.TenNguoiNhan,
+                    DiaChiGiao = FormatAddress(address),
+                    SoDienThoai = address.SoDienThoai,
+                    TongTienHang = subtotal,
+                    PhiVanChuyen = ShippingFees.Standard,
+                    TienGiamGia = discount,
+                    TongThanhToan = subtotal + ShippingFees.Standard - discount,
+                    IdphuongThucThanhToan = request.PaymentMethodId,
+                    IdtrangThai = OrderStatusIds.Pending,
+                    GhiChu = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
+                    NgayTao = now
+                };
+                dbContext.DonHangs.Add(order);
+                await dbContext.SaveChangesAsync(cancellationToken);
+
+                foreach (var line in orderLines)
+                {
+                    dbContext.ChiTietDonHangs.Add(new ChiTietDonHang
+                    {
+                        IddonHang = order.IddonHang,
+                        IdbienThe = line.Variant.IdbienThe,
+                        SoLuong = line.Quantity,
+                        DonGia = line.UnitPrice,
+                        TenSanPham = line.Variant.IdsanPhamNavigation.TenSanPham,
+                        TenMau = line.Variant.IdmauSacNavigation?.TenMau,
+                        TenKichThuoc = line.Variant.IdkichThuocNavigation?.TenKichThuoc
+                    });
+
+                    var previousStock = line.Variant.SoLuongTon;
+                    line.Variant.SoLuongTon -= line.Quantity;
+                    line.Variant.TongDaBan += line.Quantity;
+                    line.Variant.NgayCapNhat = now;
+                    dbContext.LichSuTonKhos.Add(new LichSuTonKho
+                    {
+                        IdbienThe = line.Variant.IdbienThe,
+                        IdnguoiThucHien = userId,
+                        IddonHang = order.IddonHang,
+                        LoaiThayDoi = InventoryChangeTypes.OrderPlaced,
+                        SoLuongThayDoi = -line.Quantity,
+                        TonTruoc = previousStock,
+                        TonSau = line.Variant.SoLuongTon,
+                        GhiChu = $"Xuất kho cho đơn hàng #{order.IddonHang}",
+                        NgayTao = now
+                    });
+                }
+
+                if (coupon != null)
+                {
+                    coupon.DaSuDung++;
+                }
+
+                dbContext.LichSuDonHangs.Add(new LichSuDonHang
                 {
                     IddonHang = order.IddonHang,
-                    IdbienThe = line.Variant.IdbienThe,
-                    SoLuong = line.Quantity,
-                    DonGia = line.UnitPrice,
-                    TenSanPham = line.Variant.IdsanPhamNavigation.TenSanPham,
-                    TenMau = line.Variant.IdmauSacNavigation?.TenMau,
-                    TenKichThuoc = line.Variant.IdkichThuocNavigation?.TenKichThuoc
-                });
-
-                var previousStock = line.Variant.SoLuongTon;
-                line.Variant.SoLuongTon -= line.Quantity;
-                line.Variant.TongDaBan += line.Quantity;
-                line.Variant.NgayCapNhat = now;
-                dbContext.LichSuTonKhos.Add(new LichSuTonKho
-                {
-                    IdbienThe = line.Variant.IdbienThe,
+                    IdtrangThaiMoi = OrderStatusIds.Pending,
                     IdnguoiThucHien = userId,
-                    IddonHang = order.IddonHang,
-                    LoaiThayDoi = InventoryChangeTypes.OrderPlaced,
-                    SoLuongThayDoi = -line.Quantity,
-                    TonTruoc = previousStock,
-                    TonSau = line.Variant.SoLuongTon,
-                    GhiChu = $"Xuất kho cho đơn hàng #{order.IddonHang}",
+                    GhiChu = "Khách hàng tạo đơn hàng",
                     NgayTao = now
                 });
+
+                var databaseCart = await dbContext.GioHangs
+                    .Where(item => item.IdnguoiDung == userId)
+                    .ToListAsync(cancellationToken);
+                dbContext.GioHangs.RemoveRange(databaseCart);
+
+                await dbContext.SaveChangesAsync(cancellationToken);
+                if (transaction != null)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                }
+
+                logger.LogInformation(
+                    "Created order {OrderId} for user {UserId}",
+                    order.IddonHang,
+                    userId);
+                var createdOrder = await LoadOrderAsync(
+                    order.IddonHang,
+                    userId,
+                    cancellationToken);
+                return ServiceResult<OrderDetailDto>.Success(MapOrder(createdOrder!));
             }
-
-            if (coupon != null)
+            catch (Exception exception)
             {
-                coupon.DaSuDung++;
+                if (transaction != null)
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                }
+
+                logger.LogError(
+                    exception,
+                    "Failed to create order for user {UserId}",
+                    userId);
+                throw;
             }
-
-            dbContext.LichSuDonHangs.Add(new LichSuDonHang
+            finally
             {
-                IddonHang = order.IddonHang,
-                IdtrangThaiMoi = OrderStatusIds.Pending,
-                IdnguoiThucHien = userId,
-                GhiChu = "Khách hàng tạo đơn hàng",
-                NgayTao = now
-            });
-
-            var databaseCart = await dbContext.GioHangs
-                .Where(item => item.IdnguoiDung == userId)
-                .ToListAsync(cancellationToken);
-            dbContext.GioHangs.RemoveRange(databaseCart);
-
-            await dbContext.SaveChangesAsync(cancellationToken);
-            if (transaction != null)
-            {
-                await transaction.CommitAsync(cancellationToken);
+                if (transaction != null)
+                {
+                    await transaction.DisposeAsync();
+                }
             }
-
-            logger.LogInformation(
-                "Created order {OrderId} for user {UserId}",
-                order.IddonHang,
-                userId);
-            var createdOrder = await LoadOrderAsync(
-                order.IddonHang,
-                userId,
-                cancellationToken);
-            return ServiceResult<OrderDetailDto>.Success(MapOrder(createdOrder!));
-        }
-        catch (Exception exception)
-        {
-            if (transaction != null)
-            {
-                await transaction.RollbackAsync(CancellationToken.None);
-            }
-
-            logger.LogError(
-                exception,
-                "Failed to create order for user {UserId}",
-                userId);
-            throw;
-        }
-        finally
-        {
-            if (transaction != null)
-            {
-                await transaction.DisposeAsync();
-            }
-        }
+        });
     }
 
     private async Task<ServiceResult<MaGiamGium?>> GetCouponAsync(

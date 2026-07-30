@@ -16,6 +16,7 @@ GO
 
 -- Drop các bảng liên kết/phụ thuộc trước
 IF OBJECT_ID('AdminActivityLog', 'U') IS NOT NULL DROP TABLE AdminActivityLog;
+IF OBJECT_ID('DatLaiMatKhauToken', 'U') IS NOT NULL DROP TABLE DatLaiMatKhauToken;
 IF OBJECT_ID('LichSuDonHang', 'U') IS NOT NULL DROP TABLE LichSuDonHang;
 IF OBJECT_ID('LichSuTonKho', 'U') IS NOT NULL DROP TABLE LichSuTonKho;
 IF OBJECT_ID('DanhGia', 'U') IS NOT NULL DROP TABLE DanhGia;
@@ -112,12 +113,25 @@ CREATE TABLE NguoiDung (
     Email VARCHAR(100) NOT NULL UNIQUE,
     SoDienThoai VARCHAR(15) NULL,
     MatKhauHash VARCHAR(255) NOT NULL,
+    SecurityStamp UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_NguoiDung_SecurityStamp DEFAULT NEWID(),
     IDVaiTro INT NOT NULL,
     NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_NguoiDung_NgayTao DEFAULT SYSDATETIME(),
     NgayCapNhat DATETIME2(0) NULL,
     TrangThai BIT NOT NULL CONSTRAINT DF_NguoiDung_TrangThai DEFAULT 1,
     DeletedAt DATETIME2(0) NULL,
     CONSTRAINT FK_NguoiDung_VaiTro FOREIGN KEY (IDVaiTro) REFERENCES VaiTro(IDVaiTro)
+);
+
+CREATE TABLE DatLaiMatKhauToken (
+    IDToken BIGINT PRIMARY KEY IDENTITY(1,1),
+    IDNguoiDung INT NOT NULL,
+    TokenHash CHAR(64) NOT NULL,
+    NgayHetHanUtc DATETIME2(0) NOT NULL,
+    NgayTaoUtc DATETIME2(0) NOT NULL CONSTRAINT DF_DatLaiMatKhauToken_NgayTaoUtc DEFAULT SYSUTCDATETIME(),
+    NgaySuDungUtc DATETIME2(0) NULL,
+    DiaChiIP VARCHAR(45) NULL,
+    CONSTRAINT FK_DatLaiMatKhauToken_NguoiDung FOREIGN KEY (IDNguoiDung)
+        REFERENCES NguoiDung(IDNguoiDung) ON DELETE CASCADE
 );
 
 CREATE TABLE DiaChi (
@@ -389,6 +403,13 @@ GO
 CREATE UNIQUE NONCLUSTERED INDEX IX_NguoiDung_SoDienThoai 
 ON NguoiDung(SoDienThoai) 
 WHERE SoDienThoai IS NOT NULL;
+
+CREATE UNIQUE INDEX UX_DatLaiMatKhauToken_TokenHash
+ON DatLaiMatKhauToken(TokenHash);
+
+CREATE INDEX IX_DatLaiMatKhauToken_NguoiDung_HetHan
+ON DatLaiMatKhauToken(IDNguoiDung, NgayHetHanUtc DESC)
+INCLUDE (NgaySuDungUtc);
 
 CREATE UNIQUE NONCLUSTERED INDEX UX_DanhMuc_Slug
 ON DanhMuc(Slug)

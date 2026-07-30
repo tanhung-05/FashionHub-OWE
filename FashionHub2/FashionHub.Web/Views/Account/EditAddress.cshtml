@@ -33,22 +33,8 @@
                                 <span asp-validation-for="ChiTiet" class="text-danger small"></span>
                             </div>
 
-                            <div class="col-md-4 mb-3">
-                                <label asp-for="PhuongXa" class="form-label"></label>
-                                <input asp-for="PhuongXa" class="form-control" />
-                                <span asp-validation-for="PhuongXa" class="text-danger small"></span>
-                            </div>
-
-                            <div class="col-md-4 mb-3">
-                                <label asp-for="QuanHuyen" class="form-label"></label>
-                                <input asp-for="QuanHuyen" class="form-control" />
-                                <span asp-validation-for="QuanHuyen" class="text-danger small"></span>
-                            </div>
-
-                            <div class="col-md-4 mb-3">
-                                <label asp-for="TinhThanh" class="form-label"></label>
-                                <input asp-for="TinhThanh" class="form-control" />
-                                <span asp-validation-for="TinhThanh" class="text-danger small"></span>
+                            <div class="col-12 mb-3">
+                                <partial name="_VietnamAddressFieldsPartial" model="Model" />
                             </div>
 
                             <div class="col-12 mb-3">

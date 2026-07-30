@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using FashionHub.Web.Application.Authentication;
+using FashionHub.Web.Application.Email;
 using FashionHub.Web.Data;
 using FashionHub.Web.Domain;
 using FashionHub.Web.Models.Generated;
@@ -7,6 +8,7 @@ using FashionHub.Web.Services;
 using FashionHub.Web.ViewModels.Account;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace FashionHub.Web.Controllers;
@@ -17,17 +19,29 @@ public class AccountController : Controller
     private readonly ICartService cartService;
     private readonly IAuthService authService;
     private readonly IAuthenticationSessionService authenticationSession;
+    private readonly IPasswordResetService passwordResetService;
+    private readonly IPasswordResetLinkFactory passwordResetLinkFactory;
+    private readonly IEmailSender emailSender;
+    private readonly ILogger<AccountController> logger;
 
     public AccountController(
         ApplicationDbContext dbContext,
         ICartService cartService,
         IAuthService authService,
-        IAuthenticationSessionService authenticationSession)
+        IAuthenticationSessionService authenticationSession,
+        IPasswordResetService passwordResetService,
+        IPasswordResetLinkFactory passwordResetLinkFactory,
+        IEmailSender emailSender,
+        ILogger<AccountController> logger)
     {
         this.dbContext = dbContext;
         this.cartService = cartService;
         this.authService = authService;
         this.authenticationSession = authenticationSession;
+        this.passwordResetService = passwordResetService;
+        this.passwordResetLinkFactory = passwordResetLinkFactory;
+        this.emailSender = emailSender;
+        this.logger = logger;
     }
 
     [AllowAnonymous]
@@ -68,6 +82,11 @@ public class AccountController : Controller
         if (Url.IsLocalUrl(returnUrl))
         {
             return Redirect(returnUrl);
+        }
+
+        if (string.Equals(result.Value.Role, "Admin", StringComparison.OrdinalIgnoreCase))
+        {
+            return RedirectToAction("Index", "Dashboard", new { area = "Admin" });
         }
 
         return RedirectToAction("Index", "Home");
@@ -133,6 +152,97 @@ public class AccountController : Controller
         return View();
     }
 
+    [AllowAnonymous]
+    [HttpGet]
+    public IActionResult ForgotPassword()
+    {
+        return View(new ForgotPasswordViewModel());
+    }
+
+    [AllowAnonymous]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ForgotPassword(
+        ForgotPasswordViewModel model,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        var ticket = await passwordResetService.CreateTokenAsync(
+            model.Email,
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            cancellationToken);
+
+        if (ticket != null)
+        {
+            await TrySendPasswordResetEmailAsync(ticket, cancellationToken);
+        }
+
+        return RedirectToAction(nameof(ForgotPasswordConfirmation));
+    }
+
+    [AllowAnonymous]
+    [HttpGet]
+    public IActionResult ForgotPasswordConfirmation()
+    {
+        return View();
+    }
+
+    [AllowAnonymous]
+    [HttpGet]
+    public async Task<IActionResult> ResetPassword(
+        string? token,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(token)
+            || !await passwordResetService.IsTokenValidAsync(
+                token,
+                cancellationToken))
+        {
+            return View("ResetPasswordInvalid");
+        }
+
+        return View(new ResetPasswordViewModel { Token = token });
+    }
+
+    [AllowAnonymous]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResetPassword(
+        ResetPasswordViewModel model,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        var result = await passwordResetService.ResetPasswordAsync(
+            model.Token,
+            model.NewPassword,
+            cancellationToken);
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError(string.Empty, result.Error!.Message);
+            return View(model);
+        }
+
+        await authenticationSession.SignOutAsync();
+        return RedirectToAction(nameof(ResetPasswordConfirmation));
+    }
+
+    [AllowAnonymous]
+    [HttpGet]
+    public IActionResult ResetPasswordConfirmation()
+    {
+        return View();
+    }
+
     #region Profile Management
 
     [Authorize]
@@ -142,7 +252,10 @@ public class AccountController : Controller
         if (userId == null)
             return RedirectToAction(nameof(Login));
 
-        var user = await dbContext.NguoiDungs.FindAsync(userId.Value);
+        var user = await dbContext.NguoiDungs
+            .AsNoTracking()
+            .Include(item => item.IdvaiTroNavigation)
+            .FirstOrDefaultAsync(item => item.IdnguoiDung == userId.Value);
         if (user == null)
             return NotFound();
 
@@ -150,9 +263,12 @@ public class AccountController : Controller
         {
             HoTen = user.HoTen ?? string.Empty,
             Email = user.Email ?? string.Empty,
-            SoDienThoai = user.SoDienThoai
+            SoDienThoai = user.SoDienThoai,
+            NgayThamGia = user.NgayTao,
+            TenVaiTro = user.IdvaiTroNavigation?.TenVaiTro ?? "Khách hàng"
         };
 
+        await PopulateProfileOverviewAsync(model, userId.Value);
         return View(model);
     }
 
@@ -161,12 +277,15 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Profile(ProfileViewModel model)
     {
-        if (!ModelState.IsValid)
-            return View(model);
-
         var userId = GetCurrentUserId();
         if (userId == null)
             return RedirectToAction(nameof(Login));
+
+        if (!ModelState.IsValid)
+        {
+            await PopulateProfileOverviewAsync(model, userId.Value);
+            return View(model);
+        }
 
         var user = await dbContext.NguoiDungs.FindAsync(userId.Value);
         if (user == null)
@@ -178,13 +297,15 @@ public class AccountController : Controller
 
         if (emailExists)
         {
-            ModelState.AddModelError("Email", "Email này đã được sử dụng bởi tài khoản khác");
+            ModelState.AddModelError(nameof(model.Email), "Email này đã được sử dụng bởi tài khoản khác");
+            await PopulateProfileOverviewAsync(model, userId.Value);
             return View(model);
         }
 
         user.HoTen = model.HoTen;
         user.Email = model.Email;
         user.SoDienThoai = model.SoDienThoai;
+        user.NgayCapNhat = DateTime.Now;
 
         await dbContext.SaveChangesAsync();
         TempData["SuccessMessage"] = "Cập nhật thông tin thành công!";
@@ -223,10 +344,13 @@ public class AccountController : Controller
 
         // Update to new password
         user.MatKhauHash = BCrypt.Net.BCrypt.HashPassword(model.NewPassword);
+        user.SecurityStamp = Guid.NewGuid();
         await dbContext.SaveChangesAsync();
 
-        TempData["SuccessMessage"] = "Đổi mật khẩu thành công!";
-        return RedirectToAction(nameof(Profile));
+        await authenticationSession.SignOutAsync();
+        TempData["SuccessMessage"] =
+            "Đổi mật khẩu thành công. Vui lòng đăng nhập lại.";
+        return RedirectToAction(nameof(Login));
     }
 
     #endregion
@@ -267,8 +391,11 @@ public class AccountController : Controller
         if (userId == null)
             return RedirectToAction(nameof(Login));
 
-        // If this is set as default, unset all other default addresses
-        if (model.LaMacDinh)
+        var hasAddress = await dbContext.DiaChis
+            .AnyAsync(address => address.IdnguoiDung == userId.Value);
+        var shouldBeDefault = model.LaMacDinh || !hasAddress;
+
+        if (shouldBeDefault)
         {
             var existingAddresses = await dbContext.DiaChis
                 .Where(d => d.IdnguoiDung == userId.Value && d.LaMacDinh == true)
@@ -289,7 +416,8 @@ public class AccountController : Controller
             PhuongXa = model.PhuongXa,
             QuanHuyen = model.QuanHuyen,
             TinhThanh = model.TinhThanh,
-            LaMacDinh = model.LaMacDinh
+            LaMacDinh = shouldBeDefault,
+            NgayTao = DateTime.Now
         };
 
         dbContext.DiaChis.Add(newAddress);
@@ -297,6 +425,84 @@ public class AccountController : Controller
 
         TempData["SuccessMessage"] = "Thêm địa chỉ thành công!";
         return RedirectToAction(nameof(Addresses));
+    }
+
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddAddressAjax(AddressManagementViewModel model)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null)
+        {
+            return Unauthorized(new
+            {
+                success = false,
+                message = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
+            });
+        }
+
+        if (!ModelState.IsValid)
+        {
+            var errors = ModelState.Values
+                .SelectMany(value => value.Errors)
+                .Select(error => error.ErrorMessage)
+                .Where(message => !string.IsNullOrWhiteSpace(message))
+                .Distinct()
+                .ToList();
+
+            return BadRequest(new
+            {
+                success = false,
+                message = errors.FirstOrDefault() ?? "Thông tin địa chỉ chưa hợp lệ.",
+                errors
+            });
+        }
+
+        var hasAddress = await dbContext.DiaChis
+            .AnyAsync(address => address.IdnguoiDung == userId.Value);
+        var address = new DiaChi
+        {
+            IdnguoiDung = userId.Value,
+            TenNguoiNhan = model.TenNguoiNhan.Trim(),
+            SoDienThoai = model.SoDienThoai.Trim(),
+            ChiTiet = model.ChiTiet.Trim(),
+            PhuongXa = model.PhuongXa.Trim(),
+            QuanHuyen = model.QuanHuyen.Trim(),
+            TinhThanh = model.TinhThanh.Trim(),
+            LaMacDinh = !hasAddress || model.LaMacDinh,
+            NgayTao = DateTime.Now
+        };
+
+        if (address.LaMacDinh)
+        {
+            var defaultAddresses = await dbContext.DiaChis
+                .Where(item =>
+                    item.IdnguoiDung == userId.Value
+                    && item.LaMacDinh)
+                .ToListAsync();
+            foreach (var defaultAddress in defaultAddresses)
+            {
+                defaultAddress.LaMacDinh = false;
+            }
+        }
+
+        dbContext.DiaChis.Add(address);
+        await dbContext.SaveChangesAsync();
+
+        return Json(new
+        {
+            success = true,
+            message = "Đã lưu địa chỉ giao hàng.",
+            newAddress = new
+            {
+                iddiaChi = address.IddiaChi,
+                tenNguoiNhan = address.TenNguoiNhan,
+                soDienThoai = address.SoDienThoai,
+                laMacDinh = address.LaMacDinh,
+                fullAddress = FormatAddress(address)
+            }
+        });
     }
 
     [Authorize]
@@ -390,7 +596,22 @@ public class AccountController : Controller
         if (address == null)
             return NotFound();
 
+        var wasDefault = address.LaMacDinh;
         dbContext.DiaChis.Remove(address);
+        if (wasDefault)
+        {
+            var replacement = await dbContext.DiaChis
+                .Where(item =>
+                    item.IdnguoiDung == userId.Value
+                    && item.IddiaChi != id)
+                .OrderByDescending(item => item.IddiaChi)
+                .FirstOrDefaultAsync();
+            if (replacement != null)
+            {
+                replacement.LaMacDinh = true;
+            }
+        }
+
         await dbContext.SaveChangesAsync();
 
         TempData["SuccessMessage"] = "Xóa địa chỉ thành công!";
@@ -399,6 +620,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [Authorize]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> SetDefaultAddress(int id)
     {
         var userId = GetCurrentUserId();
@@ -493,6 +715,10 @@ public class AccountController : Controller
             .Include(d => d.ChiTietDonHangs)
                 .ThenInclude(ct => ct.IdbienTheNavigation)
                     .ThenInclude(bt => bt!.IdkichThuocNavigation)
+            .Include(d => d.ChiTietDonHangs)
+                .ThenInclude(ct => ct.IdbienTheNavigation)
+                    .ThenInclude(bt => bt!.HinhAnhBienThes)
+                        .ThenInclude(image => image.IdhinhAnhNavigation)
             .Include(d => d.IdtrangThaiNavigation)
             .Include(d => d.IdphuongThucThanhToanNavigation)
             .FirstOrDefaultAsync(d => d.IddonHang == id && d.IdnguoiDung == userId.Value);
@@ -516,10 +742,14 @@ public class AccountController : Controller
             PhuongThucThanhToan = order.IdphuongThucThanhToanNavigation?.TenPhuongThuc,
             Items = order.ChiTietDonHangs.Select(ct => new OrderItemViewModel
             {
-                TenSanPham = ct.IdbienTheNavigation?.IdsanPhamNavigation?.TenSanPham ?? "N/A",
-                HinhAnh = ct.IdbienTheNavigation?.HinhAnhBienThes.FirstOrDefault()?.IdhinhAnhNavigation?.DuongDan,
-                MauSac = ct.IdbienTheNavigation?.IdmauSacNavigation?.TenMau,
-                KichThuoc = ct.IdbienTheNavigation?.IdkichThuocNavigation?.TenKichThuoc,
+                TenSanPham = ct.TenSanPham,
+                HinhAnh = ct.IdbienTheNavigation?.HinhAnhBienThes
+                    .OrderByDescending(image => image.LaAnhChinh)
+                    .ThenBy(image => image.ThuTuHienThi)
+                    .Select(image => image.IdhinhAnhNavigation.DuongDan)
+                    .FirstOrDefault(),
+                MauSac = ct.TenMau,
+                KichThuoc = ct.TenKichThuoc,
                 SoLuong = ct.SoLuong,
                 DonGia = ct.DonGia,
                 ThanhTien = ct.SoLuong * ct.DonGia
@@ -531,6 +761,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [Authorize]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelOrder(int id, string reason)
     {
         var userId = GetCurrentUserId();
@@ -593,10 +824,11 @@ public class AccountController : Controller
         });
         await dbContext.SaveChangesAsync();
 
+        TempData["SuccessMessage"] = "Hủy đơn hàng thành công.";
         return Json(new { success = true, message = "Hủy đơn hàng thành công" });
     }
 
-    private string GetStatusBadgeColor(int statusId)
+    private static string GetStatusBadgeColor(int statusId)
     {
         return statusId switch
         {
@@ -610,6 +842,75 @@ public class AccountController : Controller
     }
 
     #endregion
+
+    private async Task PopulateProfileOverviewAsync(
+        ProfileViewModel model,
+        int userId)
+    {
+        var overview = await dbContext.NguoiDungs
+            .AsNoTracking()
+            .Where(user => user.IdnguoiDung == userId)
+            .Select(user => new
+            {
+                user.NgayTao,
+                RoleName = user.IdvaiTroNavigation.TenVaiTro,
+                AddressCount = user.DiaChis.Count,
+                OrderCount = user.DonHangs.Count,
+                ProcessingOrderCount = user.DonHangs.Count(order =>
+                    order.IdtrangThai == OrderStatusIds.Pending
+                    || order.IdtrangThai == OrderStatusIds.Confirmed
+                    || order.IdtrangThai == OrderStatusIds.Shipping)
+            })
+            .FirstOrDefaultAsync();
+
+        if (overview != null)
+        {
+            model.NgayThamGia = overview.NgayTao;
+            model.TenVaiTro = overview.RoleName;
+            model.SoDiaChi = overview.AddressCount;
+            model.SoDonHang = overview.OrderCount;
+            model.SoDonDangXuLy = overview.ProcessingOrderCount;
+        }
+
+        model.DiaChiMacDinh = await dbContext.DiaChis
+            .AsNoTracking()
+            .Where(address => address.IdnguoiDung == userId)
+            .OrderByDescending(address => address.LaMacDinh)
+            .ThenByDescending(address => address.IddiaChi)
+            .Select(address => new ProfileAddressSummaryViewModel
+            {
+                TenNguoiNhan = address.TenNguoiNhan,
+                SoDienThoai = address.SoDienThoai,
+                DiaChiDayDu = FormatAddress(address)
+            })
+            .FirstOrDefaultAsync();
+    }
+
+    private static string FormatAddress(DiaChi address) =>
+        $"{address.ChiTiet}, {address.PhuongXa}, {address.QuanHuyen}, {address.TinhThanh}";
+
+    private async Task TrySendPasswordResetEmailAsync(
+        PasswordResetTicket ticket,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var resetUrl = passwordResetLinkFactory.Create(ticket.Token);
+
+            await emailSender.SendPasswordResetAsync(
+                ticket.Email,
+                ticket.FullName,
+                resetUrl,
+                ticket.ExpiresAtUtc,
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                exception,
+                "Could not send a password reset email.");
+        }
+    }
 
     private int? GetCurrentUserId()
     {

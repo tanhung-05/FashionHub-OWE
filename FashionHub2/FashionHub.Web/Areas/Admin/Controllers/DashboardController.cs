@@ -125,17 +125,28 @@ namespace FashionHub.Web.Areas.Admin.Controllers
 
             // Monthly revenue for last 6 months
             var sixMonthsAgo = startOfMonth.AddMonths(-5);
-            viewModel.MonthlyRevenues = await _context.DonHangs
+            var monthlyRevenueData = await _context.DonHangs
                 .Where(d => d.IdtrangThai != OrderStatusIds.Cancelled && d.NgayTao >= sixMonthsAgo)
                 .GroupBy(d => new { d.NgayTao.Year, d.NgayTao.Month })
-                .Select(g => new MonthlyRevenue
+                .Select(g => new
                 {
-                    Month = $"Tháng {g.Key.Month}/{g.Key.Year}",
+                    g.Key.Year,
+                    g.Key.Month,
                     Revenue = g.Sum(d => d.TongThanhToan),
                     OrderCount = g.Count()
                 })
-                .OrderBy(m => m.Month)
+                .OrderBy(item => item.Year)
+                .ThenBy(item => item.Month)
                 .ToListAsync();
+
+            viewModel.MonthlyRevenues = monthlyRevenueData
+                .Select(item => new MonthlyRevenue
+                {
+                    Month = $"Tháng {item.Month}/{item.Year}",
+                    Revenue = item.Revenue,
+                    OrderCount = item.OrderCount
+                })
+                .ToList();
 
             return View(viewModel);
         }

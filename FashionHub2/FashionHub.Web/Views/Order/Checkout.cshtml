@@ -1,12 +1,26 @@
 @model FashionHub.Web.ViewModels.Order.CheckoutViewModel
 @{
     ViewBag.Title = "Thanh toán";
+    var newAddressModel = new FashionHub.Web.ViewModels.Account.AddressManagementViewModel();
 }
 
 <div class="container my-5">
     <h2 class="text-center mb-4">Thanh toán đơn hàng</h2>
-    
-    <form asp-action="PlaceOrder" asp-controller="Order" method="post">
+
+    @if (TempData["Error"] is string errorMessage)
+    {
+        <div class="alert alert-danger d-flex align-items-center checkout-alert" role="alert">
+            <i class="bi bi-exclamation-circle-fill me-2"></i>
+            <span>@errorMessage</span>
+        </div>
+    }
+
+    <div id="checkout-validation-summary"
+         class="alert alert-danger d-none checkout-alert"
+         role="alert"
+         aria-live="assertive"></div>
+
+    <form asp-action="PlaceOrder" asp-controller="Order" method="post" id="checkout-form">
         <input type="hidden" name="cartType" value="@ViewBag.CartType" />
         
         <div class="row">
@@ -22,6 +36,7 @@
                                 <div class="form-check mb-2">
                                     <input class="form-check-input" type="radio" name="addressId" 
                                            id="addr-@addr.IddiaChi" value="@addr.IddiaChi" 
+                                           required
                                            @(addr.LaMacDinh ? "checked" : "")>
                                     <label class="form-check-label" for="addr-@addr.IddiaChi">
                                         <strong>@addr.TenNguoiNhan</strong> - @addr.SoDienThoai <br />
@@ -50,6 +65,7 @@
                                 <input class="form-check-input" type="radio" name="paymentMethodId" 
                                        id="pm-@method.IdphuongThucThanhToan" 
                                        value="@method.IdphuongThucThanhToan" 
+                                       required
                                        @(method.IdphuongThucThanhToan == 1 ? "checked" : "")>
                                 <label class="form-check-label" for="pm-@method.IdphuongThucThanhToan">
                                     @method.TenPhuongThuc
@@ -109,65 +125,36 @@
     </form>
 </div>
 
-<partial name="_AddAddressModalPartial" />
+<partial name="_AddAddressModalPartial" model="newAddressModel" />
 
 @section Scripts {
     <script>
         $(document).ready(function () {
-            // API ĐỊA CHÍNH (ESGOO.NET)
-            $.getJSON('https://esgoo.net/api-tinhthanh/1/0.htm', function (data_tinh) {
-                if (data_tinh.error == 0) {
-                    $.each(data_tinh.data, function (key_tinh, val_tinh) {
-                        $("#api_tinh").append('<option value="' + val_tinh.id + '">' + val_tinh.full_name + '</option>');
-                    });
-                }
-            });
-
-            $("#api_tinh").change(function (e) {
-                var idtinh = $(this).val();
-                var tentinh = $("#api_tinh option:selected").text();
-                $("#hidden_tinh").val(tentinh);
-
-                $("#api_huyen").html('<option value="">-- Chọn Quận/Huyện --</option>').prop('disabled', true);
-                $("#api_xa").html('<option value="">-- Chọn Phường/Xã --</option>').prop('disabled', true);
-
-                if (idtinh) {
-                    $.getJSON('https://esgoo.net/api-tinhthanh/2/' + idtinh + '.htm', function (data_huyen) {
-                        if (data_huyen.error == 0) {
-                            $.each(data_huyen.data, function (key_huyen, val_huyen) {
-                                $("#api_huyen").append('<option value="' + val_huyen.id + '">' + val_huyen.full_name + '</option>');
-                            });
-                            $("#api_huyen").prop('disabled', false);
-                        }
-                    });
-                }
-            });
-
-            $("#api_huyen").change(function (e) {
-                var idhuyen = $(this).val();
-                var tenhuyen = $("#api_huyen option:selected").text();
-                $("#hidden_huyen").val(tenhuyen);
-
-                $("#api_xa").html('<option value="">-- Chọn Phường/Xã --</option>').prop('disabled', true);
-
-                if (idhuyen) {
-                    $.getJSON('https://esgoo.net/api-tinhthanh/3/' + idhuyen + '.htm', function (data_xa) {
-                        if (data_xa.error == 0) {
-                            $.each(data_xa.data, function (key_xa, val_xa) {
-                                $("#api_xa").append('<option value="' + val_xa.id + '">' + val_xa.full_name + '</option>');
-                            });
-                            $("#api_xa").prop('disabled', false);
-                        }
-                    });
-                }
-            });
-
-            $("#api_xa").change(function (e) {
-                var tenxa = $("#api_xa option:selected").text();
-                $("#hidden_xa").val(tenxa);
-            });
-
             var addAddressModal = new bootstrap.Modal(document.getElementById('addAddressModal'));
+
+            $('#checkout-form').on('submit', function (event) {
+                const validationSummary = $('#checkout-validation-summary');
+                const selectedAddress = $('input[name="addressId"]:checked').val();
+                const selectedPaymentMethod = $('input[name="paymentMethodId"]:checked').val();
+                let message = '';
+
+                if (!selectedAddress) {
+                    message = 'Vui lòng chọn hoặc thêm địa chỉ giao hàng trước khi đặt hàng.';
+                } else if (!selectedPaymentMethod) {
+                    message = 'Vui lòng chọn phương thức thanh toán.';
+                }
+
+                if (message) {
+                    event.preventDefault();
+                    validationSummary
+                        .removeClass('d-none')
+                        .html('<i class="bi bi-exclamation-circle-fill me-2"></i>' + message);
+                    validationSummary[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+
+                validationSummary.addClass('d-none').empty();
+            });
 
             $('#save-address-btn').on('click', function () {
                 var form = $('#add-address-form');
@@ -180,31 +167,25 @@
 
                 btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Đang lưu...');
 
-                var data = {
-                    __RequestVerificationToken: form.find('input[name="__RequestVerificationToken"]').val(),
-                    tenNguoiNhan: $('#tenNguoiNhan').val(),
-                    soDienThoai: $('#soDienThoai').val(),
-                    chiTiet: $('#chiTiet').val(),
-                    tinhThanh: $('#hidden_tinh').val(),
-                    quanHuyen: $('#hidden_huyen').val(),
-                    phuongXa: $('#hidden_xa').val()
-                };
+                $.post('/Account/AddAddressAjax', form.serialize())
+                    .done(function (response) {
+                        if (!response.success) {
+                            AppAlert.ShowError(response.message || 'Không thể lưu địa chỉ.');
+                            return;
+                        }
 
-                $.post('/Account/AddAddressAjax', data, function (response) {
-                    if (response.success) {
                         addAddressModal.hide();
                         form[0].reset();
-                        $("#api_huyen").html('<option value="">-- Chọn Quận/Huyện --</option>').prop('disabled', true);
-                        $("#api_xa").html('<option value="">-- Chọn Phường/Xã --</option>').prop('disabled', true);
-                        $("#api_tinh").val("");
-
+                        AppAlert.ShowSuccess(response.message);
                         $(document).trigger('address:added', [response.newAddress]);
-                    } else {
-                        alert(response.message);
-                    }
-                }).always(function () {
-                    btn.prop('disabled', false).text('Lưu địa chỉ');
-                });
+                    })
+                    .fail(function (xhr) {
+                        const response = xhr.responseJSON;
+                        AppAlert.ShowError(response?.message || 'Không thể lưu địa chỉ. Vui lòng kiểm tra lại thông tin.');
+                    })
+                    .always(function () {
+                        btn.prop('disabled', false).text('Lưu địa chỉ');
+                    });
             });
 
             $(document).on('address:added', function (event, newAddress) {
@@ -220,6 +201,7 @@
                 const addressContainer = $('#address-list-container');
                 addressContainer.find('p.text-muted').remove();
                 $(newAddressHtml).insertBefore(addressContainer.find('button[data-bs-target="#addAddressModal"]'));
+                $('#checkout-validation-summary').addClass('d-none').empty();
             });
 
             $('#apply-coupon-btn').click(function () {

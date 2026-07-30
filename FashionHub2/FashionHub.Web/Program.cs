@@ -1,10 +1,12 @@
 using FashionHub.Web.Application.Admin;
 using FashionHub.Web.Application.Authentication;
+using FashionHub.Web.Application.Email;
 using FashionHub.Web.Application.Products;
 using FashionHub.Web.Application.Orders;
 using FashionHub.Web.Data;
 using FashionHub.Web.Infrastructure.Authentication;
 using FashionHub.Web.Infrastructure.Cart;
+using FashionHub.Web.Infrastructure.Email;
 using FashionHub.Web.Infrastructure.Web;
 using FashionHub.Web.Services;
 using Microsoft.AspNetCore.Authentication;
@@ -46,9 +48,9 @@ builder.Services.AddAntiforgery(options =>
     options.HeaderName = "X-CSRF-TOKEN";
     options.Cookie.Name = "FashionHub.Antiforgery";
     options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = builder.Environment.IsEnvironment("Test")
-        ? CookieSecurePolicy.SameAsRequest
-        : CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = builder.Environment.IsProduction()
+        ? CookieSecurePolicy.Always
+        : CookieSecurePolicy.SameAsRequest;
     options.Cookie.SameSite = SameSiteMode.Lax;
 });
 builder.Services.AddProblemDetails(options =>
@@ -112,9 +114,9 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromDays(7);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
-    options.Cookie.SecurePolicy = builder.Environment.IsEnvironment("Test")
-        ? CookieSecurePolicy.SameAsRequest
-        : CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = builder.Environment.IsProduction()
+        ? CookieSecurePolicy.Always
+        : CookieSecurePolicy.SameAsRequest;
     options.Cookie.SameSite = SameSiteMode.Lax;
 });
 
@@ -122,9 +124,20 @@ builder.Services.AddSession(options =>
 // Skip SQL Server registration in Test environment (tests will configure InMemory)
 if (builder.Environment.EnvironmentName != "Test")
 {
+    var defaultConnection =
+        builder.Configuration.GetConnectionString("DefaultConnection");
+
+    if (string.IsNullOrWhiteSpace(defaultConnection))
+    {
+        throw new InvalidOperationException(
+            "ConnectionStrings:DefaultConnection is not configured. " +
+            "For local development, run: dotnet user-secrets set " +
+            "\"ConnectionStrings:DefaultConnection\" \"<your SQL Server connection string>\".");
+    }
+
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseSqlServer(
-            builder.Configuration.GetConnectionString("DefaultConnection"),
+            defaultConnection,
             sqlOptions =>
             {
                 sqlOptions.EnableRetryOnFailure(
@@ -169,8 +182,16 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<ICartSessionStore, HttpCartSessionStore>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+builder.Services.AddScoped<IPasswordResetLinkFactory, PasswordResetLinkFactory>();
 builder.Services.AddScoped<IAuthenticationSessionService, CookieAuthenticationSessionService>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.Configure<PasswordResetOptions>(
+    builder.Configuration.GetSection(PasswordResetOptions.SectionName));
+builder.Services.Configure<SmtpOptions>(
+    builder.Configuration.GetSection(SmtpOptions.SectionName));
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<AdminService>();
@@ -189,9 +210,9 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.AccessDeniedPath = "/Account/AccessDenied";
         options.Cookie.Name = "FashionHub.Auth";
         options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = builder.Environment.IsEnvironment("Test")
-            ? CookieSecurePolicy.SameAsRequest
-            : CookieSecurePolicy.Always;
+        options.Cookie.SecurePolicy = builder.Environment.IsProduction()
+            ? CookieSecurePolicy.Always
+            : CookieSecurePolicy.SameAsRequest;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.SlidingExpiration = true;
         options.ExpireTimeSpan = TimeSpan.FromDays(14);
@@ -199,9 +220,11 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         {
             var userIdClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
             var emailClaim = context.Principal?.FindFirstValue(ClaimTypes.Email);
+            var securityStampClaim = context.Principal?.FindFirstValue("SecurityStamp");
             var isValidPrincipal = false;
 
             if (int.TryParse(userIdClaim, out var userId)
+                && Guid.TryParse(securityStampClaim, out var securityStamp)
                 && !string.IsNullOrWhiteSpace(emailClaim))
             {
                 var dbContext = context.HttpContext.RequestServices
@@ -212,6 +235,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
                     .AnyAsync(user =>
                         user.IdnguoiDung == userId
                         && user.Email == emailClaim
+                        && user.SecurityStamp == securityStamp
                         && user.TrangThai
                         && user.DeletedAt == null);
             }
@@ -344,7 +368,7 @@ app.MapControllers();
 
 app.MapControllerRoute(
     name: "admin",
-    pattern: "{area:exists}/{controller=Home}/{action=Index}/{id?}");
+    pattern: "{area:exists}/{controller=Dashboard}/{action=Index}/{id?}");
 
 app.MapControllerRoute(
     name: "default",

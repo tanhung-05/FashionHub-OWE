@@ -63,10 +63,12 @@
 
 <!-- BLOG -->
 <li class="nav-item">
-    <a class="nav-link" href="#">Blog</a>
+    <a class="nav-link @isActive("Blog", "Index")"
+       asp-controller="Blog" asp-action="Index">Blog</a>
 </li>
 
 <!-- LIÊN HỆ -->
 <li class="nav-item">
-    <a class="nav-link" href="#">Liên hệ</a>
+    <a class="nav-link @isActive("Contact", "Index")"
+       asp-controller="Contact" asp-action="Index">Liên hệ</a>
 </li>

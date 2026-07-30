@@ -132,4 +132,24 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory<Pro
         var count = await response.Content.ReadAsStringAsync();
         count.Should().Contain("2");
     }
+
+    [Fact]
+    public async Task GetCartOffcanvas_ReturnsItemsWithoutNestedOffcanvasShell()
+    {
+        await _client.PostAsync(
+            "/Cart/AddToCart",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["variantId"] = "1",
+                ["quantity"] = "1"
+            }));
+
+        var response = await _client.GetAsync("/Cart/GetCartOffcanvas");
+
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync();
+        html.Should().Contain("Test Product");
+        html.Should().Contain("cart-offcanvas-item");
+        html.Should().NotContain("id=\"cartOffcanvas\"");
+    }
 }

@@ -20,6 +20,13 @@
                 <p>Tiếp tục mua sắm và quản lý đơn hàng của bạn.</p>
             </div>
 
+            @if (TempData["SuccessMessage"] is string successMessage)
+            {
+                <div class="alert alert-success small" role="status">
+                    @successMessage
+                </div>
+            }
+
             <form asp-action="Login" asp-controller="Account" asp-route-returnUrl="@returnUrl" method="post" class="auth-form">
                 <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
 
@@ -40,7 +47,11 @@
                         <input asp-for="RememberMe" class="form-check-input" />
                         <label asp-for="RememberMe" class="form-check-label small">Ghi nhớ đăng nhập</label>
                     </div>
-                    <a class="auth-link small" href="#">Quên mật khẩu?</a>
+                    <a class="auth-link small"
+                       asp-controller="Account"
+                       asp-action="ForgotPassword">
+                        Quên mật khẩu?
+                    </a>
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100 auth-submit">Đăng nhập</button>

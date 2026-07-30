@@ -71,7 +71,12 @@
                             </li>
                         </ul>
                         <div class="d-grid mt-3">
-                            <a asp-controller="Order" asp-action="Checkout" class="btn btn-dark">Tiến hành thanh toán</a>
+                            <a asp-controller="Order"
+                               asp-action="Checkout"
+                               asp-route-cartType="Normal"
+                               class="btn btn-dark">
+                                Tiến hành thanh toán
+                            </a>
                         </div>
                     </div>
                 </div>
