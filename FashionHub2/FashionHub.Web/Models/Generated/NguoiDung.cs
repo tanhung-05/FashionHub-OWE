@@ -35,6 +35,8 @@ public partial class NguoiDung
 
     public virtual ICollection<DiaChi> DiaChis { get; set; } = new List<DiaChi>();
 
+    public virtual ICollection<CuocTroChuyen> CuocTroChuyens { get; set; } = new List<CuocTroChuyen>();
+
     public virtual ICollection<DonHang> DonHangs { get; set; } = new List<DonHang>();
 
     public virtual ICollection<GioHang> GioHangs { get; set; } = new List<GioHang>();

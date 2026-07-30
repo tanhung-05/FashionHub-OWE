@@ -1,5 +1,6 @@
 using FashionHub.Web.Application.Admin;
 using FashionHub.Web.Application.Authentication;
+using FashionHub.Web.Application.Chat;
 using FashionHub.Web.Application.Email;
 using FashionHub.Web.Application.Products;
 using FashionHub.Web.Application.Orders;
@@ -42,6 +43,11 @@ builder.Services
         };
     });
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("GeminiChat", client =>
+{
+    // ChatAiService owns a linked timeout so request cancellation remains observable.
+    client.Timeout = Timeout.InfiniteTimeSpan;
+});
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddAntiforgery(options =>
 {
@@ -70,6 +76,22 @@ builder.Services.AddRateLimiter(options =>
         limiter.Window = TimeSpan.FromMinutes(1);
         limiter.QueueLimit = 0;
         limiter.AutoReplenishment = true;
+    });
+    options.AddPolicy("chat", httpContext =>
+    {
+        var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var partitionKey = !string.IsNullOrWhiteSpace(userId)
+            ? $"user:{userId}"
+            : $"session:{httpContext.Session.Id}";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 12,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
     });
     options.OnRejected = async (context, cancellationToken) =>
     {
@@ -178,6 +200,10 @@ builder.Services.AddHealthChecks()
 
 // Application services
 builder.Services.AddScoped<IChatAiService, ChatAiService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IChatContextProvider, ChatContextProvider>();
+builder.Services.AddScoped<IChatConversationStore, ChatConversationStore>();
+builder.Services.AddSingleton<IChatFaqProvider, ChatFaqCatalog>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<ICartSessionStore, HttpCartSessionStore>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -192,6 +218,8 @@ builder.Services.Configure<PasswordResetOptions>(
     builder.Configuration.GetSection(PasswordResetOptions.SectionName));
 builder.Services.Configure<SmtpOptions>(
     builder.Configuration.GetSection(SmtpOptions.SectionName));
+builder.Services.Configure<GeminiAiOptions>(
+    builder.Configuration.GetSection(GeminiAiOptions.SectionName));
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<AdminService>();
@@ -331,7 +359,6 @@ app.Use(async (context, next) =>
 
 app.UseHttpsRedirection();
 app.UseRouting();
-app.UseRateLimiter();
 app.UseWhen(
     context => context.Request.Path.StartsWithSegments("/api"),
     apiPipeline => apiPipeline.UseExceptionHandler());
@@ -375,6 +402,7 @@ else
 
 app.UseSession();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();

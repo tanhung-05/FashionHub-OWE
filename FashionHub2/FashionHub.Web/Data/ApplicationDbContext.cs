@@ -18,6 +18,8 @@ public partial class ApplicationDbContext : DbContext
 
     public virtual DbSet<ChiTietDonHang> ChiTietDonHangs { get; set; }
 
+    public virtual DbSet<CuocTroChuyen> CuocTroChuyens { get; set; }
+
     public virtual DbSet<DanhMuc> DanhMucs { get; set; }
 
     public virtual DbSet<DanhGia> DanhGia { get; set; }
@@ -51,6 +53,8 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<SanPham> SanPhams { get; set; }
 
     public virtual DbSet<ThuongHieu> ThuongHieus { get; set; }
+
+    public virtual DbSet<TinNhanChat> TinNhanChats { get; set; }
 
     public virtual DbSet<TrangThaiDonHang> TrangThaiDonHangs { get; set; }
 
@@ -201,6 +205,39 @@ public partial class ApplicationDbContext : DbContext
             entity.HasOne(d => d.IddonHangNavigation).WithMany(p => p.ChiTietDonHangs)
                 .HasForeignKey(d => d.IddonHang)
                 .HasConstraintName("FK_ChiTietDonHang_DonHang");
+        });
+
+        modelBuilder.Entity<CuocTroChuyen>(entity =>
+        {
+            entity.HasKey(e => e.IdcuocTroChuyen).HasName("PK_CuocTroChuyen");
+
+            entity.ToTable("CuocTroChuyen");
+
+            entity.HasIndex(e => e.IdnguoiDung, "UX_CuocTroChuyen_DangHoatDong")
+                .IsUnique()
+                .HasFilter("([NgayKetThuc] IS NULL)");
+
+            entity.HasIndex(
+                e => new { e.IdnguoiDung, e.NgayCapNhat },
+                "IX_CuocTroChuyen_NguoiDung_NgayCapNhat")
+                .IsDescending(false, true);
+
+            entity.Property(e => e.IdcuocTroChuyen)
+                .ValueGeneratedNever()
+                .HasColumnName("IDCuocTroChuyen");
+            entity.Property(e => e.IdnguoiDung).HasColumnName("IDNguoiDung");
+            entity.Property(e => e.NgayTao)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnType("datetime2(0)");
+            entity.Property(e => e.NgayCapNhat)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnType("datetime2(0)");
+            entity.Property(e => e.NgayKetThuc).HasColumnType("datetime2(0)");
+
+            entity.HasOne(d => d.IdnguoiDungNavigation)
+                .WithMany(p => p.CuocTroChuyens)
+                .HasForeignKey(d => d.IdnguoiDung)
+                .HasConstraintName("FK_CuocTroChuyen_NguoiDung");
         });
 
         modelBuilder.Entity<DanhMuc>(entity =>
@@ -646,6 +683,34 @@ public partial class ApplicationDbContext : DbContext
             entity.Property(e => e.IdthuongHieu).HasColumnName("IDThuongHieu");
             entity.Property(e => e.TenThuongHieu).HasMaxLength(100);
             entity.Property(e => e.TrangThai).HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<TinNhanChat>(entity =>
+        {
+            entity.HasKey(e => e.IdtinNhan).HasName("PK_TinNhanChat");
+
+            entity.ToTable("TinNhanChat");
+
+            entity.HasIndex(
+                e => new { e.IdcuocTroChuyen, e.NgayTao, e.IdtinNhan },
+                "IX_TinNhanChat_CuocTroChuyen_NgayTao");
+
+            entity.Property(e => e.IdtinNhan).HasColumnName("IDTinNhan");
+            entity.Property(e => e.IdcuocTroChuyen).HasColumnName("IDCuocTroChuyen");
+            entity.Property(e => e.VaiTro)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.NoiDung)
+                .HasMaxLength(FashionHub.Web.Application.Chat.ChatLimits.MaxAssistantLength);
+            entity.Property(e => e.DuLieuJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.NgayTao)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnType("datetime2(0)");
+
+            entity.HasOne(d => d.IdcuocTroChuyenNavigation)
+                .WithMany(p => p.TinNhanChats)
+                .HasForeignKey(d => d.IdcuocTroChuyen)
+                .HasConstraintName("FK_TinNhanChat_CuocTroChuyen");
         });
 
         modelBuilder.Entity<TrangThaiDonHang>(entity =>

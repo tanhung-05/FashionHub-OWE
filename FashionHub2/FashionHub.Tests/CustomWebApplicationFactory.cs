@@ -2,6 +2,8 @@ using FashionHub.Web.Data;
 using FashionHub.Web.Application.Authentication;
 using FashionHub.Web.Application.Email;
 using FashionHub.Web.Models.Generated;
+using FashionHub.Web.Services;
+using FashionHub.Tests.Fakes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -51,6 +53,15 @@ public class CustomWebApplicationFactory<TProgram>
             services.AddSingleton<TestEmailSender>();
             services.AddSingleton<IEmailSender>(
                 provider => provider.GetRequiredService<TestEmailSender>());
+
+            var chatAiDescriptor = services.SingleOrDefault(
+                descriptor => descriptor.ServiceType == typeof(IChatAiService));
+            if (chatAiDescriptor != null)
+            {
+                services.Remove(chatAiDescriptor);
+            }
+
+            services.AddSingleton<IChatAiService, TestChatAiService>();
             
             // Seed data after app is built
             var sp = services.BuildServiceProvider();

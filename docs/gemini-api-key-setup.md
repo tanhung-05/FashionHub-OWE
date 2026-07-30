@@ -11,24 +11,25 @@ The Gemini API key is **NOT** hardcoded in the application for security reasons.
 cd FashionHub2/FashionHub.Web
 ```
 
-### Step 2: Initialize User Secrets (if not already initialized)
-```bash
-dotnet user-secrets init
-```
+### Step 2: Confirm User Secrets support
+
+The web project already has a `UserSecretsId`, so no initialization command is
+needed.
 
 ### Step 3: Set the Gemini API Key
 ```bash
 dotnet user-secrets set "GeminiAI:ApiKey" "YOUR_ACTUAL_GEMINI_API_KEY_HERE"
 ```
 
-### Step 4: Verify Configuration
-```bash
-dotnet user-secrets list
+### Step 4: Verify the key name without printing secret values
+```powershell
+dotnet user-secrets list |
+    ForEach-Object { ($_ -split ' = ', 2)[0] }
 ```
 
 You should see:
 ```
-GeminiAI:ApiKey = YOUR_ACTUAL_GEMINI_API_KEY_HERE
+GeminiAI:ApiKey
 ```
 
 ## Production Setup (Environment Variables)
@@ -66,7 +67,7 @@ If you absolutely must use appsettings.json, add to `appsettings.Production.json
 
 ## Getting a Gemini API Key
 
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
 2. Sign in with your Google account
 3. Click "Create API Key"
 4. Copy the generated key
@@ -74,11 +75,13 @@ If you absolutely must use appsettings.json, add to `appsettings.Production.json
 
 ## Troubleshooting
 
-### Error: "Gemini API key is not configured"
+### Chat uses the grounded fallback instead of Gemini
 
-This error occurs when the application cannot find the API key. Solutions:
+When the key is missing, invalid, timed out or the Gemini API is unavailable,
+the chat remains usable and responds from the grounded server-side context.
+To enable Gemini-generated wording:
 
-1. **Check User Secrets**: Run `dotnet user-secrets list` in `FashionHub2/FashionHub.Web/`
+1. **Check User Secrets**: verify the key name with the safe command above.
 2. **Verify Key Name**: Ensure it's exactly `GeminiAI:ApiKey` (case-sensitive)
 3. **Restart Application**: After setting secrets, restart the development server
 
@@ -86,7 +89,7 @@ This error occurs when the application cannot find the API key. Solutions:
 
 This means your API key is invalid or expired:
 
-1. Verify the key at [Google AI Studio](https://makersuite.google.com/app/apikey)
+1. Verify the key at [Google AI Studio](https://aistudio.google.com/app/apikey)
 2. Generate a new key if needed
 3. Update your User Secrets with the new key
 
@@ -109,7 +112,9 @@ This means your API key is invalid or expired:
 The Gemini API URL can also be configured (optional):
 
 ```bash
-dotnet user-secrets set "GeminiAI:ApiUrl" "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
+dotnet user-secrets set "GeminiAI:ApiUrl" "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 ```
 
-Default URL is already set in code if not specified.
+The default URL, timeout and output limit are already configured in
+`appsettings.json`. The API key is sent in the `x-goog-api-key` header and is
+never added to the request URL or application logs.

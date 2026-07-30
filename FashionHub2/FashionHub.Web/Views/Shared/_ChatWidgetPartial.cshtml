@@ -1,34 +1,98 @@
-<button id="chat-toggle-btn" class="btn btn-primary rounded-circle shadow-lg chat-toggle-btn" aria-label="Mở chat">
-    <i class="bi bi-chat-dots-fill fs-3"></i>
+<button id="chat-toggle-btn"
+        class="chat-toggle-btn"
+        type="button"
+        aria-label="Mở Trợ lý OWE"
+        aria-controls="chat-box"
+        aria-expanded="false">
+    <i class="bi bi-chat-dots-fill" aria-hidden="true"></i>
+    <span class="chat-toggle-label">Hỏi OWE</span>
 </button>
 
-<div id="chat-box" class="card shadow-lg d-none chat-box">
-    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center chat-box-header">
-        <h6 class="mb-0"><i class="bi bi-robot me-2"></i>Trợ lý OWE</h6>
-        <button type="button" class="btn-close btn-close-white" id="chat-close-btn" aria-label="Đóng chat"></button>
-    </div>
-
-    <div class="card-body overflow-auto d-flex flex-column" id="chat-content">
-        <div class="d-flex flex-row justify-content-start mb-3">
-            <div class="p-3 bg-white border rounded-3 shadow-sm chat-message">
-                Xin chào! Tôi là trợ lý ảo OWE. Bạn cần giúp gì không?
+<section id="chat-box"
+         class="chat-box"
+         role="dialog"
+         aria-modal="false"
+         aria-labelledby="chat-title"
+         hidden>
+    <header class="chat-box-header">
+        <div class="chat-heading">
+            <span class="chat-avatar" aria-hidden="true">
+                <i class="bi bi-stars"></i>
+            </span>
+            <div>
+                <h2 id="chat-title">Trợ lý OWE</h2>
+                <p>Tư vấn từ dữ liệu thật của cửa hàng</p>
             </div>
         </div>
-
-        <div class="d-flex flex-wrap gap-2 mb-3" id="quick-replies">
-            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill quick-reply-btn">Săn mã giảm giá</button>
-            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill quick-reply-btn">Tìm áo thun</button>
-            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill quick-reply-btn">Phí ship thế nào?</button>
-            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill quick-reply-btn">Tư vấn size 60kg</button>
-        </div>
-    </div>
-
-    <div class="card-footer bg-white border-top">
-        <div class="input-group">
-            <input type="text" id="chat-input" class="form-control border-0" placeholder="Nhập tin nhắn..." autocomplete="off">
-            <button class="btn btn-link text-primary" id="chat-send-btn" type="button" aria-label="Gửi tin nhắn">
-                <i class="bi bi-send-fill fs-5"></i>
+        <div class="chat-header-actions">
+            <button type="button" id="chat-new-btn"
+                    aria-label="Tạo cuộc trò chuyện mới"
+                    title="Cuộc trò chuyện mới">
+                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+            </button>
+            <button type="button" id="chat-delete-btn"
+                    aria-label="Xóa lịch sử cuộc trò chuyện"
+                    title="Xóa lịch sử">
+                <i class="bi bi-trash3" aria-hidden="true"></i>
+            </button>
+            <button type="button" id="chat-close-btn"
+                    aria-label="Đóng Trợ lý OWE">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
             </button>
         </div>
+    </header>
+
+    <div id="chat-network-status" class="chat-network-status" role="status" hidden>
+        <i class="bi bi-wifi-off" aria-hidden="true"></i>
+        Bạn đang ngoại tuyến. Tin nhắn sẽ gửi được khi có mạng.
     </div>
-</div>
+
+    <div id="chat-content"
+         class="chat-content"
+         role="log"
+         aria-live="polite"
+         aria-relevant="additions"
+         tabindex="0">
+        <div id="chat-empty-state" class="chat-empty-state">
+            <span class="chat-empty-icon" aria-hidden="true">
+                <i class="bi bi-stars"></i>
+            </span>
+            <h3>Chào bạn, mình là Trợ lý OWE</h3>
+            <p>Mình có thể tìm sản phẩm theo giá, màu, size, kiểm tra ưu đãi và hỗ trợ đơn hàng.</p>
+            <div class="chat-suggestions" aria-label="Câu hỏi gợi ý">
+                <button type="button" data-chat-question="Tìm áo sơ mi dưới 500 nghìn">
+                    Áo sơ mi dưới 500 nghìn
+                </button>
+                <button type="button" data-chat-question="Có quần jeans màu đen size M không?">
+                    Jeans đen size M
+                </button>
+                <button type="button" data-chat-question="Sản phẩm nào đang giảm giá?">
+                    Sản phẩm giảm giá
+                </button>
+                <button type="button" data-chat-question="Đơn hàng gần nhất của tôi đang ở đâu?">
+                    Kiểm tra đơn gần nhất
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="chat-composer">
+        <label class="visually-hidden" for="chat-input">Nhập câu hỏi cho Trợ lý OWE</label>
+        <textarea id="chat-input"
+                  rows="1"
+                  maxlength="500"
+                  placeholder="Hỏi OWE về sản phẩm, đơn hàng..."
+                  autocomplete="off"
+                  aria-describedby="chat-input-help"></textarea>
+        <button id="chat-send-btn"
+                type="button"
+                aria-label="Gửi tin nhắn"
+                disabled>
+            <i class="bi bi-arrow-up" aria-hidden="true"></i>
+        </button>
+        <div id="chat-input-help" class="chat-input-help">
+            <span>Enter để gửi · Shift+Enter xuống dòng</span>
+            <span id="chat-char-count">0/500</span>
+        </div>
+    </footer>
+</section>

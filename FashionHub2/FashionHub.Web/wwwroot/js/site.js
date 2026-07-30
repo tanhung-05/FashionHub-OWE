@@ -716,85 +716,454 @@
     }
 
     function initializeChat() {
-        const box = $('#chat-box');
-        const input = $('#chat-input');
-        const sendButton = $('#chat-send-btn');
-        const content = $('#chat-content');
+        const box = document.getElementById('chat-box');
+        const toggleButton = document.getElementById('chat-toggle-btn');
+        const closeButton = document.getElementById('chat-close-btn');
+        const newButton = document.getElementById('chat-new-btn');
+        const deleteButton = document.getElementById('chat-delete-btn');
+        const input = document.getElementById('chat-input');
+        const sendButton = document.getElementById('chat-send-btn');
+        const content = document.getElementById('chat-content');
+        const emptyState = document.getElementById('chat-empty-state');
+        const networkStatus = document.getElementById('chat-network-status');
+        const charCount = document.getElementById('chat-char-count');
 
-        if (!box.length) {
+        if (!box || !toggleButton || !input || !sendButton || !content) {
             return;
         }
 
+        let hasLoaded = false;
+        let isSending = false;
+        let previousFocus = null;
+        let lastFailedMessage = '';
+
+        function csrfHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': getRequestVerificationToken()
+            };
+        }
+
+        async function apiRequest(url, options) {
+            const response = await window.fetch(url, {
+                credentials: 'same-origin',
+                cache: 'no-store',
+                ...options
+            });
+
+            if (!response.ok) {
+                let problem = null;
+                try {
+                    problem = await response.json();
+                } catch (_error) {
+                    // A status-specific safe message is shown below.
+                }
+
+                const error = new Error(
+                    response.status === 429
+                        ? 'Bạn gửi hơi nhanh. Vui lòng chờ một phút rồi thử lại.'
+                        : (problem?.detail || problem?.title || 'Trợ lý OWE chưa thể kết nối.'));
+                error.status = response.status;
+                throw error;
+            }
+
+            return response.status === 204 ? null : response.json();
+        }
+
         function setOpen(open) {
-            box.toggleClass('d-none', !open);
-            $('#chat-toggle-btn').attr('aria-expanded', open.toString());
+            box.hidden = !open;
+            toggleButton.hidden = open;
+            toggleButton.setAttribute('aria-expanded', open.toString());
+            document.body.classList.toggle('chat-is-open', open);
+
             if (open) {
-                input.trigger('focus');
+                previousFocus = document.activeElement;
+                if (!hasLoaded) {
+                    loadConversation();
+                }
+                window.setTimeout(() => input.focus(), 50);
+            } else {
+                toggleButton.hidden = false;
+                (previousFocus instanceof HTMLElement ? previousFocus : toggleButton).focus();
             }
         }
 
         function scrollToBottom() {
-            const element = content[0];
-            if (element) {
-                element.scrollTop = element.scrollHeight;
+            window.requestAnimationFrame(() => {
+                content.scrollTop = content.scrollHeight;
+            });
+        }
+
+        function updateEmptyState() {
+            const hasMessages = Boolean(content.querySelector('.chat-row'));
+            if (emptyState) {
+                emptyState.hidden = hasMessages;
             }
         }
 
-        function appendMessage(message, own) {
-            const row = $('<div>').addClass(
-                `chat-row ${own ? 'is-user' : 'is-assistant'}`);
-            $('<div>').addClass('chat-message').text(message).appendTo(row);
-            content.append(row);
+        function isSafeInternalUrl(value, allowedPrefixes) {
+            if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) {
+                return false;
+            }
+
+            try {
+                const parsed = new URL(value, window.location.origin);
+                return parsed.origin === window.location.origin
+                    && allowedPrefixes.some(prefix => parsed.pathname.startsWith(prefix));
+            } catch (_error) {
+                return false;
+            }
+        }
+
+        function formatCurrency(value) {
+            return `${new Intl.NumberFormat('vi-VN').format(Number(value) || 0)} ₫`;
+        }
+
+        function createActionLink(action) {
+            const allowedPrefixes = ['/Products', '/Account', '/Home', '/Cart', '/Order'];
+            if (!action || !isSafeInternalUrl(action.url, allowedPrefixes)) {
+                return null;
+            }
+
+            const link = document.createElement('a');
+            link.className = 'chat-action-link';
+            link.href = action.url;
+            link.textContent = String(action.label || 'Xem thêm');
+            link.appendChild(document.createElement('i')).className = 'bi bi-arrow-right';
+            return link;
+        }
+
+        function createProductCard(product) {
+            const card = document.createElement('article');
+            card.className = 'chat-product-card';
+
+            const image = document.createElement('img');
+            image.loading = 'lazy';
+            image.alt = String(product.name || 'Sản phẩm OWE');
+            image.src = isSafeInternalUrl(product.imageUrl, ['/images/'])
+                ? product.imageUrl
+                : '/images/products/aothun1_den_boxy.jpg';
+            card.appendChild(image);
+
+            const body = document.createElement('div');
+            body.className = 'chat-product-body';
+            const name = document.createElement('h4');
+            name.textContent = String(product.name || 'Sản phẩm');
+            body.appendChild(name);
+
+            const price = document.createElement('div');
+            price.className = 'chat-product-price';
+            const currentPrice = document.createElement('strong');
+            currentPrice.textContent = formatCurrency(product.price);
+            price.appendChild(currentPrice);
+            if (product.isOnSale && Number(product.originalPrice) > Number(product.price)) {
+                const originalPrice = document.createElement('del');
+                originalPrice.textContent = formatCurrency(product.originalPrice);
+                price.appendChild(originalPrice);
+            }
+            body.appendChild(price);
+
+            const variants = Array.isArray(product.variants) ? product.variants : [];
+            const variantLabel = document.createElement('label');
+            variantLabel.className = 'chat-variant-label';
+            variantLabel.textContent = 'Màu / size còn hàng';
+            const select = document.createElement('select');
+            select.className = 'chat-variant-select';
+            select.setAttribute('aria-label', `Chọn biến thể cho ${name.textContent}`);
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Chọn màu và size';
+            select.appendChild(placeholder);
+            variants.forEach(variant => {
+                const option = document.createElement('option');
+                option.value = String(Number(variant.id) || '');
+                const details = [variant.color, variant.size].filter(Boolean).join(' / ');
+                option.textContent = `${details || 'Mặc định'} · còn ${Number(variant.stockQuantity) || 0}`;
+                select.appendChild(option);
+            });
+            variantLabel.appendChild(select);
+            body.appendChild(variantLabel);
+
+            const actions = document.createElement('div');
+            actions.className = 'chat-product-actions';
+            if (isSafeInternalUrl(product.detailUrl, ['/Products/Details/'])) {
+                const detailLink = document.createElement('a');
+                detailLink.href = product.detailUrl;
+                detailLink.textContent = 'Xem chi tiết';
+                actions.appendChild(detailLink);
+            }
+
+            const addButton = document.createElement('button');
+            addButton.type = 'button';
+            addButton.textContent = 'Thêm vào giỏ';
+            addButton.disabled = true;
+            select.addEventListener('change', () => {
+                addButton.disabled = !select.value;
+            });
+            addButton.addEventListener('click', async () => {
+                const variantId = Number.parseInt(select.value, 10);
+                if (!variantId) {
+                    return;
+                }
+
+                addButton.disabled = true;
+                addButton.textContent = 'Đang thêm...';
+                try {
+                    const cart = await apiRequest('/api/v1/cart/items', {
+                        method: 'POST',
+                        headers: csrfHeaders(),
+                        body: JSON.stringify({ variantId, quantity: 1 })
+                    });
+                    $('#cart-count, #cart-page-count').text(cart.totalQuantity);
+                    AppAlert.ShowSuccess('Đã thêm sản phẩm vào giỏ hàng.');
+                    window.loadCartOffcanvas?.(true);
+                } catch (error) {
+                    AppAlert.ShowError(error.message || 'Không thể thêm vào giỏ hàng.');
+                } finally {
+                    addButton.textContent = 'Thêm vào giỏ';
+                    addButton.disabled = !select.value;
+                }
+            });
+            actions.appendChild(addButton);
+            body.appendChild(actions);
+            card.appendChild(body);
+            return card;
+        }
+
+        function createOrderCard(order) {
+            const card = document.createElement('article');
+            card.className = 'chat-order-card';
+            const heading = document.createElement('strong');
+            heading.textContent = `Đơn hàng #${Number(order.id)}`;
+            const status = document.createElement('span');
+            status.textContent = String(order.status || 'Chưa xác định');
+            const total = document.createElement('span');
+            total.textContent = `Tổng: ${formatCurrency(order.total)}`;
+            card.append(heading, status, total);
+            return card;
+        }
+
+        function appendMessage(message, options) {
+            const role = message?.role === 'user' ? 'user' : 'assistant';
+            const row = document.createElement('div');
+            row.className = `chat-row is-${role}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-message';
+            const text = document.createElement('p');
+            text.textContent = String(message?.content || '');
+            bubble.appendChild(text);
+
+            if (options?.isFallback) {
+                const fallback = document.createElement('small');
+                fallback.className = 'chat-fallback-note';
+                fallback.textContent = 'Phản hồi an toàn từ dữ liệu cửa hàng';
+                bubble.appendChild(fallback);
+            }
+            row.appendChild(bubble);
+
+            const products = Array.isArray(message?.products) ? message.products : [];
+            if (role === 'assistant' && products.length > 0) {
+                const productList = document.createElement('div');
+                productList.className = 'chat-product-list';
+                products.forEach(product => productList.appendChild(createProductCard(product)));
+                row.appendChild(productList);
+            }
+
+            if (role === 'assistant' && message?.order) {
+                row.appendChild(createOrderCard(message.order));
+            }
+
+            const actions = Array.isArray(message?.actions) ? message.actions : [];
+            if (role === 'assistant' && actions.length > 0) {
+                const actionList = document.createElement('div');
+                actionList.className = 'chat-action-list';
+                actions.forEach(action => {
+                    const link = createActionLink(action);
+                    if (link) {
+                        actionList.appendChild(link);
+                    }
+                });
+                if (actionList.childElementCount > 0) {
+                    row.appendChild(actionList);
+                }
+            }
+
+            content.appendChild(row);
+            updateEmptyState();
+            scrollToBottom();
+            return row;
+        }
+
+        function showLoading() {
+            const row = document.createElement('div');
+            row.className = 'chat-row is-assistant chat-loading';
+            row.setAttribute('role', 'status');
+            row.setAttribute('aria-label', 'Trợ lý OWE đang trả lời');
+            const dots = document.createElement('div');
+            dots.className = 'chat-typing-dots';
+            dots.append(
+                document.createElement('span'),
+                document.createElement('span'),
+                document.createElement('span'));
+            row.appendChild(dots);
+            content.appendChild(row);
+            scrollToBottom();
+            return row;
+        }
+
+        function showLoadError(message, retryHandler) {
+            const row = document.createElement('div');
+            row.className = 'chat-inline-error';
+            const text = document.createElement('p');
+            text.textContent = message;
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.textContent = 'Thử lại';
+            retry.addEventListener('click', () => {
+                row.remove();
+                retryHandler();
+            });
+            row.append(text, retry);
+            content.appendChild(row);
+            updateEmptyState();
             scrollToBottom();
         }
 
-        function sendMessage() {
-            const message = String(input.val() || '').trim();
-            if (!message || sendButton.prop('disabled')) {
+        async function loadConversation() {
+            content.setAttribute('aria-busy', 'true');
+            try {
+                const conversation = await apiRequest(
+                    '/api/v1/chat/conversations/current',
+                    { method: 'GET' });
+                content.querySelectorAll('.chat-row, .chat-inline-error').forEach(item => item.remove());
+                (conversation.messages || []).forEach(message => appendMessage(message));
+                hasLoaded = true;
+                updateEmptyState();
+            } catch (error) {
+                showLoadError(
+                    error.message || 'Không thể tải lịch sử trò chuyện.',
+                    loadConversation);
+            } finally {
+                content.removeAttribute('aria-busy');
+            }
+        }
+
+        function updateComposer() {
+            const length = String(input.value || '').length;
+            if (charCount) {
+                charCount.textContent = `${length}/500`;
+            }
+            input.style.height = 'auto';
+            input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
+            sendButton.disabled = isSending
+                || !navigator.onLine
+                || !String(input.value || '').trim();
+        }
+
+        function updateNetworkStatus() {
+            if (networkStatus) {
+                networkStatus.hidden = navigator.onLine;
+            }
+            updateComposer();
+        }
+
+        async function sendMessage(explicitMessage) {
+            const message = String(explicitMessage ?? input.value ?? '').trim();
+            if (!message || isSending || !navigator.onLine) {
                 return;
             }
 
-            appendMessage(message, true);
-            input.val('');
-            sendButton.prop('disabled', true);
-            const loading = $('<div>').addClass('chat-row is-assistant chat-loading')
-                .append($('<div>').addClass('chat-message').text('Đang suy nghĩ...'));
-            content.append(loading);
-            scrollToBottom();
+            lastFailedMessage = '';
+            appendMessage({ role: 'user', content: message, products: [], actions: [] });
+            input.value = '';
+            isSending = true;
+            updateComposer();
+            const loading = showLoading();
 
-            $.ajax({
-                url: '/Chat/GetResponse',
-                type: 'POST',
-                data: withAntiforgery({ userMessage: message })
-            })
-                .done(function (response) {
-                    loading.remove();
-                    if (response.success) {
-                        appendMessage(response.response, false);
-                    } else {
-                        AppAlert.ShowError(response.response || 'Trợ lý chưa thể phản hồi.');
-                    }
-                })
-                .fail(xhr => {
-                    loading.remove();
-                    AppAlert.ShowError(xhr.responseJSON?.response || 'Không thể kết nối trợ lý OWE.');
-                })
-                .always(() => sendButton.prop('disabled', false));
+            try {
+                const response = await apiRequest('/api/v1/chat/messages', {
+                    method: 'POST',
+                    headers: csrfHeaders(),
+                    body: JSON.stringify({ message })
+                });
+                loading.remove();
+                appendMessage(response.message, { isFallback: response.isFallback });
+            } catch (error) {
+                loading.remove();
+                lastFailedMessage = message;
+                showLoadError(
+                    error.message || 'Không thể gửi tin nhắn đến Trợ lý OWE.',
+                    () => sendMessage(lastFailedMessage));
+            } finally {
+                isSending = false;
+                updateComposer();
+                input.focus();
+            }
         }
 
-        $('#chat-toggle-btn').on('click', () => setOpen(box.hasClass('d-none')));
-        $('#chat-close-btn').on('click', () => setOpen(false));
-        sendButton.on('click', sendMessage);
-        input.on('keydown', function (event) {
+        async function resetConversation(startNew) {
+            const url = startNew
+                ? '/api/v1/chat/conversations'
+                : '/api/v1/chat/conversations/current';
+            try {
+                await apiRequest(url, {
+                    method: startNew ? 'POST' : 'DELETE',
+                    headers: csrfHeaders(),
+                    body: startNew ? '{}' : undefined
+                });
+                content.querySelectorAll('.chat-row, .chat-inline-error').forEach(item => item.remove());
+                updateEmptyState();
+                input.focus();
+            } catch (error) {
+                AppAlert.ShowError(error.message || 'Không thể cập nhật lịch sử trò chuyện.');
+            }
+        }
+
+        toggleButton.addEventListener('click', () => setOpen(true));
+        closeButton?.addEventListener('click', () => setOpen(false));
+        newButton?.addEventListener('click', () => resetConversation(true));
+        deleteButton?.addEventListener('click', async () => {
+            const confirmed = await AppAlert.Confirm(
+                'Xóa toàn bộ tin nhắn trong cuộc trò chuyện hiện tại?',
+                { okText: 'Xóa lịch sử', cancelText: 'Giữ lại' });
+            if (confirmed) {
+                resetConversation(false);
+            }
+        });
+        sendButton.addEventListener('click', () => sendMessage());
+        input.addEventListener('input', updateComposer);
+        input.addEventListener('keydown', function (event) {
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 sendMessage();
             }
         });
-        $(document).on('click', '.quick-reply-btn', function () {
-            input.val($(this).text());
-            sendMessage();
+        content.addEventListener('click', event => {
+            const suggestion = event.target.closest('[data-chat-question]');
+            if (suggestion) {
+                sendMessage(suggestion.dataset.chatQuestion);
+            }
         });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && !box.hidden) {
+                setOpen(false);
+            }
+        });
+        document.addEventListener('show.bs.offcanvas', () => {
+            if (!box.hidden) {
+                setOpen(false);
+            }
+        });
+        document.addEventListener('show.bs.modal', () => {
+            if (!box.hidden) {
+                setOpen(false);
+            }
+        });
+        window.addEventListener('online', updateNetworkStatus);
+        window.addEventListener('offline', updateNetworkStatus);
+        updateNetworkStatus();
+        updateEmptyState();
     }
 
     function initializeModalFocusSafety() {

@@ -15,6 +15,8 @@ GO
 -- =================================================================
 
 -- Drop các bảng liên kết/phụ thuộc trước
+IF OBJECT_ID('TinNhanChat', 'U') IS NOT NULL DROP TABLE TinNhanChat;
+IF OBJECT_ID('CuocTroChuyen', 'U') IS NOT NULL DROP TABLE CuocTroChuyen;
 IF OBJECT_ID('AdminActivityLog', 'U') IS NOT NULL DROP TABLE AdminActivityLog;
 IF OBJECT_ID('DatLaiMatKhauToken', 'U') IS NOT NULL DROP TABLE DatLaiMatKhauToken;
 IF OBJECT_ID('LichSuDonHang', 'U') IS NOT NULL DROP TABLE LichSuDonHang;
@@ -394,6 +396,36 @@ CREATE TABLE AdminActivityLog (
     CONSTRAINT CK_AdminActivityLog_DuLieuCuJson CHECK (DuLieuCu IS NULL OR ISJSON(DuLieuCu) = 1),
     CONSTRAINT CK_AdminActivityLog_DuLieuMoiJson CHECK (DuLieuMoi IS NULL OR ISJSON(DuLieuMoi) = 1)
 );
+
+CREATE TABLE CuocTroChuyen (
+    IDCuocTroChuyen UNIQUEIDENTIFIER NOT NULL
+        CONSTRAINT PK_CuocTroChuyen PRIMARY KEY,
+    IDNguoiDung INT NOT NULL,
+    NgayTao DATETIME2(0) NOT NULL
+        CONSTRAINT DF_CuocTroChuyen_NgayTao DEFAULT SYSUTCDATETIME(),
+    NgayCapNhat DATETIME2(0) NOT NULL
+        CONSTRAINT DF_CuocTroChuyen_NgayCapNhat DEFAULT SYSUTCDATETIME(),
+    NgayKetThuc DATETIME2(0) NULL,
+    CONSTRAINT FK_CuocTroChuyen_NguoiDung FOREIGN KEY (IDNguoiDung)
+        REFERENCES NguoiDung(IDNguoiDung) ON DELETE CASCADE
+);
+
+CREATE TABLE TinNhanChat (
+    IDTinNhan BIGINT NOT NULL IDENTITY(1,1)
+        CONSTRAINT PK_TinNhanChat PRIMARY KEY,
+    IDCuocTroChuyen UNIQUEIDENTIFIER NOT NULL,
+    VaiTro VARCHAR(20) NOT NULL,
+    NoiDung NVARCHAR(2000) NOT NULL,
+    DuLieuJson NVARCHAR(MAX) NULL,
+    NgayTao DATETIME2(0) NOT NULL
+        CONSTRAINT DF_TinNhanChat_NgayTao DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT FK_TinNhanChat_CuocTroChuyen FOREIGN KEY (IDCuocTroChuyen)
+        REFERENCES CuocTroChuyen(IDCuocTroChuyen) ON DELETE CASCADE,
+    CONSTRAINT CK_TinNhanChat_VaiTro CHECK (VaiTro IN ('user', 'assistant')),
+    CONSTRAINT CK_TinNhanChat_DuLieuJson CHECK (
+        DuLieuJson IS NULL OR ISJSON(DuLieuJson) = 1
+    )
+);
 GO
 
 -- =================================================================
@@ -459,6 +491,16 @@ ON LichSuDonHang(IDDonHang, NgayTao DESC);
 
 CREATE INDEX IX_AdminActivityLog_Admin_NgayTao
 ON AdminActivityLog(IDAdmin, NgayTao DESC);
+
+CREATE UNIQUE NONCLUSTERED INDEX UX_CuocTroChuyen_DangHoatDong
+ON CuocTroChuyen(IDNguoiDung)
+WHERE NgayKetThuc IS NULL;
+
+CREATE INDEX IX_CuocTroChuyen_NguoiDung_NgayCapNhat
+ON CuocTroChuyen(IDNguoiDung, NgayCapNhat DESC);
+
+CREATE INDEX IX_TinNhanChat_CuocTroChuyen_NgayTao
+ON TinNhanChat(IDCuocTroChuyen, NgayTao, IDTinNhan);
 GO
 
 -- =================================================================
