@@ -210,8 +210,8 @@ production deployment.
 - The image similarity service remains disabled because it uses Windows-only
   `System.Drawing`; an ImageSharp replacement is future work.
 
-See [`docs/api-first-migration`](docs/api-first-migration/) for the audit,
-security review, implementation report, and remaining risks.
+See the curated [`docs`](docs/) directory for deployment, configuration, and
+database maintenance guides.
 
 ## Next Steps
 

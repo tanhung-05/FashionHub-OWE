@@ -71,3 +71,18 @@ dist/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Local AI/agent workspace
+.kilo/
+AGENTS.md
+
+# Internal handoff, prompt, and point-in-time audit documents
+docs/HANDOFF-*.md
+docs/database-review-prompt.md
+docs/api-first-migration/
+docs/production-readiness-report.md
+docs/chat-ai-implementation-clarification.md
+docs/FashionHub-Migration-Remaining-Prompts.md
+docs/INVESTIGATION-REPORT-RAW.md
+docs/memory-bank/
+docs/migration-progress-report-v3.md
