@@ -179,6 +179,9 @@ public interface IAdminOrderService
         int orderId,
         UpdateOrderStatusRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<int>> ConfirmAllPendingAsync(
+        CancellationToken cancellationToken = default);
 }
 
 public interface IAdminReportService

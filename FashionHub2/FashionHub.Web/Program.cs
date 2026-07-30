@@ -220,24 +220,37 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         {
             var userIdClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
             var emailClaim = context.Principal?.FindFirstValue(ClaimTypes.Email);
+            var roleClaim = context.Principal?.FindFirstValue(ClaimTypes.Role);
             var securityStampClaim = context.Principal?.FindFirstValue("SecurityStamp");
             var isValidPrincipal = false;
 
             if (int.TryParse(userIdClaim, out var userId)
                 && Guid.TryParse(securityStampClaim, out var securityStamp)
-                && !string.IsNullOrWhiteSpace(emailClaim))
+                && !string.IsNullOrWhiteSpace(emailClaim)
+                && !string.IsNullOrWhiteSpace(roleClaim))
             {
                 var dbContext = context.HttpContext.RequestServices
                     .GetRequiredService<ApplicationDbContext>();
 
-                isValidPrincipal = await dbContext.NguoiDungs
+                var currentSession = await dbContext.NguoiDungs
                     .AsNoTracking()
-                    .AnyAsync(user =>
+                    .Where(user =>
                         user.IdnguoiDung == userId
                         && user.Email == emailClaim
                         && user.SecurityStamp == securityStamp
                         && user.TrangThai
-                        && user.DeletedAt == null);
+                        && user.DeletedAt == null)
+                    .Select(user => new
+                    {
+                        Role = user.IdvaiTroNavigation.TenVaiTro
+                    })
+                    .SingleOrDefaultAsync();
+
+                isValidPrincipal = currentSession is not null
+                    && string.Equals(
+                        currentSession.Role,
+                        roleClaim,
+                        StringComparison.Ordinal);
             }
 
             if (!isValidPrincipal)

@@ -9,6 +9,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
 {
     [Area("Admin")]
     [Authorize(Roles = "Admin")]
+    [AutoValidateAntiforgeryToken]
     public class CouponsController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -55,7 +56,9 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(CouponViewModel model)
         {
+            NormalizeCoupon(model);
             ValidateCouponDates(model);
+            ValidateCouponValue(model);
 
             if (ModelState.IsValid)
             {
@@ -130,7 +133,9 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 return NotFound();
             }
 
+            NormalizeCoupon(model);
             ValidateCouponDates(model);
+            ValidateCouponValue(model);
 
             if (ModelState.IsValid)
             {
@@ -201,9 +206,13 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 await _context.SaveChangesAsync();
                 return Json(new { success = true, message = "Đã xóa mã giảm giá." });
             }
-            catch
+            catch (DbUpdateException)
             {
-                return Json(new { success = false, message = "Có lỗi xảy ra khi xóa mã giảm giá" });
+                return Json(new
+                {
+                    success = false,
+                    message = "Không thể xóa mã đang được tham chiếu. Hãy tắt mã thay vì xóa."
+                });
             }
         }
 
@@ -215,6 +224,16 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             if (coupon == null)
             {
                 return Json(new { success = false, message = "Không tìm thấy mã giảm giá" });
+            }
+
+            if (!coupon.TrangThai
+                && (coupon.NgayKetThuc < DateTime.Now || coupon.DaSuDung >= coupon.SoLuong))
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = "Không thể bật mã đã hết hạn hoặc đã hết lượt sử dụng."
+                });
             }
 
             coupon.TrangThai = !coupon.TrangThai;
@@ -246,6 +265,31 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             {
                 ModelState.AddModelError(nameof(model.NgayKetThuc), "Ngày kết thúc phải sau ngày bắt đầu.");
             }
+        }
+
+        private void ValidateCouponValue(CouponViewModel model)
+        {
+            if (model.LoaiGiamGia is not 1 and not 2)
+            {
+                ModelState.AddModelError(
+                    nameof(model.LoaiGiamGia),
+                    "Loại giảm giá không hợp lệ.");
+            }
+
+            if (model.LoaiGiamGia == 2 && model.GiaTri > 100)
+            {
+                ModelState.AddModelError(
+                    nameof(model.GiaTri),
+                    "Giảm theo phần trăm không được vượt quá 100%.");
+            }
+        }
+
+        private static void NormalizeCoupon(CouponViewModel model)
+        {
+            model.MaCode = model.MaCode?.Trim().ToUpperInvariant() ?? string.Empty;
+            model.TenChuongTrinh = string.IsNullOrWhiteSpace(model.TenChuongTrinh)
+                ? null
+                : model.TenChuongTrinh.Trim();
         }
     }
 }

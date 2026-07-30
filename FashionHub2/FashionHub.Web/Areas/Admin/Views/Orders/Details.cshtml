@@ -3,6 +3,9 @@
 @{
     ViewBag.Title = $"Chi tiết Đơn hàng #{Model.IddonHang}";
     Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
+    var statusOptions = ViewBag.StatusList as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+        ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+    var canUpdateStatus = statusOptions.Count() > 1;
 }
 
 <div class="mb-4">
@@ -132,21 +135,22 @@
                 </h6>
             </div>
             <div class="card-body">
-                <form asp-action="UpdateStatus" asp-route-id="@Model.IddonHang" method="post">
-                    @Html.AntiForgeryToken()
+                <form asp-action="UpdateStatus" asp-route-id="@Model.IddonHang" method="post"
+                      data-order-status-form data-current-status="@Model.IdtrangThai">
 
                     <div class="mb-3">
                         <label for="idTrangThai" class="form-label fw-bold">Trạng thái đơn hàng</label>
                         <select id="idTrangThai" name="idTrangThai" class="form-select">
-                            @foreach (var item in (ViewBag.StatusList as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)!)
+                            @foreach (var item in statusOptions)
                             {
                                 <option value="@item.Value" selected="@item.Selected">@item.Text</option>
                             }
                         </select>
                     </div>
 
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-arrow-repeat"></i> Cập nhật trạng thái
+                    <button type="submit" class="btn btn-primary w-100" disabled="@(!canUpdateStatus)">
+                        <i class="bi bi-arrow-repeat"></i>
+                        @(canUpdateStatus ? "Cập nhật trạng thái" : "Đơn hàng đã ở trạng thái cuối")
                     </button>
                 </form>
 
@@ -175,3 +179,23 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        document.querySelector('[data-order-status-form]')?.addEventListener('submit', function (event) {
+            const currentStatus = this.dataset.currentStatus;
+            const statusSelect = document.getElementById('idTrangThai');
+            const nextStatus = statusSelect.value;
+            if (currentStatus === nextStatus) {
+                event.preventDefault();
+                AdminUI.showToast('error', 'Vui lòng chọn trạng thái tiếp theo.');
+                return;
+            }
+
+            const selectedText = statusSelect.selectedOptions[0]?.textContent?.trim();
+            if (!window.confirm('Chuyển đơn hàng sang trạng thái "' + selectedText + '"?')) {
+                event.preventDefault();
+            }
+        });
+    </script>
+}

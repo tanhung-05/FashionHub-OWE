@@ -1,14 +1,16 @@
+using FashionHub.Web.Areas.Admin.ViewModels;
+using FashionHub.Web.Data;
+using FashionHub.Web.Domain;
+using FashionHub.Web.Models.Generated;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using FashionHub.Web.Data;
-using FashionHub.Web.Areas.Admin.ViewModels;
-using FashionHub.Web.Domain;
 
 namespace FashionHub.Web.Areas.Admin.Controllers;
 
 [Area("Admin")]
 [Authorize(Roles = "Admin")]
+[AutoValidateAntiforgeryToken]
 public class ReportsController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -18,22 +20,34 @@ public class ReportsController : Controller
         _context = context;
     }
 
-    public async Task<IActionResult> Index()
-    {
-        return View();
-    }
+    public IActionResult Index() => View();
 
     [HttpGet]
-    public async Task<IActionResult> SalesReport(DateTime? startDate, DateTime? endDate, string period = "daily")
+    public async Task<IActionResult> SalesReport(
+        DateTime? startDate,
+        DateTime? endDate,
+        string period = "daily")
     {
-        // Mặc định: 30 ngày gần nhất
-        var end = endDate ?? DateTime.Now.Date;
-        var start = startDate ?? end.AddDays(-30);
+        var end = (endDate ?? DateTime.Today).Date;
+        var start = (startDate ?? end.AddDays(-29)).Date;
+        period = period is "daily" or "weekly" or "monthly" ? period : "daily";
 
+        if (!IsValidDateRange(start, end)
+            || (period == "daily" && (end - start).TotalDays > 366))
+        {
+            TempData["Error"] = period == "daily"
+                ? "Khoảng thời gian theo ngày không được vượt quá 366 ngày."
+                : "Khoảng thời gian báo cáo không hợp lệ.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var exclusiveEnd = end.AddDays(1);
         var orders = await _context.DonHangs
-            .Where(o => o.IdtrangThai != OrderStatusIds.Cancelled
-                && o.NgayTao >= start
-                && o.NgayTao <= end.AddDays(1).AddSeconds(-1))
+            .AsNoTracking()
+            .Where(order =>
+                order.IdtrangThai != OrderStatusIds.Cancelled
+                && order.NgayTao >= start
+                && order.NgayTao < exclusiveEnd)
             .ToListAsync();
 
         var report = new SalesReportViewModel
@@ -42,93 +56,35 @@ public class ReportsController : Controller
             EndDate = end,
             Period = period,
             TotalOrders = orders.Count,
-            TotalRevenue = orders.Sum(o => o.TongThanhToan),
-            TotalDiscount = orders.Sum(o => o.TienGiamGia),
-            TotalShipping = orders.Sum(o => o.PhiVanChuyen),
-            AverageOrderValue = orders.Any() ? orders.Average(o => o.TongThanhToan) : 0m
+            TotalRevenue = orders.Sum(order => order.TongThanhToan),
+            TotalDiscount = orders.Sum(order => order.TienGiamGia),
+            TotalShipping = orders.Sum(order => order.PhiVanChuyen),
+            AverageOrderValue = orders.Count == 0
+                ? 0
+                : orders.Average(order => order.TongThanhToan)
         };
 
-        // Nhóm theo thời gian
-        if (period == "daily")
-        {
-            report.ChartLabels = Enumerable.Range(0, (int)(end - start).TotalDays + 1)
-                .Select(i => start.AddDays(i).ToString("dd/MM"))
-                .ToList();
+        PopulateSalesChart(report, orders);
 
-            report.ChartData = Enumerable.Range(0, (int)(end - start).TotalDays + 1)
-                .Select(i =>
-                {
-                    var date = start.AddDays(i);
-                    return orders
-                        .Where(o => o.NgayTao.Date == date)
-                        .Sum(o => o.TongThanhToan);
-                })
-                .ToList();
-        }
-        else if (period == "monthly")
-        {
-            var months = new List<string>();
-            var data = new List<decimal>();
-
-            for (var date = new DateTime(start.Year, start.Month, 1);
-                 date <= end;
-                 date = date.AddMonths(1))
-            {
-                months.Add(date.ToString("MM/yyyy"));
-                var monthRevenue = orders
-                    .Where(o => o.NgayTao.Year == date.Year
-                        && o.NgayTao.Month == date.Month)
-                    .Sum(o => o.TongThanhToan);
-                data.Add(monthRevenue);
-            }
-
-            report.ChartLabels = months;
-            report.ChartData = data;
-        }
-        else // weekly
-        {
-            var weeks = new List<string>();
-            var data = new List<decimal>();
-
-            var currentStart = start;
-            while (currentStart <= end)
-            {
-                var weekEnd = currentStart.AddDays(6);
-                if (weekEnd > end) weekEnd = end;
-
-                weeks.Add($"{currentStart:dd/MM} - {weekEnd:dd/MM}");
-
-                var weekRevenue = orders
-                    .Where(o => o.NgayTao >= currentStart
-                        && o.NgayTao <= weekEnd.AddDays(1).AddSeconds(-1))
-                    .Sum(o => o.TongThanhToan);
-                data.Add(weekRevenue);
-
-                currentStart = currentStart.AddDays(7);
-            }
-
-            report.ChartLabels = weeks;
-            report.ChartData = data;
-        }
-
-        // Top sản phẩm bán chạy
         report.TopProducts = await _context.ChiTietDonHangs
-            .Where(cd => cd.IddonHangNavigation!.IdtrangThai != OrderStatusIds.Cancelled
-                        && cd.IddonHangNavigation.NgayTao >= start &&
-                        cd.IddonHangNavigation.NgayTao <= end.AddDays(1).AddSeconds(-1))
-            .GroupBy(cd => new
+            .AsNoTracking()
+            .Where(detail =>
+                detail.IddonHangNavigation!.IdtrangThai != OrderStatusIds.Cancelled
+                && detail.IddonHangNavigation.NgayTao >= start
+                && detail.IddonHangNavigation.NgayTao < exclusiveEnd)
+            .GroupBy(detail => new
             {
-                cd.IdbienTheNavigation!.IdsanPhamNavigation!.IdsanPham,
-                cd.IdbienTheNavigation.IdsanPhamNavigation.TenSanPham
+                detail.IdbienTheNavigation!.IdsanPhamNavigation!.IdsanPham,
+                detail.IdbienTheNavigation.IdsanPhamNavigation.TenSanPham
             })
-            .Select(g => new TopProductViewModel
+            .Select(group => new TopProductViewModel
             {
-                ProductId = g.Key.IdsanPham,
-                ProductName = g.Key.TenSanPham ?? string.Empty,
-                QuantitySold = g.Sum(cd => cd.SoLuong),
-                Revenue = g.Sum(cd => cd.SoLuong * cd.DonGia)
+                ProductId = group.Key.IdsanPham,
+                ProductName = group.Key.TenSanPham,
+                QuantitySold = group.Sum(detail => detail.SoLuong),
+                Revenue = group.Sum(detail => detail.SoLuong * detail.DonGia)
             })
-            .OrderByDescending(p => p.QuantitySold)
+            .OrderByDescending(product => product.QuantitySold)
             .Take(10)
             .ToListAsync();
 
@@ -136,56 +92,72 @@ public class ReportsController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> CustomerReport(DateTime? startDate, DateTime? endDate)
+    public async Task<IActionResult> CustomerReport(
+        DateTime? startDate,
+        DateTime? endDate)
     {
-        var end = endDate ?? DateTime.Now.Date;
-        var start = startDate ?? end.AddMonths(-3);
+        var end = (endDate ?? DateTime.Today).Date;
+        var start = (startDate ?? end.AddMonths(-3)).Date;
+        if (!IsValidDateRange(start, end))
+        {
+            TempData["Error"] = "Khoảng thời gian báo cáo không hợp lệ.";
+            return RedirectToAction(nameof(Index));
+        }
 
+        var exclusiveEnd = end.AddDays(1);
         var report = new CustomerReportViewModel
         {
             StartDate = start,
-            EndDate = end
+            EndDate = end,
+            TotalCustomers = await _context.NguoiDungs
+                .AsNoTracking()
+                .CountAsync(user =>
+                    user.IdvaiTro == 2
+                    && user.DeletedAt == null
+                    && user.NgayTao < exclusiveEnd),
+            NewCustomers = await _context.NguoiDungs
+                .AsNoTracking()
+                .CountAsync(user =>
+                    user.IdvaiTro == 2
+                    && user.DeletedAt == null
+                    && user.NgayTao >= start
+                    && user.NgayTao < exclusiveEnd),
+            ActiveCustomers = await _context.DonHangs
+                .AsNoTracking()
+                .Where(order =>
+                    order.IdtrangThai != OrderStatusIds.Cancelled
+                    && order.NgayTao >= start
+                    && order.NgayTao < exclusiveEnd
+                    && order.IdnguoiDung.HasValue)
+                .Select(order => order.IdnguoiDung)
+                .Distinct()
+                .CountAsync()
         };
 
-        // Tổng số khách hàng
-        report.TotalCustomers = await _context.NguoiDungs
-            .Where(u => u.NgayTao <= end)
-            .CountAsync();
-
-        // Khách hàng mới trong kỳ
-        report.NewCustomers = await _context.NguoiDungs
-            .Where(u => u.NgayTao >= start && u.NgayTao <= end.AddDays(1).AddSeconds(-1))
-            .CountAsync();
-
-        // Khách hàng có đơn hàng
-        report.ActiveCustomers = await _context.DonHangs
-            .Where(o => o.IdtrangThai != OrderStatusIds.Cancelled
-                && o.NgayTao >= start
-                && o.NgayTao <= end.AddDays(1).AddSeconds(-1))
-            .Select(o => o.IdnguoiDung)
-            .Distinct()
-            .CountAsync();
-
-        // Top khách hàng
         report.TopCustomers = await _context.DonHangs
-            .Where(o => o.IdtrangThai != OrderStatusIds.Cancelled
-                && o.NgayTao >= start
-                && o.NgayTao <= end.AddDays(1).AddSeconds(-1))
-            .GroupBy(o => new
+            .AsNoTracking()
+            .Where(order =>
+                order.IdtrangThai != OrderStatusIds.Cancelled
+                && order.NgayTao >= start
+                && order.NgayTao < exclusiveEnd
+                && order.IdnguoiDung.HasValue
+                && order.IdnguoiDungNavigation != null
+                && order.IdnguoiDungNavigation.DeletedAt == null)
+            .GroupBy(order => new
             {
-                o.IdnguoiDung,
-                o.IdnguoiDungNavigation!.HoTen,
-                o.IdnguoiDungNavigation.Email
+                order.IdnguoiDung,
+                order.IdnguoiDungNavigation!.HoTen,
+                order.IdnguoiDungNavigation.Email
             })
-            .Select(g => new TopCustomerViewModel
+            .Select(group => new TopCustomerViewModel
             {
-                CustomerId = g.Key.IdnguoiDung ?? 0,
-                CustomerName = g.Key.HoTen ?? string.Empty,
-                Email = g.Key.Email ?? string.Empty,
-                TotalOrders = g.Count(),
-                TotalSpent = g.Sum(o => o.TongThanhToan)
+                CustomerId = group.Key.IdnguoiDung!.Value,
+                CustomerName = group.Key.HoTen,
+                Email = group.Key.Email,
+                TotalOrders = group.Count(),
+                TotalSpent = group.Sum(order => order.TongThanhToan)
             })
-            .OrderByDescending(c => c.TotalSpent)
+            .OrderByDescending(customer => customer.TotalSpent)
             .Take(20)
             .ToListAsync();
 
@@ -193,54 +165,137 @@ public class ReportsController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> ProductPerformance(DateTime? startDate, DateTime? endDate, int? categoryId)
+    public async Task<IActionResult> ProductPerformance(
+        DateTime? startDate,
+        DateTime? endDate,
+        int? categoryId)
     {
-        var end = endDate ?? DateTime.Now.Date;
-        var start = startDate ?? end.AddMonths(-1);
+        var end = (endDate ?? DateTime.Today).Date;
+        var start = (startDate ?? end.AddMonths(-1)).Date;
+        if (!IsValidDateRange(start, end))
+        {
+            TempData["Error"] = "Khoảng thời gian báo cáo không hợp lệ.";
+            return RedirectToAction(nameof(Index));
+        }
 
+        var exclusiveEnd = end.AddDays(1);
         var report = new ProductPerformanceViewModel
         {
             StartDate = start,
             EndDate = end,
-            CategoryId = categoryId
+            CategoryId = categoryId,
+            Categories = await _context.DanhMucs
+                .AsNoTracking()
+                .Where(category =>
+                    category.DeletedAt == null
+                    && category.TrangThai)
+                .OrderBy(category => category.TenDanhMuc)
+                .ToDictionaryAsync(
+                    category => category.IddanhMuc,
+                    category => category.TenDanhMuc)
         };
 
-        // Danh sách danh mục  
-        report.Categories = await _context.DanhMucs
-            .Select(c => new { c.IddanhMuc, c.TenDanhMuc })
-            .ToDictionaryAsync(c => c.IddanhMuc, c => c.TenDanhMuc ?? string.Empty);
+        if (categoryId.HasValue && !report.Categories.ContainsKey(categoryId.Value))
+        {
+            TempData["Error"] = "Danh mục báo cáo không tồn tại hoặc đã ngừng hoạt động.";
+            return RedirectToAction(nameof(ProductPerformance));
+        }
 
-        // Query sản phẩm
         var query = _context.ChiTietDonHangs
-            .Where(cd => cd.IddonHangNavigation!.IdtrangThai != OrderStatusIds.Cancelled
-                        && cd.IddonHangNavigation.NgayTao >= start &&
-                        cd.IddonHangNavigation.NgayTao <= end.AddDays(1).AddSeconds(-1));
+            .AsNoTracking()
+            .Where(detail =>
+                detail.IddonHangNavigation!.IdtrangThai != OrderStatusIds.Cancelled
+                && detail.IddonHangNavigation.NgayTao >= start
+                && detail.IddonHangNavigation.NgayTao < exclusiveEnd);
 
         if (categoryId.HasValue)
         {
-            query = query.Where(cd => cd.IdbienTheNavigation!.IdsanPhamNavigation!.IddanhMuc == categoryId.Value);
+            query = query.Where(detail =>
+                detail.IdbienTheNavigation!.IdsanPhamNavigation!.IddanhMuc
+                == categoryId.Value);
         }
 
         report.Products = await query
-            .GroupBy(cd => new
+            .GroupBy(detail => new
             {
-                cd.IdbienTheNavigation!.IdsanPhamNavigation!.IdsanPham,
-                cd.IdbienTheNavigation.IdsanPhamNavigation.TenSanPham,
-                cd.IdbienTheNavigation.IdsanPhamNavigation.IddanhMuc,
-                CategoryName = cd.IdbienTheNavigation.IdsanPhamNavigation.IddanhMucNavigation!.TenDanhMuc
+                detail.IdbienTheNavigation!.IdsanPhamNavigation!.IdsanPham,
+                detail.IdbienTheNavigation.IdsanPhamNavigation.TenSanPham,
+                CategoryName = detail.IdbienTheNavigation
+                    .IdsanPhamNavigation
+                    .IddanhMucNavigation!.TenDanhMuc
             })
-            .Select(g => new ProductPerformanceItemViewModel
+            .Select(group => new ProductPerformanceItemViewModel
             {
-                ProductId = g.Key.IdsanPham,
-                ProductName = g.Key.TenSanPham ?? string.Empty,
-                CategoryName = g.Key.CategoryName ?? string.Empty,
-                QuantitySold = g.Sum(cd => cd.SoLuong),
-                Revenue = g.Sum(cd => cd.SoLuong * cd.DonGia),
-                OrderCount = g.Select(cd => cd.IddonHang).Distinct().Count()
+                ProductId = group.Key.IdsanPham,
+                ProductName = group.Key.TenSanPham,
+                CategoryName = group.Key.CategoryName,
+                QuantitySold = group.Sum(detail => detail.SoLuong),
+                Revenue = group.Sum(detail => detail.SoLuong * detail.DonGia),
+                OrderCount = group.Select(detail => detail.IddonHang).Distinct().Count()
             })
-            .OrderByDescending(p => p.Revenue)
+            .OrderByDescending(product => product.Revenue)
             .ToListAsync();
 
         return View(report);
     }
+
+    private static void PopulateSalesChart(
+        SalesReportViewModel report,
+        IReadOnlyCollection<DonHang> orders)
+    {
+        var start = report.StartDate;
+        var end = report.EndDate;
+
+        if (report.Period == "daily")
+        {
+            var dates = Enumerable.Range(0, (int)(end - start).TotalDays + 1)
+                .Select(offset => start.AddDays(offset))
+                .ToList();
+            report.ChartLabels = dates
+                .Select(date => date.ToString("dd/MM"))
+                .ToList();
+            report.ChartData = dates
+                .Select(date => orders
+                    .Where(order => order.NgayTao.Date == date)
+                    .Sum(order => order.TongThanhToan))
+                .ToList();
+            return;
+        }
+
+        if (report.Period == "monthly")
+        {
+            for (var date = new DateTime(start.Year, start.Month, 1);
+                 date <= end;
+                 date = date.AddMonths(1))
+            {
+                report.ChartLabels.Add(date.ToString("MM/yyyy"));
+                report.ChartData.Add(orders
+                    .Where(order =>
+                        order.NgayTao.Year == date.Year
+                        && order.NgayTao.Month == date.Month)
+                    .Sum(order => order.TongThanhToan));
+            }
+            return;
+        }
+
+        for (var weekStart = start; weekStart <= end; weekStart = weekStart.AddDays(7))
+        {
+            var weekEnd = weekStart.AddDays(6);
+            if (weekEnd > end)
+            {
+                weekEnd = end;
+            }
+
+            report.ChartLabels.Add($"{weekStart:dd/MM} - {weekEnd:dd/MM}");
+            var exclusiveWeekEnd = weekEnd.AddDays(1);
+            report.ChartData.Add(orders
+                .Where(order =>
+                    order.NgayTao >= weekStart
+                    && order.NgayTao < exclusiveWeekEnd)
+                .Sum(order => order.TongThanhToan));
+        }
+    }
+
+    private static bool IsValidDateRange(DateTime start, DateTime end) =>
+        start <= end && (end - start).TotalDays <= 3650;
 }

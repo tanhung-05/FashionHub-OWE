@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using FashionHub.Web.Application.Admin;
 using FashionHub.Web.Data;
 using FashionHub.Web.Models.Generated;
 using FashionHub.Web.Areas.Admin.ViewModels;
@@ -14,18 +15,23 @@ namespace FashionHub.Web.Areas.Admin.Controllers
 {
     [Area("Admin")]
     [Authorize(Roles = "Admin")]
+    [AutoValidateAntiforgeryToken]
     public class ProductsController : Controller
     {
+        private const long MaxImageBytes = 5 * 1024 * 1024;
         private readonly ApplicationDbContext _context;
+        private readonly IAdminProductService _productService;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<ProductsController> _logger;
 
         public ProductsController(
             ApplicationDbContext context,
+            IAdminProductService productService,
             IWebHostEnvironment environment,
             ILogger<ProductsController> logger)
         {
             _context = context;
+            _productService = productService;
             _environment = environment;
             _logger = logger;
         }
@@ -37,6 +43,8 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 .Include(p => p.IddanhMucNavigation)
                 .Include(p => p.IdthuongHieuNavigation)
                 .Include(p => p.BienTheSanPhams)
+                    .ThenInclude(variant => variant.HinhAnhBienThes)
+                        .ThenInclude(link => link.IdhinhAnhNavigation)
                 .Where(p => p.DeletedAt == null)
                 .AsQueryable();
 
@@ -75,10 +83,15 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                     TenThuongHieu = p.IdthuongHieuNavigation?.TenThuongHieu,
                     Gia = p.Gia,
                     GiaKhuyenMai = p.GiaKhuyenMai,
+                    NgayBatDauKm = p.NgayBatDauKm,
+                    NgayKetThucKm = p.NgayKetThucKm,
                     TrangThai = p.TrangThai,
-                    VariantCount = p.BienTheSanPhams.Count,
-                    TotalStock = p.BienTheSanPhams.Sum(v => v.SoLuongTon),
+                    VariantCount = p.BienTheSanPhams.Count(v => v.DeletedAt == null),
+                    TotalStock = p.BienTheSanPhams
+                        .Where(v => v.DeletedAt == null)
+                        .Sum(v => v.SoLuongTon),
                     MainImageUrl = p.BienTheSanPhams
+                        .Where(v => v.DeletedAt == null)
                         .SelectMany(v => v.HinhAnhBienThes)
                         .Where(h => h.LaAnhChinh == true)
                         .Select(h => h.IdhinhAnhNavigation?.DuongDan)
@@ -100,9 +113,8 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         // GET: Admin/Products/Create
         public async Task<IActionResult> Create()
         {
-            ViewBag.IDDanhMuc = await GetCategoryTreeAsync();
-            ViewBag.IDThuongHieu = new SelectList(await _context.ThuongHieus.ToListAsync(), "IdthuongHieu", "TenThuongHieu");
-            return View();
+            await LoadProductOptionsAsync();
+            return View(new ProductAdminViewModel());
         }
 
         // POST: Admin/Products/Create
@@ -112,27 +124,28 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         {
             if (ModelState.IsValid)
             {
-                var product = new SanPham
+                var result = await _productService.CreateProductAsync(
+                    new SaveAdminProductRequest
+                    {
+                        Name = model.TenSanPham,
+                        Slug = await CreateUniqueSlugAsync(model.TenSanPham),
+                        Description = model.MoTa,
+                        Price = model.Gia,
+                        CategoryId = model.IDDanhMuc,
+                        BrandId = model.IDThuongHieu,
+                        IsActive = true
+                    });
+
+                if (result.IsSuccess)
                 {
-                    TenSanPham = model.TenSanPham,
-                    Slug = await CreateUniqueSlugAsync(model.TenSanPham),
-                    MoTa = model.MoTa,
-                    IddanhMuc = model.IDDanhMuc,
-                    IdthuongHieu = model.IDThuongHieu,
-                    Gia = model.Gia,
-                    TrangThai = true,
-                    NgayTao = DateTime.Now
-                };
+                    TempData["Success"] = "Tạo sản phẩm thành công! Hãy thêm biến thể.";
+                    return RedirectToAction(nameof(Edit), new { id = result.Value!.Id });
+                }
 
-                _context.SanPhams.Add(product);
-                await _context.SaveChangesAsync();
-
-                TempData["Success"] = "Tạo sản phẩm thành công! Hãy thêm biến thể.";
-                return RedirectToAction(nameof(Edit), new { id = product.IdsanPham });
+                ModelState.AddModelError(string.Empty, result.Error!.Message);
             }
 
-            ViewBag.IDDanhMuc = await GetCategoryTreeAsync(model.IDDanhMuc);
-            ViewBag.IDThuongHieu = new SelectList(await _context.ThuongHieus.ToListAsync(), "IdthuongHieu", "TenThuongHieu", model.IDThuongHieu);
+            await LoadProductOptionsAsync(model.IDDanhMuc, model.IDThuongHieu);
             return View(model);
         }
 
@@ -162,34 +175,8 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 TrangThai = product.TrangThai
             };
 
-            ViewBag.IDDanhMuc = await GetCategoryTreeAsync(product.IddanhMuc);
-            ViewBag.IDThuongHieu = new SelectList(await _context.ThuongHieus.ToListAsync(), "IdthuongHieu", "TenThuongHieu", product.IdthuongHieu);
-            ViewBag.Colors = new SelectList(await _context.MauSacs.ToListAsync(), "IdmauSac", "TenMau");
-            ViewBag.Sizes = new SelectList(await _context.KichThuocs.ToListAsync(), "IdkichThuoc", "TenKichThuoc");
-
-            // Load existing variants
-            var variants = await _context.BienTheSanPhams
-                .Where(v => v.IdsanPham == id && v.DeletedAt == null)
-                .Include(v => v.IdmauSacNavigation)
-                .Include(v => v.IdkichThuocNavigation)
-                .Include(v => v.HinhAnhBienThes)
-                    .ThenInclude(h => h.IdhinhAnhNavigation)
-                .ToListAsync();
-
-            ViewBag.ExistingVariants = variants.Select(v => new VariantDetailViewModel
-            {
-                IDBienThe = v.IdbienThe,
-                SKU = v.Sku ?? "",
-                TenMau = v.IdmauSacNavigation?.TenMau ?? "",
-                TenKichThuoc = v.IdkichThuocNavigation?.TenKichThuoc ?? "",
-                SoLuongTon = v.SoLuongTon,
-                Images = v.HinhAnhBienThes.Select(h => new VariantImageViewModel
-                {
-                    IDHinhAnh = h.IdhinhAnh,
-                    DuongDan = h.IdhinhAnhNavigation?.DuongDan ?? "",
-                    LaAnhChinh = h.LaAnhChinh
-                }).ToList()
-            }).ToList();
+            await LoadProductOptionsAsync(product.IddanhMuc, product.IdthuongHieu, includeVariants: true);
+            model.Variants = await LoadVariantsAsync(product.IdsanPham);
 
             return View(model);
         }
@@ -206,65 +193,40 @@ namespace FashionHub.Web.Areas.Admin.Controllers
 
             if (ModelState.IsValid)
             {
-                try
+                var existing = await _productService.GetProductAsync(id);
+                if (!existing.IsSuccess)
                 {
-                    var product = await _context.SanPhams
-                        .FirstOrDefaultAsync(item => item.IdsanPham == id && item.DeletedAt == null);
-                    if (product == null)
+                    return NotFound();
+                }
+
+                var current = existing.Value!;
+                var result = await _productService.UpdateProductAsync(
+                    id,
+                    new SaveAdminProductRequest
                     {
-                        return NotFound();
-                    }
+                        Name = model.TenSanPham,
+                        Slug = await CreateUniqueSlugAsync(model.TenSanPham, id),
+                        Description = model.MoTa,
+                        Price = model.Gia,
+                        SalePrice = current.SalePrice,
+                        SaleStart = current.SaleStart,
+                        SaleEnd = current.SaleEnd,
+                        CategoryId = model.IDDanhMuc,
+                        BrandId = model.IDThuongHieu,
+                        IsActive = model.TrangThai
+                    });
 
-                    product.TenSanPham = model.TenSanPham;
-                    product.Slug = await CreateUniqueSlugAsync(model.TenSanPham, product.IdsanPham);
-                    product.MoTa = model.MoTa;
-                    product.IddanhMuc = model.IDDanhMuc;
-                    product.IdthuongHieu = model.IDThuongHieu;
-                    product.Gia = model.Gia;
-                    product.TrangThai = model.TrangThai;
-                    product.NgayCapNhat = DateTime.Now;
-
-                    await _context.SaveChangesAsync();
+                if (result.IsSuccess)
+                {
                     TempData["Success"] = "Cập nhật sản phẩm thành công!";
                     return RedirectToAction(nameof(Edit), new { id = model.IDSanPham });
                 }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!await ProductExistsAsync(model.IDSanPham))
-                    {
-                        return NotFound();
-                    }
-                    throw;
-                }
+
+                ModelState.AddModelError(string.Empty, result.Error!.Message);
             }
 
-            ViewBag.IDDanhMuc = await GetCategoryTreeAsync(model.IDDanhMuc);
-            ViewBag.IDThuongHieu = new SelectList(await _context.ThuongHieus.ToListAsync(), "IdthuongHieu", "TenThuongHieu", model.IDThuongHieu);
-            ViewBag.Colors = new SelectList(await _context.MauSacs.ToListAsync(), "IdmauSac", "TenMau");
-            ViewBag.Sizes = new SelectList(await _context.KichThuocs.ToListAsync(), "IdkichThuoc", "TenKichThuoc");
-
-            var variants = await _context.BienTheSanPhams
-                .Where(v => v.IdsanPham == id && v.DeletedAt == null)
-                .Include(v => v.IdmauSacNavigation)
-                .Include(v => v.IdkichThuocNavigation)
-                .Include(v => v.HinhAnhBienThes)
-                    .ThenInclude(h => h.IdhinhAnhNavigation)
-                .ToListAsync();
-
-            ViewBag.ExistingVariants = variants.Select(v => new VariantDetailViewModel
-            {
-                IDBienThe = v.IdbienThe,
-                SKU = v.Sku ?? "",
-                TenMau = v.IdmauSacNavigation?.TenMau ?? "",
-                TenKichThuoc = v.IdkichThuocNavigation?.TenKichThuoc ?? "",
-                SoLuongTon = v.SoLuongTon,
-                Images = v.HinhAnhBienThes.Select(h => new VariantImageViewModel
-                {
-                    IDHinhAnh = h.IdhinhAnh,
-                    DuongDan = h.IdhinhAnhNavigation?.DuongDan ?? "",
-                    LaAnhChinh = h.LaAnhChinh
-                }).ToList()
-            }).ToList();
+            await LoadProductOptionsAsync(model.IDDanhMuc, model.IDThuongHieu, includeVariants: true);
+            model.Variants = await LoadVariantsAsync(id);
 
             return View(model);
         }
@@ -275,20 +237,50 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         {
             try
             {
+                if (!ModelState.IsValid)
+                {
+                    var message = ModelState.Values
+                        .SelectMany(value => value.Errors)
+                        .Select(error => error.ErrorMessage)
+                        .FirstOrDefault() ?? "Dữ liệu biến thể không hợp lệ.";
+                    return Json(new { success = false, message });
+                }
+
+                var productExists = await _context.SanPhams.AnyAsync(product =>
+                    product.IdsanPham == model.IDSanPham
+                    && product.DeletedAt == null);
+                if (!productExists)
+                {
+                    return Json(new { success = false, message = "Không tìm thấy sản phẩm." });
+                }
+
+                var attributesExist =
+                    await _context.MauSacs.AnyAsync(color => color.IdmauSac == model.IDMauSac)
+                    && await _context.KichThuocs.AnyAsync(size => size.IdkichThuoc == model.IDKichThuoc);
+                if (!attributesExist)
+                {
+                    return Json(new { success = false, message = "Màu sắc hoặc kích thước không hợp lệ." });
+                }
+
                 // Check duplicate
                 bool exists = await _context.BienTheSanPhams
                     .AnyAsync(x => x.IdsanPham == model.IDSanPham 
                         && x.IdmauSac == model.IDMauSac 
-                        && x.IdkichThuoc == model.IDKichThuoc);
+                        && x.IdkichThuoc == model.IDKichThuoc
+                        && x.DeletedAt == null);
 
                 if (exists)
                 {
                     return Json(new { success = false, message = "Size hoặc màu này có trong danh sách biến thể của sản phẩm này rồi" });
                 }
 
-                if (model.SoLuongTon < 0)
+                if (model.UploadImage is not null)
                 {
-                    return Json(new { success = false, message = "Số lượng tồn không được nhỏ hơn 0" });
+                    var imageError = await ValidateImageAsync(model.UploadImage);
+                    if (imageError is not null)
+                    {
+                        return Json(new { success = false, message = imageError });
+                    }
                 }
 
                 string sku = $"SP{model.IDSanPham}-C{model.IDMauSac}-S{model.IDKichThuoc}-{DateTime.Now.Ticks.ToString()[^10..]}";
@@ -308,40 +300,40 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 _context.BienTheSanPhams.Add(variant);
                 await _context.SaveChangesAsync();
 
+                if (model.SoLuongTon > 0)
+                {
+                    _context.LichSuTonKhos.Add(new LichSuTonKho
+                    {
+                        IdbienThe = variant.IdbienThe,
+                        IdnguoiThucHien = GetCurrentUserId(),
+                        LoaiThayDoi = InventoryChangeTypes.ManualImport,
+                        SoLuongThayDoi = model.SoLuongTon,
+                        TonTruoc = 0,
+                        TonSau = model.SoLuongTon,
+                        GhiChu = "Tồn kho ban đầu khi tạo biến thể",
+                        NgayTao = DateTime.Now
+                    });
+                    await _context.SaveChangesAsync();
+                }
+
                 // Handle image upload
                 if (model.UploadImage != null && model.UploadImage.Length > 0)
                 {
-                    string fileName = Path.GetFileName(model.UploadImage.FileName);
-                    string uniqueFileName = $"{Guid.NewGuid()}_{fileName}";
-                    string uploadsFolder = Path.Combine(_environment.WebRootPath, "images", "products");
-                    
-                    if (!Directory.Exists(uploadsFolder))
+                    var imagePath = await SaveImageFileAsync(model.UploadImage);
+                    var hinhAnh = new HinhAnh
                     {
-                        Directory.CreateDirectory(uploadsFolder);
-                    }
+                        DuongDan = imagePath,
+                        NgayTao = DateTime.Now
+                    };
+                    _context.HinhAnhs.Add(hinhAnh);
+                    await _context.SaveChangesAsync();
 
-                    string filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    _context.HinhAnhBienThes.Add(new HinhAnhBienThe
                     {
-                        await model.UploadImage.CopyToAsync(fileStream);
-                    }
-
-                var hinhAnh = new HinhAnh 
-                { 
-                    DuongDan = $"/images/products/{uniqueFileName}",
-                    NgayTao = DateTime.Now
-                };
-                _context.HinhAnhs.Add(hinhAnh);
-                await _context.SaveChangesAsync();
-
-                var link = new HinhAnhBienThe 
-                { 
-                    IdhinhAnh = hinhAnh.IdhinhAnh, 
-                    IdbienThe = variant.IdbienThe, 
-                    LaAnhChinh = true 
-                };
-                _context.HinhAnhBienThes.Add(link);
+                        IdhinhAnh = hinhAnh.IdhinhAnh,
+                        IdbienThe = variant.IdbienThe,
+                        LaAnhChinh = true
+                    });
                     await _context.SaveChangesAsync();
                 }
 
@@ -350,7 +342,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error adding variant");
-                return Json(new { success = false, message = "Lỗi: " + ex.Message });
+                return Json(new { success = false, message = "Không thể thêm biến thể. Vui lòng thử lại." });
             }
         }
 
@@ -376,7 +368,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting variant");
-                return Json(new { success = false, message = "Lỗi: " + ex.Message });
+                return Json(new { success = false, message = "Không thể xóa biến thể. Vui lòng thử lại." });
             }
         }
 
@@ -391,9 +383,9 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                     .Include(x => x.IdhinhAnhNavigation)
                     .Select(x => new
                     {
-                        x.IdhinhAnh,
-                        x.IdhinhAnhNavigation!.DuongDan,
-                        x.LaAnhChinh
+                        id = x.IdhinhAnh,
+                        url = x.IdhinhAnhNavigation!.DuongDan,
+                        isMain = x.LaAnhChinh
                     })
                     .ToListAsync();
 
@@ -402,57 +394,75 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting variant images");
-                return Json(new { success = false, message = "Lỗi: " + ex.Message });
+                return Json(new { success = false, message = "Không thể tải danh sách ảnh." });
             }
         }
 
         // POST: Admin/Products/UploadImage (AJAX)
         [HttpPost]
-        public async Task<IActionResult> UploadImage(int variantId, IFormFile file)
+        public async Task<IActionResult> UploadImage(int variantId, IFormFile? file)
+        {
+            return file is null
+                ? Json(new { success = false, message = "Vui lòng chọn ảnh." })
+                : await UploadImages(variantId, new List<IFormFile> { file });
+        }
+
+        // POST: Admin/Products/UploadImages (AJAX)
+        [HttpPost]
+        public async Task<IActionResult> UploadImages(int variantId, List<IFormFile>? images)
         {
             try
             {
-                if (file == null || file.Length == 0)
+                var variant = await _context.BienTheSanPhams
+                    .FirstOrDefaultAsync(item =>
+                        item.IdbienThe == variantId
+                        && item.DeletedAt == null);
+                if (variant is null)
                 {
-                    return Json(new { success = false, message = "Vui lòng chọn file." });
+                    return Json(new { success = false, message = "Không tìm thấy biến thể." });
                 }
 
-                string fileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
-                string uploadsFolder = Path.Combine(_environment.WebRootPath, "images", "products");
-                
-                if (!Directory.Exists(uploadsFolder))
+                if (images is null || images.Count is < 1 or > 10)
                 {
-                    Directory.CreateDirectory(uploadsFolder);
+                    return Json(new { success = false, message = "Vui lòng chọn từ 1 đến 10 ảnh." });
                 }
 
-                string filePath = Path.Combine(uploadsFolder, fileName);
-
-                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                foreach (var image in images)
                 {
-                    await file.CopyToAsync(fileStream);
+                    var imageError = await ValidateImageAsync(image);
+                    if (imageError is not null)
+                    {
+                        return Json(new { success = false, message = imageError });
+                    }
                 }
-
-                var hinhAnh = new HinhAnh { DuongDan = $"~/images/products/{fileName}" };
-                _context.HinhAnhs.Add(hinhAnh);
-                await _context.SaveChangesAsync();
 
                 bool hasImage = await _context.HinhAnhBienThes.AnyAsync(x => x.IdbienThe == variantId);
-
-                var link = new HinhAnhBienThe
+                foreach (var image in images)
                 {
-                    IdhinhAnh = hinhAnh.IdhinhAnh,
-                    IdbienThe = variantId,
-                    LaAnhChinh = !hasImage
-                };
-                _context.HinhAnhBienThes.Add(link);
+                    var hinhAnh = new HinhAnh
+                    {
+                        DuongDan = await SaveImageFileAsync(image),
+                        NgayTao = DateTime.Now
+                    };
+                    _context.HinhAnhs.Add(hinhAnh);
+                    await _context.SaveChangesAsync();
+
+                    _context.HinhAnhBienThes.Add(new HinhAnhBienThe
+                    {
+                        IdhinhAnh = hinhAnh.IdhinhAnh,
+                        IdbienThe = variantId,
+                        LaAnhChinh = !hasImage
+                    });
+                    hasImage = true;
+                }
                 await _context.SaveChangesAsync();
 
-                return Json(new { success = true, message = "Upload thành công!" });
+                return Json(new { success = true, message = $"Đã tải lên {images.Count} ảnh." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error uploading image");
-                return Json(new { success = false, message = "Lỗi: " + ex.Message });
+                _logger.LogError(ex, "Error uploading images for variant {VariantId}", variantId);
+                return Json(new { success = false, message = "Không thể tải ảnh lên. Vui lòng thử lại." });
             }
         }
 
@@ -484,7 +494,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error setting main image");
-                return Json(new { success = false, message = "Lỗi: " + ex.Message });
+                return Json(new { success = false, message = "Không thể đặt ảnh chính." });
             }
         }
 
@@ -523,7 +533,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting image");
-                return Json(new { success = false, message = "Lỗi: " + ex.Message });
+                return Json(new { success = false, message = "Không thể xóa ảnh." });
             }
         }
 
@@ -533,34 +543,15 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         {
             try
             {
-                var product = await _context.SanPhams.FindAsync(id);
-                if (product == null)
-                {
-                    return Json(new { success = false, message = "Không tìm thấy sản phẩm." });
-                }
-
-                var variants = await _context.BienTheSanPhams
-                    .Where(v => v.IdsanPham == id && v.DeletedAt == null)
-                    .ToListAsync();
-
-                foreach (var variant in variants)
-                {
-                    variant.TrangThai = false;
-                    variant.DeletedAt = DateTime.Now;
-                    variant.NgayCapNhat = DateTime.Now;
-                }
-
-                product.TrangThai = false;
-                product.DeletedAt = DateTime.Now;
-                product.NgayCapNhat = DateTime.Now;
-
-                await _context.SaveChangesAsync();
-                return Json(new { success = true });
+                var result = await _productService.DeleteProductAsync(id);
+                return result.IsSuccess
+                    ? Json(new { success = true, message = "Xóa sản phẩm thành công." })
+                    : Json(new { success = false, message = result.Error!.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting product");
-                return Json(new { success = false, message = "Lỗi hệ thống: " + ex.Message });
+                return Json(new { success = false, message = "Không thể xóa sản phẩm. Vui lòng thử lại." });
             }
         }
 
@@ -575,7 +566,10 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                     return Json(new { success = false, message = "Số lượng nhập phải lớn hơn 0." });
                 }
 
-                var variant = await _context.BienTheSanPhams.FindAsync(variantId);
+                var variant = await _context.BienTheSanPhams
+                    .FirstOrDefaultAsync(item =>
+                        item.IdbienThe == variantId
+                        && item.DeletedAt == null);
                 if (variant == null)
                 {
                     return Json(new { success = false, message = "Không tìm thấy biến thể." });
@@ -602,7 +596,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error importing stock");
-                return Json(new { success = false, message = "Lỗi: " + ex.Message });
+                return Json(new { success = false, message = "Không thể nhập kho. Vui lòng thử lại." });
             }
         }
 
@@ -618,10 +612,10 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         {
             try
             {
-                var product = await _context.SanPhams.FindAsync(id);
-                if (product == null)
+                var existing = await _productService.GetProductAsync(id);
+                if (!existing.IsSuccess)
                 {
-                    return Json(new { success = false, message = "Không tìm thấy sản phẩm." });
+                    return Json(new { success = false, message = existing.Error!.Message });
                 }
 
                 if (discountPercent < 0 || discountPercent > 100)
@@ -629,27 +623,53 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                     return Json(new { success = false, message = "% giảm giá không hợp lệ." });
                 }
 
-                if (discountPercent == 0)
+                var product = existing.Value!;
+                decimal? salePrice = null;
+                DateTime? saleStart = null;
+                DateTime? saleEnd = null;
+
+                if (discountPercent > 0)
                 {
-                    product.GiaKhuyenMai = null;
-                    product.NgayBatDauKm = null;
-                    product.NgayKetThucKm = null;
-                }
-                else
-                {
-                    decimal giamGia = product.Gia * discountPercent / 100;
-                    product.GiaKhuyenMai = product.Gia - giamGia;
-                    product.NgayBatDauKm = startDate ?? DateTime.Now;
-                    product.NgayKetThucKm = endDate ?? DateTime.Now.AddDays(30);
+                    saleStart = startDate ?? DateTime.Now;
+                    saleEnd = endDate ?? DateTime.Now.AddDays(30);
+                    if (saleEnd <= saleStart)
+                    {
+                        return Json(new
+                        {
+                            success = false,
+                            message = "Ngày kết thúc phải sau ngày bắt đầu."
+                        });
+                    }
+
+                    salePrice = product.Price - (product.Price * discountPercent / 100);
                 }
 
-                await _context.SaveChangesAsync();
+                var result = await _productService.UpdateProductAsync(
+                    id,
+                    new SaveAdminProductRequest
+                    {
+                        Name = product.Name,
+                        Slug = product.Slug,
+                        Description = product.Description,
+                        Price = product.Price,
+                        SalePrice = salePrice,
+                        SaleStart = saleStart,
+                        SaleEnd = saleEnd,
+                        CategoryId = product.CategoryId,
+                        BrandId = product.BrandId,
+                        IsActive = product.IsActive
+                    });
+                if (!result.IsSuccess)
+                {
+                    return Json(new { success = false, message = result.Error!.Message });
+                }
+
                 return Json(new { success = true, message = "Cập nhật chương trình khuyến mãi thành công!" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error applying discount");
-                return Json(new { success = false, message = "Lỗi: " + ex.Message });
+                return Json(new { success = false, message = "Không thể cập nhật khuyến mãi. Vui lòng thử lại." });
             }
         }
 
@@ -697,39 +717,148 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         private async Task<List<SelectListItem>> GetCategoryTreeAsync(int? selectedId = null)
         {
             var items = new List<SelectListItem>();
-            var rootCategories = await _context.DanhMucs
-                .Where(c => c.IddanhMucCha == null && c.DeletedAt == null && c.TrangThai)
+            var categories = await _context.DanhMucs
+                .AsNoTracking()
+                .Where(category => category.DeletedAt == null && category.TrangThai)
+                .OrderBy(category => category.TenDanhMuc)
                 .ToListAsync();
 
-            foreach (var cat in rootCategories)
+            foreach (var category in categories.Where(item => item.IddanhMucCha == null))
             {
                 items.Add(new SelectListItem
                 {
-                    Value = cat.IddanhMuc.ToString(),
-                    Text = cat.TenDanhMuc?.ToUpper() ?? "",
-                    Disabled = true
+                    Value = category.IddanhMuc.ToString(),
+                    Text = category.TenDanhMuc,
+                    Selected = selectedId == category.IddanhMuc
                 });
 
-                var childCategories = await _context.DanhMucs
-                    .Where(c => c.IddanhMucCha == cat.IddanhMuc && c.DeletedAt == null && c.TrangThai)
-                    .ToListAsync();
-
-                foreach (var child in childCategories)
+                foreach (var child in categories.Where(item =>
+                    item.IddanhMucCha == category.IddanhMuc))
                 {
                     items.Add(new SelectListItem
                     {
                         Value = child.IddanhMuc.ToString(),
-                        Text = "|__ " + child.TenDanhMuc,
-                        Selected = (selectedId == child.IddanhMuc)
+                        Text = $"— {child.TenDanhMuc}",
+                        Selected = selectedId == child.IddanhMuc
                     });
                 }
             }
             return items;
         }
 
-        private async Task<bool> ProductExistsAsync(int id)
+        private async Task LoadProductOptionsAsync(
+            int? selectedCategoryId = null,
+            int? selectedBrandId = null,
+            bool includeVariants = false)
         {
-            return await _context.SanPhams.AnyAsync(e => e.IdsanPham == id && e.DeletedAt == null);
+            ViewBag.DanhMucs = await GetCategoryTreeAsync(selectedCategoryId);
+            ViewBag.ThuongHieux = new SelectList(
+                await _context.ThuongHieus
+                    .Where(brand => brand.DeletedAt == null)
+                    .OrderBy(brand => brand.TenThuongHieu)
+                    .ToListAsync(),
+                nameof(ThuongHieu.IdthuongHieu),
+                nameof(ThuongHieu.TenThuongHieu),
+                selectedBrandId);
+
+            if (includeVariants)
+            {
+                ViewBag.Colors = await _context.MauSacs
+                    .OrderBy(color => color.TenMau)
+                    .ToListAsync();
+                ViewBag.Sizes = await _context.KichThuocs
+                    .OrderBy(size => size.TenKichThuoc)
+                    .ToListAsync();
+            }
+        }
+
+        private async Task<List<VariantDetailViewModel>> LoadVariantsAsync(int productId)
+        {
+            var variants = await _context.BienTheSanPhams
+                .AsNoTracking()
+                .Where(variant =>
+                    variant.IdsanPham == productId
+                    && variant.DeletedAt == null)
+                .Include(variant => variant.IdmauSacNavigation)
+                .Include(variant => variant.IdkichThuocNavigation)
+                .Include(variant => variant.HinhAnhBienThes)
+                    .ThenInclude(link => link.IdhinhAnhNavigation)
+                .OrderBy(variant => variant.IdmauSacNavigation!.TenMau)
+                .ThenBy(variant => variant.IdkichThuocNavigation!.TenKichThuoc)
+                .ToListAsync();
+
+            return variants.Select(variant => new VariantDetailViewModel
+            {
+                IDBienThe = variant.IdbienThe,
+                SKU = variant.Sku ?? string.Empty,
+                TenMau = variant.IdmauSacNavigation?.TenMau ?? string.Empty,
+                TenKichThuoc = variant.IdkichThuocNavigation?.TenKichThuoc ?? string.Empty,
+                SoLuongTon = variant.SoLuongTon,
+                Images = variant.HinhAnhBienThes.Select(link => new VariantImageViewModel
+                {
+                    IDHinhAnh = link.IdhinhAnh,
+                    DuongDan = link.IdhinhAnhNavigation?.DuongDan ?? string.Empty,
+                    LaAnhChinh = link.LaAnhChinh
+                }).ToList()
+            }).ToList();
+        }
+
+        private static async Task<string?> ValidateImageAsync(IFormFile file)
+        {
+            if (file.Length == 0)
+            {
+                return "Tệp ảnh đang trống.";
+            }
+
+            if (file.Length > MaxImageBytes)
+            {
+                return "Mỗi ảnh không được vượt quá 5 MB.";
+            }
+
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (extension is not ".jpg" and not ".jpeg" and not ".png" and not ".gif" and not ".webp")
+            {
+                return "Chỉ chấp nhận ảnh JPG, PNG, GIF hoặc WebP.";
+            }
+
+            var header = new byte[12];
+            await using var stream = file.OpenReadStream();
+            var bytesRead = await stream.ReadAsync(header);
+            var isJpeg = bytesRead >= 3
+                && header[0] == 0xFF
+                && header[1] == 0xD8
+                && header[2] == 0xFF;
+            var isPng = bytesRead >= 8
+                && header.AsSpan(0, 8).SequenceEqual(
+                    new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A });
+            var isGif = bytesRead >= 6
+                && Encoding.ASCII.GetString(header, 0, 6) is "GIF87a" or "GIF89a";
+            var isWebP = bytesRead >= 12
+                && Encoding.ASCII.GetString(header, 0, 4) == "RIFF"
+                && Encoding.ASCII.GetString(header, 8, 4) == "WEBP";
+
+            return isJpeg || isPng || isGif || isWebP
+                ? null
+                : "Nội dung tệp không phải là định dạng ảnh hợp lệ.";
+        }
+
+        private async Task<string> SaveImageFileAsync(IFormFile file)
+        {
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var fileName = $"{Guid.NewGuid():N}{extension}";
+            var webRoot = _environment.WebRootPath
+                ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
+            var uploadsFolder = Path.Combine(webRoot, "images", "products");
+            Directory.CreateDirectory(uploadsFolder);
+
+            var filePath = Path.Combine(uploadsFolder, fileName);
+            await using var fileStream = new FileStream(
+                filePath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None);
+            await file.CopyToAsync(fileStream);
+            return $"/images/products/{fileName}";
         }
 
         private async Task<string> CreateUniqueSlugAsync(string name, int? excludeId = null)

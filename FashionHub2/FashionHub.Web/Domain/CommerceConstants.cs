@@ -9,6 +9,32 @@ public static class OrderStatusIds
     public const int Cancelled = 4;
 }
 
+public static class OrderStatusTransitions
+{
+    public static bool CanTransition(int currentStatus, int nextStatus) =>
+        (currentStatus, nextStatus) switch
+        {
+            (OrderStatusIds.Pending, OrderStatusIds.Confirmed) => true,
+            (OrderStatusIds.Pending, OrderStatusIds.Cancelled) => true,
+            (OrderStatusIds.Confirmed, OrderStatusIds.Shipping) => true,
+            (OrderStatusIds.Confirmed, OrderStatusIds.Cancelled) => true,
+            (OrderStatusIds.Shipping, OrderStatusIds.Completed) => true,
+            _ => false
+        };
+
+    public static IReadOnlyList<int> GetAllowedNextStatusIds(int currentStatus) =>
+        currentStatus switch
+        {
+            OrderStatusIds.Pending =>
+                [OrderStatusIds.Confirmed, OrderStatusIds.Cancelled],
+            OrderStatusIds.Confirmed =>
+                [OrderStatusIds.Shipping, OrderStatusIds.Cancelled],
+            OrderStatusIds.Shipping =>
+                [OrderStatusIds.Completed],
+            _ => []
+        };
+}
+
 public static class CouponTypes
 {
     public const int FixedAmount = 1;

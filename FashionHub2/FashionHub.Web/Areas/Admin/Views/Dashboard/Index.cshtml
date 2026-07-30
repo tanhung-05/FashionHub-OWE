@@ -284,10 +284,10 @@
                 new Chart(ctx, {
                     type: 'bar',
                     data: {
-                        labels: [@Html.Raw(string.Join(",", Model.MonthlyRevenues.Select(m => $"'{m.Month}'")))],
+                        labels: @Html.Raw(Json.Serialize(Model.MonthlyRevenues.Select(item => item.Month))),
                         datasets: [{
                             label: 'Doanh thu (₫)',
-                            data: [@string.Join(",", Model.MonthlyRevenues.Select(m => m.Revenue))],
+                            data: @Html.Raw(Json.Serialize(Model.MonthlyRevenues.Select(item => item.Revenue))),
                             backgroundColor: 'rgba(13, 110, 253, 0.8)',
                             borderColor: 'rgba(13, 110, 253, 1)',
                             borderWidth: 1,

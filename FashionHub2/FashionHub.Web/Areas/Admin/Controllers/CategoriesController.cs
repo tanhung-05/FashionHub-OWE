@@ -10,6 +10,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
 {
     [Area("Admin")]
     [Authorize(Roles = "Admin")]
+    [AutoValidateAntiforgeryToken]
     public class CategoriesController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -22,19 +23,30 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         public async Task<IActionResult> Index(string? searchTerm)
         {
             var query = _context.DanhMucs
+                .AsNoTracking()
                 .Include(d => d.IddanhMucChaNavigation)
                 .Include(d => d.SanPhams)
+                .Include(d => d.InverseIddanhMucChaNavigation)
+                    .ThenInclude(child => child.SanPhams)
                 .Where(d => d.DeletedAt == null)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
-                query = query.Where(d => d.TenDanhMuc.Contains(searchTerm));
+                var keyword = searchTerm.Trim();
+                query = query.Where(d =>
+                    d.TenDanhMuc.Contains(keyword)
+                    || d.InverseIddanhMucChaNavigation.Any(child =>
+                        child.DeletedAt == null
+                        && child.TenDanhMuc.Contains(keyword)));
+            }
+            else
+            {
+                query = query.Where(category => category.IddanhMucCha == null);
             }
 
             var categories = await query
-                .OrderBy(d => d.IddanhMucCha ?? 0)
-                .ThenBy(d => d.TenDanhMuc)
+                .OrderBy(d => d.TenDanhMuc)
                 .ToListAsync();
 
             var viewModel = new CategoryListViewModel
@@ -61,7 +73,8 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 // Check if category name already exists
                 var exists = await _context.DanhMucs
                     .AnyAsync(d => d.TenDanhMuc == model.Name && 
-                                   d.IddanhMucCha == model.ParentCategoryId);
+                                   d.IddanhMucCha == model.ParentCategoryId
+                                   && d.DeletedAt == null);
 
                 if (exists)
                 {
@@ -93,7 +106,9 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         {
             var category = await _context.DanhMucs
                 .Include(d => d.IddanhMucChaNavigation)
-                .FirstOrDefaultAsync(d => d.IddanhMuc == id);
+                .FirstOrDefaultAsync(d =>
+                    d.IddanhMuc == id
+                    && d.DeletedAt == null);
 
             if (category == null)
             {
@@ -131,7 +146,8 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 else if (await _context.DanhMucs.AnyAsync(d => 
                     d.TenDanhMuc == model.Name && 
                     d.IddanhMucCha == model.ParentCategoryId && 
-                    d.IddanhMuc != id))
+                    d.IddanhMuc != id
+                    && d.DeletedAt == null))
                 {
                     ModelState.AddModelError("Name", "Danh mục này đã tồn tại.");
                 }

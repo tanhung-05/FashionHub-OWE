@@ -1,0 +1,145 @@
+@model ProductPerformanceViewModel
+@{
+    ViewData["Title"] = "Hiệu suất sản phẩm";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h2 class="h4 mb-1">Hiệu suất sản phẩm</h2>
+        <p class="text-muted mb-0">So sánh doanh thu, sản lượng và số đơn theo sản phẩm.</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Quay lại
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" asp-action="ProductPerformance" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="productStartDate" class="form-label">Từ ngày</label>
+                <input id="productStartDate" type="date" name="startDate" class="form-control"
+                       value="@Model.StartDate.ToString("yyyy-MM-dd")" required />
+            </div>
+            <div class="col-md-3">
+                <label for="productEndDate" class="form-label">Đến ngày</label>
+                <input id="productEndDate" type="date" name="endDate" class="form-control"
+                       value="@Model.EndDate.ToString("yyyy-MM-dd")" required />
+            </div>
+            <div class="col-md-4">
+                <label for="categoryId" class="form-label">Danh mục</label>
+                <select id="categoryId" name="categoryId" class="form-select">
+                    <option value="">Tất cả danh mục</option>
+                    @foreach (var category in Model.Categories)
+                    {
+                        <option value="@category.Key" selected="@(Model.CategoryId == category.Key)">
+                            @category.Value
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-dark w-100">
+                    <i class="bi bi-funnel me-1" aria-hidden="true"></i>Lọc
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Model.Products.Count == 0)
+{
+    <div class="card">
+        <div class="admin-empty-state">
+            <i class="bi bi-bar-chart" aria-hidden="true"></i>
+            Không có dữ liệu bán hàng trong khoảng thời gian đã chọn.
+        </div>
+    </div>
+}
+else
+{
+    <div class="card mb-4">
+        <div class="card-header bg-white py-3">
+            <h3 class="h6 mb-0">Top 10 sản phẩm theo doanh thu</h3>
+        </div>
+        <div class="card-body">
+            <div style="min-height: 300px;">
+                <canvas id="productPerformanceChart" aria-label="Biểu đồ doanh thu sản phẩm"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Sản phẩm</th>
+                        <th>Danh mục</th>
+                        <th class="text-end">Số đơn</th>
+                        <th class="text-end">Đã bán</th>
+                        <th class="text-end">Doanh thu</th>
+                        <th class="text-end">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var product in Model.Products)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@product.ProductName</td>
+                            <td>@product.CategoryName</td>
+                            <td class="text-end">@product.OrderCount.ToString("N0")</td>
+                            <td class="text-end">@product.QuantitySold.ToString("N0")</td>
+                            <td class="text-end fw-bold">@product.Revenue.ToString("N0") đ</td>
+                            <td class="text-end">
+                                <a asp-controller="Products" asp-action="Edit"
+                                   asp-route-id="@product.ProductId"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Mở
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    @if (Model.Products.Count > 0)
+    {
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+            const productChartCanvas = document.getElementById('productPerformanceChart');
+            new Chart(productChartCanvas, {
+                type: 'bar',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.Products.Take(10).Select(product => product.ProductName))),
+                    datasets: [{
+                        label: 'Doanh thu (đ)',
+                        data: @Html.Raw(Json.Serialize(Model.Products.Take(10).Select(product => product.Revenue))),
+                        backgroundColor: '#171717',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: value => Number(value).toLocaleString('vi-VN') + ' đ'
+                            }
+                        }
+                    }
+                }
+            });
+        </script>
+    }
+}

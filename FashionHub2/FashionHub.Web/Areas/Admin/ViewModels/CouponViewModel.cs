@@ -22,7 +22,7 @@ namespace FashionHub.Web.Areas.Admin.ViewModels
 
         [Required(ErrorMessage = "Giá trị là bắt buộc")]
         [Display(Name = "Giá trị")]
-        [Range(0, double.MaxValue, ErrorMessage = "Giá trị phải lớn hơn 0")]
+        [Range(typeof(decimal), "0.01", "79228162514264337593543950335", ErrorMessage = "Giá trị phải lớn hơn 0")]
         public decimal GiaTri { get; set; }
 
         [Display(Name = "Đơn hàng tối thiểu")]

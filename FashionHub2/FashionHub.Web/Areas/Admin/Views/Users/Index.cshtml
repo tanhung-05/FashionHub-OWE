@@ -3,7 +3,7 @@
     ViewData["Title"] = "Quản lý khách hàng";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
     <h2>@ViewData["Title"]</h2>
 </div>
 
@@ -73,7 +73,7 @@
                                         <i class="bi bi-eye"></i>
                                     </a>
                                     <button type="button" class="btn btn-sm btn-warning" 
-                                            onclick="toggleUserStatus(@user.IdnguoiDung)" 
+                                            data-user-toggle="@user.IdnguoiDung"
                                             title="@(user.TrangThai == true ? "Khóa tài khoản" : "Mở khóa tài khoản")">
                                         <i class="bi bi-@(user.TrangThai == true ? "lock" : "unlock")"></i>
                                     </button>
@@ -89,29 +89,26 @@
 
 @section Scripts {
     <script>
-        function toggleUserStatus(id) {
-            if (!confirm('Bạn có chắc muốn thay đổi trạng thái tài khoản này?')) return;
-
-            fetch('/Admin/Users/ToggleStatus', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
-                },
-                body: JSON.stringify(id)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert(data.message || 'Có lỗi xảy ra');
+        document.querySelectorAll('[data-user-toggle]').forEach(function (button) {
+            button.addEventListener('click', async function () {
+                if (!window.confirm('Thay đổi trạng thái tài khoản này? Phiên đăng nhập hiện tại của khách hàng sẽ bị thu hồi.')) {
+                    return;
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Có lỗi xảy ra khi cập nhật trạng thái');
+
+                try {
+                    const response = await AdminUI.postForm(
+                        '@Url.Action("ToggleStatus", "Users", new { area = "Admin" })',
+                        { id: button.dataset.userToggle },
+                        button);
+                    if (!response.success) {
+                        throw new Error(response.message || 'Không thể cập nhật trạng thái.');
+                    }
+                    AdminUI.showToast('success', response.message);
+                    window.location.reload();
+                } catch (error) {
+                    AdminUI.showToast('error', error.message || 'Không thể kết nối đến máy chủ.');
+                }
             });
-        }
+        });
     </script>
 }

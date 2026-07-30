@@ -1,5 +1,6 @@
 using FashionHub.Web.Areas.Admin.ViewModels;
 using FashionHub.Web.Data;
+using FashionHub.Web.Domain;
 using FashionHub.Web.Models.Generated;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
 {
     [Area("Admin")]
     [Authorize(Roles = "Admin")]
+    [AutoValidateAntiforgeryToken]
     public class UsersController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -21,10 +23,9 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         // GET: Admin/Users
         public async Task<IActionResult> Index(string searchString)
         {
-            // Chỉ lấy VaiTro = 2 (Khách hàng), không lấy Admin
             var usersQuery = _context.NguoiDungs
-                .Include(u => u.IdvaiTroNavigation)
-                .Where(u => u.IdvaiTro == 2);
+                .AsNoTracking()
+                .Where(user => user.IdvaiTro == 2 && user.DeletedAt == null);
 
             if (!string.IsNullOrEmpty(searchString))
             {
@@ -35,24 +36,26 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 );
             }
 
-            var users = await usersQuery
-                .OrderByDescending(u => u.NgayTao)
+            var viewModels = await usersQuery
+                .OrderByDescending(user => user.NgayTao)
+                .Select(user => new UserViewModel
+                {
+                    IdnguoiDung = user.IdnguoiDung,
+                    HoTen = user.HoTen,
+                    Email = user.Email,
+                    SoDienThoai = user.SoDienThoai,
+                    VaiTro = user.IdvaiTroNavigation.TenVaiTro,
+                    NgayTao = user.NgayTao,
+                    TrangThai = user.TrangThai,
+                    TotalOrders = _context.DonHangs.Count(order =>
+                        order.IdnguoiDung == user.IdnguoiDung),
+                    TotalSpent = _context.DonHangs
+                        .Where(order =>
+                            order.IdnguoiDung == user.IdnguoiDung
+                            && order.IdtrangThai == OrderStatusIds.Completed)
+                        .Sum(order => (decimal?)order.TongThanhToan) ?? 0
+                })
                 .ToListAsync();
-
-            var viewModels = users.Select(u => new UserViewModel
-            {
-                IdnguoiDung = u.IdnguoiDung,
-                HoTen = u.HoTen,
-                Email = u.Email,
-                SoDienThoai = u.SoDienThoai,
-                VaiTro = u.IdvaiTroNavigation.TenVaiTro,
-                NgayTao = u.NgayTao,
-                TrangThai = u.TrangThai,
-                TotalOrders = _context.DonHangs.Count(d => d.IdnguoiDung == u.IdnguoiDung),
-                TotalSpent = _context.DonHangs
-                    .Where(d => d.IdnguoiDung == u.IdnguoiDung && d.IdtrangThai == 3)
-                    .Sum(d => (decimal?)d.TongThanhToan) ?? 0
-            }).ToList();
 
             ViewBag.SearchString = searchString;
             return View(viewModels);
@@ -63,7 +66,10 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         {
             var user = await _context.NguoiDungs
                 .Include(u => u.IdvaiTroNavigation)
-                .FirstOrDefaultAsync(u => u.IdnguoiDung == id);
+                .FirstOrDefaultAsync(u =>
+                    u.IdnguoiDung == id
+                    && u.IdvaiTro == 2
+                    && u.DeletedAt == null);
 
             if (user == null)
             {
@@ -81,7 +87,9 @@ namespace FashionHub.Web.Areas.Admin.Controllers
 
             // Tính tổng chi tiêu
             var totalSpent = await _context.DonHangs
-                .Where(d => d.IdnguoiDung == id && d.IdtrangThai == 3)
+                .Where(d =>
+                    d.IdnguoiDung == id
+                    && d.IdtrangThai == OrderStatusIds.Completed)
                 .SumAsync(d => (decimal?)d.TongThanhToan) ?? 0;
 
             ViewBag.TotalSpent = totalSpent;
@@ -106,19 +114,28 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         [HttpPost]
         public async Task<IActionResult> ToggleStatus(int id)
         {
-            var user = await _context.NguoiDungs.FindAsync(id);
+            var user = await _context.NguoiDungs.FirstOrDefaultAsync(item =>
+                item.IdnguoiDung == id
+                && item.IdvaiTro == 2
+                && item.DeletedAt == null);
             if (user == null)
             {
                 return Json(new { success = false, message = "Không tìm thấy người dùng" });
             }
 
-            // Đảo ngược trạng thái
-            bool currentStatus = user.TrangThai;
-            user.TrangThai = !currentStatus;
+            user.TrangThai = !user.TrangThai;
+            user.SecurityStamp = Guid.NewGuid();
 
             await _context.SaveChangesAsync();
 
-            return Json(new { success = true, newStatus = user.TrangThai });
+            return Json(new
+            {
+                success = true,
+                newStatus = user.TrangThai,
+                message = user.TrangThai
+                    ? "Đã mở khóa tài khoản."
+                    : "Đã khóa tài khoản và thu hồi phiên đăng nhập."
+            });
         }
     }
 }

@@ -1,6 +1,8 @@
 @model FashionHub.Web.Areas.Admin.ViewModels.CategoryViewModel
 @{
     ViewData["Title"] = "Chỉnh sửa danh mục";
+    var parentCategories = ViewBag.ParentCategories as IEnumerable<CategoryViewModel>
+        ?? Enumerable.Empty<CategoryViewModel>();
 }
 
 <div class="mb-4">
@@ -31,7 +33,7 @@
                         <label asp-for="ParentCategoryId" class="form-label"></label>
                         <select asp-for="ParentCategoryId" class="form-select">
                             <option value="">-- Không có (danh mục gốc) --</option>
-                            @foreach (var parent in ViewBag.ParentCategories as List<FashionHub.Web.Areas.Admin.ViewModels.CategoryViewModel>)
+                            @foreach (var parent in parentCategories)
                             {
                                 <option value="@parent.Id">@parent.Name</option>
                             }

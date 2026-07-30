@@ -1,11 +1,15 @@
 @model FashionHub.Web.Areas.Admin.ViewModels.ProductAdminViewModel
 @{
     ViewData["Title"] = "Quản lý sản phẩm: " + Model.TenSanPham;
+    var colors = ViewBag.Colors as IEnumerable<MauSac> ?? Enumerable.Empty<MauSac>();
+    var sizes = ViewBag.Sizes as IEnumerable<KichThuoc> ?? Enumerable.Empty<KichThuoc>();
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <h2>@ViewData["Title"]</h2>
-    <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>
+    <a asp-action="Index" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Quay lại danh sách
+    </a>
 </div>
 
 <!-- PHẦN 1: THÔNG TIN CHUNG -->
@@ -14,6 +18,7 @@
     <div class="card-body">
         <form asp-action="Edit" method="post">
             <input type="hidden" asp-for="IDSanPham" />
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
             
             <div class="row">
                 <div class="col-md-6 mb-3">
@@ -49,7 +54,9 @@
                 <label asp-for="TrangThai" class="form-check-label">Đang bán</label>
             </div>
 
-            <button type="submit" class="btn btn-success">Lưu thông tin chung</button>
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-check-lg me-1" aria-hidden="true"></i>Lưu thông tin chung
+            </button>
         </form>
     </div>
 </div>
@@ -58,12 +65,13 @@
 <div class="card">
     <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
         <span>Danh sách biến thể (Màu sắc - Kích thước)</span>
-        <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addVariantModal">
+        <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addVariantModal">
             <i class="bi bi-plus-circle"></i> Thêm biến thể mới
         </button>
     </div>
     <div class="card-body">
-        <table class="table table-bordered table-hover align-middle">
+        <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
                     <th>Ảnh</th>
@@ -103,16 +111,16 @@
                                 </div>
                                 <div class="input-group input-group-sm">
                                     <input type="number" class="form-control" id="import-qty-@v.IDBienThe" placeholder="Nhập thêm..." min="1">
-                                    <button class="btn btn-success btn-import-stock" data-id="@v.IDBienThe">
+                                    <button type="button" class="btn btn-success btn-import-stock" data-id="@v.IDBienThe">
                                         <i class="bi bi-download"></i> Nhập
                                     </button>
                                 </div>
                             </td>
                             <td>
-                                <button class="btn btn-sm btn-info text-white btn-manage-images me-1" data-id="@v.IDBienThe" title="Quản lý ảnh">
+                                <button type="button" class="btn btn-sm btn-info text-white btn-manage-images me-1" data-id="@v.IDBienThe" title="Quản lý ảnh">
                                     <i class="bi bi-images"></i>
                                 </button>
-                                <button class="btn btn-sm btn-danger btn-delete-variant" data-id="@v.IDBienThe" title="Xóa biến thể">
+                                <button type="button" class="btn btn-sm btn-danger btn-delete-variant" data-id="@v.IDBienThe" title="Xóa biến thể">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </td>
@@ -125,25 +133,27 @@
                 }
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 
 <!-- MODAL THÊM BIẾN THỂ -->
-<div class="modal fade" id="addVariantModal" tabindex="-1">
+<div class="modal fade" id="addVariantModal" tabindex="-1" aria-labelledby="addVariantModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Thêm biến thể mới</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="addVariantModalLabel">Thêm biến thể mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
             </div>
             <div class="modal-body">
                 <form id="add-variant-form">
-                    <input type="hidden" name="productId" value="@Model.IDSanPham" />
+                    <input type="hidden" name="IDSanPham" value="@Model.IDSanPham" />
+                    @Html.AntiForgeryToken()
                     <div class="row">
                         <div class="col-6 mb-3">
                             <label class="form-label">Màu sắc</label>
-                            <select name="colorId" class="form-select">
-                                @foreach (var color in ViewBag.Colors as List<FashionHub.Web.Models.Generated.MauSac>)
+                            <select name="IDMauSac" class="form-select" required>
+                                @foreach (var color in colors)
                                 {
                                     <option value="@color.IdmauSac">@color.TenMau</option>
                                 }
@@ -151,8 +161,8 @@
                         </div>
                         <div class="col-6 mb-3">
                             <label class="form-label">Kích thước</label>
-                            <select name="sizeId" class="form-select">
-                                @foreach (var size in ViewBag.Sizes as List<FashionHub.Web.Models.Generated.KichThuoc>)
+                            <select name="IDKichThuoc" class="form-select" required>
+                                @foreach (var size in sizes)
                                 {
                                     <option value="@size.IdkichThuoc">@size.TenKichThuoc</option>
                                 }
@@ -161,7 +171,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Số lượng ban đầu</label>
-                        <input type="number" name="initialStock" class="form-control" min="0" value="0" />
+                        <input type="number" name="SoLuongTon" class="form-control" min="0" value="0" required />
                     </div>
                 </form>
             </div>
@@ -174,12 +184,12 @@
 </div>
 
 <!-- MODAL QUẢN LÝ ẢNH -->
-<div class="modal fade" id="imagesModal" tabindex="-1">
+<div class="modal fade" id="imagesModal" tabindex="-1" aria-labelledby="imagesModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Quản lý ảnh biến thể</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="imagesModalLabel">Quản lý ảnh biến thể</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="current-variant-id" />
@@ -187,8 +197,9 @@
                 <!-- Upload ảnh mới -->
                 <div class="mb-4">
                     <label class="form-label fw-bold">Upload ảnh mới</label>
-                    <input type="file" id="image-upload" class="form-control" accept="image/*" multiple />
-                    <div class="form-text">Chọn nhiều ảnh cùng lúc. Ảnh đầu tiên sẽ là ảnh chính.</div>
+                    <input type="file" id="image-upload" class="form-control"
+                           accept=".jpg,.jpeg,.png,.gif,.webp" multiple />
+                    <div class="form-text">Tối đa 10 ảnh, mỗi ảnh không quá 5 MB. Ảnh đầu tiên sẽ là ảnh chính.</div>
                 </div>
 
                 <!-- Danh sách ảnh hiện tại -->
@@ -209,207 +220,219 @@
 
 @section Scripts {
 <script>
-$(document).ready(function() {
-    // Thêm biến thể
-    $('#btn-save-variant').on('click', function() {
-        const formData = $('#add-variant-form').serialize();
-        
-        $.ajax({
-            url: '@Url.Action("AddVariant")',
-            type: 'POST',
-            data: formData,
-            success: function(response) {
-                if (response.success) {
-                    showToast('success', 'Thêm biến thể thành công!');
-                    $('#addVariantModal').modal('hide');
-                    location.reload();
-                } else {
-                    showToast('error', response.message || 'Có lỗi xảy ra!');
-                }
-            },
-            error: function() {
-                showToast('error', 'Lỗi kết nối server!');
-            }
-        });
-    });
+(function () {
+    const addVariantModal = bootstrap.Modal.getOrCreateInstance(
+        document.getElementById('addVariantModal'));
+    const imagesModal = bootstrap.Modal.getOrCreateInstance(
+        document.getElementById('imagesModal'));
+    const imageGrid = document.getElementById('images-grid');
+    const variantInput = document.getElementById('current-variant-id');
 
-    // Xóa biến thể
-    $('.btn-delete-variant').on('click', function() {
-        const variantId = $(this).data('id');
-        
-        if (confirm('Bạn có chắc muốn xóa biến thể này?')) {
-            $.ajax({
-                url: '@Url.Action("DeleteVariant")',
-                type: 'POST',
-                data: { id: variantId },
-                success: function(response) {
-                    if (response.success) {
-                        showToast('success', 'Xóa biến thể thành công!');
-                        $('#variant-row-' + variantId).remove();
-                    } else {
-                        showToast('error', response.message || 'Có lỗi xảy ra!');
-                    }
-                },
-                error: function() {
-                    showToast('error', 'Lỗi kết nối server!');
-                }
-            });
+    async function run(action) {
+        try {
+            await action();
+        } catch (error) {
+            AdminUI.showToast('error', error.message || 'Không thể kết nối đến máy chủ.');
         }
-    });
+    }
 
-    // Nhập kho
-    $('.btn-import-stock').on('click', function() {
-        const variantId = $(this).data('id');
-        const qty = parseInt($('#import-qty-' + variantId).val());
-        
-        if (!qty || qty < 1) {
-            showToast('error', 'Vui lòng nhập số lượng hợp lệ!');
+    document.getElementById('btn-save-variant').addEventListener('click', function () {
+        const button = this;
+        const form = document.getElementById('add-variant-form');
+        if (!form.reportValidity()) {
             return;
         }
 
-        $.ajax({
-            url: '@Url.Action("ImportStock")',
-            type: 'POST',
-            data: { variantId: variantId, quantity: qty },
-            success: function(response) {
-                if (response.success) {
-                    showToast('success', 'Nhập kho thành công!');
-                    $('#stock-display-' + variantId).text(response.newStock);
-                    $('#import-qty-' + variantId).val('');
-                } else {
-                    showToast('error', response.message || 'Có lỗi xảy ra!');
-                }
-            },
-            error: function() {
-                showToast('error', 'Lỗi kết nối server!');
+        run(async function () {
+            const response = await AdminUI.postForm(
+                '@Url.Action("AddVariant", "Products", new { area = "Admin" })',
+                new FormData(form),
+                button);
+            if (!response.success) {
+                throw new Error(response.message || 'Không thể thêm biến thể.');
             }
+            AdminUI.showToast('success', response.message);
+            addVariantModal.hide();
+            window.location.reload();
         });
     });
 
-    // Quản lý ảnh
-    $('.btn-manage-images').on('click', function() {
-        const variantId = $(this).data('id');
-        $('#current-variant-id').val(variantId);
-        
-        // Load ảnh hiện tại
-        $.ajax({
-            url: '@Url.Action("GetVariantImages")',
-            type: 'GET',
-            data: { variantId: variantId },
-            success: function(response) {
-                if (response.success) {
-                    renderImages(response.images);
-                    $('#imagesModal').modal('show');
-                } else {
-                    showToast('error', 'Không thể tải ảnh!');
-                }
+    document.querySelectorAll('.btn-delete-variant').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const variantId = button.dataset.id;
+            if (!window.confirm('Xóa biến thể này? Biến thể sẽ ngừng hoạt động.')) {
+                return;
             }
+
+            run(async function () {
+                const response = await AdminUI.postForm(
+                    '@Url.Action("DeleteVariant", "Products", new { area = "Admin" })',
+                    { id: variantId },
+                    button);
+                if (!response.success) {
+                    throw new Error(response.message || 'Không thể xóa biến thể.');
+                }
+                document.getElementById('variant-row-' + variantId)?.remove();
+                AdminUI.showToast('success', 'Đã xóa biến thể.');
+            });
         });
     });
 
-    // Upload ảnh
-    $('#btn-upload-images').on('click', function() {
-        const variantId = $('#current-variant-id').val();
-        const files = $('#image-upload')[0].files;
-        
+    document.querySelectorAll('.btn-import-stock').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const variantId = button.dataset.id;
+            const quantityInput = document.getElementById('import-qty-' + variantId);
+            const quantity = Number.parseInt(quantityInput.value, 10);
+            if (!Number.isInteger(quantity) || quantity < 1) {
+                AdminUI.showToast('error', 'Vui lòng nhập số lượng lớn hơn 0.');
+                quantityInput.focus();
+                return;
+            }
+
+            run(async function () {
+                const response = await AdminUI.postForm(
+                    '@Url.Action("ImportStock", "Products", new { area = "Admin" })',
+                    { variantId, quantityToAdd: quantity },
+                    button);
+                if (!response.success) {
+                    throw new Error(response.message || 'Không thể nhập kho.');
+                }
+                document.getElementById('stock-display-' + variantId).textContent = response.newStock;
+                quantityInput.value = '';
+                AdminUI.showToast('success', response.message);
+            });
+        });
+    });
+
+    async function loadImages(variantId) {
+        imageGrid.innerHTML = '<p class="text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Đang tải ảnh...</p>';
+        const url = new URL(
+            '@Url.Action("GetVariantImages", "Products", new { area = "Admin" })',
+            window.location.origin);
+        url.searchParams.set('variantId', variantId);
+        const response = await fetch(url, { credentials: 'same-origin' });
+        const payload = await AdminUI.parseResponse(response);
+        if (!payload.success) {
+            throw new Error(payload.message || 'Không thể tải ảnh.');
+        }
+        renderImages(payload.data || []);
+    }
+
+    document.querySelectorAll('.btn-manage-images').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const variantId = button.dataset.id;
+            variantInput.value = variantId;
+            imagesModal.show();
+            run(function () { return loadImages(variantId); });
+        });
+    });
+
+    document.getElementById('btn-upload-images').addEventListener('click', function () {
+        const button = this;
+        const files = document.getElementById('image-upload').files;
         if (files.length === 0) {
-            showToast('error', 'Vui lòng chọn ảnh!');
+            AdminUI.showToast('error', 'Vui lòng chọn ít nhất một ảnh.');
             return;
         }
 
         const formData = new FormData();
-        formData.append('variantId', variantId);
-        for (let i = 0; i < files.length; i++) {
-            formData.append('images', files[i]);
-        }
+        formData.append('variantId', variantInput.value);
+        Array.from(files).forEach(function (file) {
+            formData.append('images', file);
+        });
 
-        $.ajax({
-            url: '@Url.Action("UploadImages")',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function(response) {
-                if (response.success) {
-                    showToast('success', 'Upload ảnh thành công!');
-                    $('#image-upload').val('');
-                    location.reload();
-                } else {
-                    showToast('error', response.message || 'Có lỗi xảy ra!');
-                }
-            },
-            error: function() {
-                showToast('error', 'Lỗi upload ảnh!');
+        run(async function () {
+            const response = await AdminUI.postForm(
+                '@Url.Action("UploadImages", "Products", new { area = "Admin" })',
+                formData,
+                button);
+            if (!response.success) {
+                throw new Error(response.message || 'Không thể tải ảnh.');
             }
+            document.getElementById('image-upload').value = '';
+            AdminUI.showToast('success', response.message);
+            await loadImages(variantInput.value);
         });
     });
 
     function renderImages(images) {
-        const grid = $('#images-grid');
-        grid.empty();
-        
+        imageGrid.replaceChildren();
         if (images.length === 0) {
-            grid.append('<p class="text-muted">Chưa có ảnh nào.</p>');
+            const empty = document.createElement('p');
+            empty.className = 'text-muted';
+            empty.textContent = 'Chưa có ảnh nào.';
+            imageGrid.append(empty);
             return;
         }
 
-        images.forEach(function(img) {
-            const col = $('<div class="col-md-3 position-relative"></div>');
-            const imgTag = $('<img src="' + img.url + '" class="img-fluid rounded border" />');
-            const badge = img.isMain ? '<span class="position-absolute top-0 end-0 badge bg-success m-1">Chính</span>' : '';
-            const deleteBtn = '<button class="btn btn-sm btn-danger position-absolute bottom-0 end-0 m-1 btn-delete-image" data-id="' + img.id + '"><i class="bi bi-trash"></i></button>';
-            
-            col.append(imgTag).append(badge).append(deleteBtn);
-            grid.append(col);
-        });
+        images.forEach(function (image) {
+            const column = document.createElement('div');
+            column.className = 'col-6 col-md-3';
+            const frame = document.createElement('div');
+            frame.className = 'position-relative border rounded p-1 h-100';
+            const preview = document.createElement('img');
+            preview.src = image.url;
+            preview.alt = image.isMain ? 'Ảnh chính của biến thể' : 'Ảnh biến thể';
+            preview.className = 'img-fluid rounded w-100';
+            preview.style.aspectRatio = '1 / 1';
+            preview.style.objectFit = 'cover';
+            frame.append(preview);
 
-        // Bind delete event
-        $('.btn-delete-image').on('click', function() {
-            const imageId = $(this).data('id');
-            deleteImage(imageId);
-        });
-    }
+            const actions = document.createElement('div');
+            actions.className = 'd-flex gap-1 mt-1';
+            if (!image.isMain) {
+                const setMain = document.createElement('button');
+                setMain.type = 'button';
+                setMain.className = 'btn btn-sm btn-outline-success flex-grow-1';
+                setMain.innerHTML = '<i class="bi bi-star" aria-hidden="true"></i>';
+                setMain.title = 'Đặt làm ảnh chính';
+                setMain.addEventListener('click', function () {
+                    run(async function () {
+                        const response = await AdminUI.postForm(
+                            '@Url.Action("SetMainImage", "Products", new { area = "Admin" })',
+                            { variantId: variantInput.value, imageId: image.id },
+                            setMain);
+                        if (!response.success) {
+                            throw new Error(response.message || 'Không thể đặt ảnh chính.');
+                        }
+                        await loadImages(variantInput.value);
+                    });
+                });
+                actions.append(setMain);
+            } else {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-success flex-grow-1 align-content-center';
+                badge.textContent = 'Ảnh chính';
+                actions.append(badge);
+            }
 
-    function deleteImage(imageId) {
-        if (confirm('Xóa ảnh này?')) {
-            $.ajax({
-                url: '@Url.Action("DeleteImage")',
-                type: 'POST',
-                data: { imageId: imageId },
-                success: function(response) {
-                    if (response.success) {
-                        showToast('success', 'Xóa ảnh thành công!');
-                        const variantId = $('#current-variant-id').val();
-                        $('.btn-manage-images[data-id="' + variantId + '"]').click();
-                    } else {
-                        showToast('error', response.message || 'Có lỗi xảy ra!');
-                    }
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'btn btn-sm btn-outline-danger';
+            remove.innerHTML = '<i class="bi bi-trash" aria-hidden="true"></i>';
+            remove.title = 'Xóa ảnh';
+            remove.addEventListener('click', function () {
+                if (!window.confirm('Bạn có chắc muốn xóa ảnh này?')) {
+                    return;
                 }
+                run(async function () {
+                    const response = await AdminUI.postForm(
+                        '@Url.Action("DeleteImage", "Products", new { area = "Admin" })',
+                        { variantId: variantInput.value, imageId: image.id },
+                        remove);
+                    if (!response.success) {
+                        throw new Error(response.message || 'Không thể xóa ảnh.');
+                    }
+                    await loadImages(variantInput.value);
+                });
             });
-        }
+            actions.append(remove);
+            frame.append(actions);
+            column.append(frame);
+            imageGrid.append(column);
+        });
     }
-
-    function showToast(type, message) {
-        const toastClass = type === 'success' ? 'bg-success' : 'bg-danger';
-        const toastHtml = `
-            <div class="toast align-items-center text-white ${toastClass} border-0" role="alert">
-                <div class="d-flex">
-                    <div class="toast-body">${message}</div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                </div>
-            </div>
-        `;
-        
-        const toastContainer = $('.toast-container');
-        if (toastContainer.length === 0) {
-            $('body').append('<div class="toast-container position-fixed top-0 end-0 p-3"></div>');
-        }
-        
-        $('.toast-container').append(toastHtml);
-        const toast = new bootstrap.Toast($('.toast:last'));
-        toast.show();
-    }
-});
+})();
 </script>
 <partial name="_ValidationScriptsPartial" />
 }

@@ -46,4 +46,13 @@ public sealed class AdminOrdersController : ControllerBase
         var result = await orderService.UpdateStatusAsync(id, request, cancellationToken);
         return this.ToActionResult(result);
     }
+
+    [HttpPost("confirm-pending")]
+    [ValidateAntiForgeryToken]
+    public async Task<ActionResult<int>> ConfirmAllPending(
+        CancellationToken cancellationToken)
+    {
+        var result = await orderService.ConfirmAllPendingAsync(cancellationToken);
+        return this.ToActionResult(result);
+    }
 }

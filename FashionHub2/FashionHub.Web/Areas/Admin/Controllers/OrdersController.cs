@@ -1,6 +1,6 @@
 using System.Globalization;
-using System.Security.Claims;
 using System.Text;
+using FashionHub.Web.Application.Admin;
 using FashionHub.Web.Data;
 using FashionHub.Web.Domain;
 using FashionHub.Web.Models.Generated;
@@ -13,13 +13,18 @@ namespace FashionHub.Web.Areas.Admin.Controllers;
 
 [Area("Admin")]
 [Authorize(Roles = "Admin")]
+[AutoValidateAntiforgeryToken]
 public class OrdersController : Controller
 {
     private readonly ApplicationDbContext _context;
+    private readonly IAdminOrderService _orderService;
 
-    public OrdersController(ApplicationDbContext context)
+    public OrdersController(
+        ApplicationDbContext context,
+        IAdminOrderService orderService)
     {
         _context = context;
+        _orderService = orderService;
     }
 
     public async Task<IActionResult> Index(string? searchString, int? statusId, string? fromDate, string? toDate)
@@ -100,8 +105,18 @@ public class OrdersController : Controller
             return NotFound();
         }
 
+        var allowedStatusIds = OrderStatusTransitions
+            .GetAllowedNextStatusIds(order.IdtrangThai)
+            .Append(order.IdtrangThai)
+            .ToArray();
+
+        var allowedStatuses = await _context.TrangThaiDonHangs
+            .Where(status => allowedStatusIds.Contains(status.IdtrangThai))
+            .OrderBy(status => status.IdtrangThai)
+            .ToListAsync();
+
         ViewBag.StatusList = new SelectList(
-            await _context.TrangThaiDonHangs.OrderBy(status => status.IdtrangThai).ToListAsync(),
+            allowedStatuses,
             nameof(TrangThaiDonHang.IdtrangThai),
             nameof(TrangThaiDonHang.TenTrangThai),
             order.IdtrangThai);
@@ -111,94 +126,25 @@ public class OrdersController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdateStatus(int id, int idTrangThai)
+    public async Task<IActionResult> UpdateStatus(
+        int id,
+        int idTrangThai,
+        CancellationToken cancellationToken)
     {
-        var order = await _context.DonHangs
-            .Include(order => order.ChiTietDonHangs)
-            .FirstOrDefaultAsync(order => order.IddonHang == id);
+        var result = await _orderService.UpdateStatusAsync(
+            id,
+            new UpdateOrderStatusRequest
+            {
+                StatusId = idTrangThai,
+                Note = "Admin cập nhật trạng thái từ giao diện quản trị"
+            },
+            cancellationToken);
 
-        if (order is null)
+        if (!result.IsSuccess)
         {
-            return NotFound();
-        }
-
-        var oldStatus = order.IdtrangThai;
-        if (oldStatus == idTrangThai)
-        {
-            TempData["Success"] = "Đơn hàng đang ở trạng thái này.";
+            TempData["Error"] = result.Error!.Message;
             return RedirectToAction(nameof(Details), new { id });
         }
-
-        if (!await _context.TrangThaiDonHangs.AnyAsync(status => status.IdtrangThai == idTrangThai))
-        {
-            return BadRequest();
-        }
-
-        if (idTrangThai == OrderStatusIds.Cancelled && oldStatus != OrderStatusIds.Cancelled)
-        {
-            foreach (var item in order.ChiTietDonHangs)
-            {
-                if (!item.IdbienThe.HasValue)
-                {
-                    continue;
-                }
-
-                var variant = await _context.BienTheSanPhams.FindAsync(item.IdbienThe.Value);
-                if (variant is not null)
-                {
-                    var previousStock = variant.SoLuongTon;
-                    variant.SoLuongTon += item.SoLuong;
-                    variant.TongDaBan = Math.Max(0, variant.TongDaBan - item.SoLuong);
-                    variant.NgayCapNhat = DateTime.Now;
-                    AddInventoryHistory(
-                        variant,
-                        order.IddonHang,
-                        item.SoLuong,
-                        previousStock,
-                        InventoryChangeTypes.OrderCancelled,
-                        $"Hoàn kho do hủy đơn #{order.IddonHang}");
-                }
-            }
-        }
-        else if (oldStatus == OrderStatusIds.Cancelled && idTrangThai != OrderStatusIds.Cancelled)
-        {
-            foreach (var item in order.ChiTietDonHangs)
-            {
-                if (!item.IdbienThe.HasValue)
-                {
-                    continue;
-                }
-
-                var variant = await _context.BienTheSanPhams.FindAsync(item.IdbienThe.Value);
-                if (variant is null)
-                {
-                    continue;
-                }
-
-                if (variant.SoLuongTon < item.SoLuong)
-                {
-                    TempData["Error"] = $"Không thể khôi phục đơn. Sản phẩm {item.TenSanPham} không đủ tồn kho!";
-                    return RedirectToAction(nameof(Details), new { id });
-                }
-
-                var previousStock = variant.SoLuongTon;
-                variant.SoLuongTon -= item.SoLuong;
-                variant.TongDaBan += item.SoLuong;
-                variant.NgayCapNhat = DateTime.Now;
-                AddInventoryHistory(
-                    variant,
-                    order.IddonHang,
-                    -item.SoLuong,
-                    previousStock,
-                    InventoryChangeTypes.OrderPlaced,
-                    $"Xuất lại kho khi khôi phục đơn #{order.IddonHang}");
-            }
-        }
-
-        order.IdtrangThai = idTrangThai;
-        order.NgayCapNhat = DateTime.Now;
-        AddOrderHistory(order.IddonHang, oldStatus, idTrangThai, "Admin cập nhật trạng thái đơn hàng");
-        await _context.SaveChangesAsync();
 
         TempData["Success"] = "Cập nhật trạng thái thành công!";
         return RedirectToAction(nameof(Details), new { id });
@@ -284,70 +230,37 @@ public class OrdersController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<JsonResult> ConfirmOrder(int id)
+    public async Task<JsonResult> ConfirmOrder(
+        int id,
+        CancellationToken cancellationToken)
     {
-        var order = await _context.DonHangs.FindAsync(id);
+        var result = await _orderService.UpdateStatusAsync(
+            id,
+            new UpdateOrderStatusRequest
+            {
+                StatusId = OrderStatusIds.Confirmed,
+                Note = "Admin xác nhận đơn hàng"
+            },
+            cancellationToken);
 
-        if (order is null)
-        {
-            return Json(new { success = false, message = "Không tìm thấy đơn hàng." });
-        }
-
-        if (order.IdtrangThai != OrderStatusIds.Pending)
-        {
-            return Json(new { success = false, message = "Đơn hàng không ở trạng thái chờ." });
-        }
-
-        order.IdtrangThai = OrderStatusIds.Confirmed;
-        order.NgayCapNhat = DateTime.Now;
-        AddOrderHistory(
-            order.IddonHang,
-            OrderStatusIds.Pending,
-            OrderStatusIds.Confirmed,
-            "Admin xác nhận đơn hàng");
-        await _context.SaveChangesAsync();
-
-        return Json(new { success = true, message = $"Đã xác nhận đơn hàng #{id}" });
+        return result.IsSuccess
+            ? Json(new { success = true, message = $"Đã xác nhận đơn hàng #{id}" })
+            : Json(new { success = false, message = result.Error!.Message });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<JsonResult> ConfirmAllPending()
+    public async Task<JsonResult> ConfirmAllPending(
+        CancellationToken cancellationToken)
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-
-        try
-        {
-            var pendingOrders = await _context.DonHangs
-                .Where(order => order.IdtrangThai == OrderStatusIds.Pending)
-                .ToListAsync();
-
-            if (pendingOrders.Count == 0)
+        var result = await _orderService.ConfirmAllPendingAsync(cancellationToken);
+        return result.IsSuccess
+            ? Json(new
             {
-                return Json(new { success = false, message = "Không có đơn nào cần xác nhận." });
-            }
-
-            foreach (var order in pendingOrders)
-            {
-                order.IdtrangThai = OrderStatusIds.Confirmed;
-                order.NgayCapNhat = DateTime.Now;
-                AddOrderHistory(
-                    order.IddonHang,
-                    OrderStatusIds.Pending,
-                    OrderStatusIds.Confirmed,
-                    "Admin xác nhận hàng loạt");
-            }
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            return Json(new { success = true, message = $"Đã xác nhận thành công {pendingOrders.Count} đơn hàng!" });
-        }
-        catch (Exception ex)
-        {
-            await transaction.RollbackAsync();
-            return Json(new { success = false, message = $"Lỗi hệ thống: {ex.Message}" });
-        }
+                success = true,
+                message = $"Đã xác nhận thành công {result.Value} đơn hàng!"
+            })
+            : Json(new { success = false, message = result.Error!.Message });
     }
 
     private static string EscapeCsv(string? value)
@@ -363,48 +276,4 @@ public class OrdersController : Controller
             : escaped;
     }
 
-    private void AddInventoryHistory(
-        BienTheSanPham variant,
-        int orderId,
-        int quantityChange,
-        int previousStock,
-        string changeType,
-        string note)
-    {
-        _context.LichSuTonKhos.Add(new LichSuTonKho
-        {
-            IdbienThe = variant.IdbienThe,
-            IdnguoiThucHien = GetCurrentUserId(),
-            IddonHang = orderId,
-            LoaiThayDoi = changeType,
-            SoLuongThayDoi = quantityChange,
-            TonTruoc = previousStock,
-            TonSau = variant.SoLuongTon,
-            GhiChu = note,
-            NgayTao = DateTime.Now
-        });
-    }
-
-    private void AddOrderHistory(
-        int orderId,
-        int oldStatus,
-        int newStatus,
-        string note)
-    {
-        _context.LichSuDonHangs.Add(new LichSuDonHang
-        {
-            IddonHang = orderId,
-            IdtrangThaiCu = oldStatus,
-            IdtrangThaiMoi = newStatus,
-            IdnguoiThucHien = GetCurrentUserId(),
-            GhiChu = note,
-            NgayTao = DateTime.Now
-        });
-    }
-
-    private int? GetCurrentUserId()
-    {
-        var claimValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return int.TryParse(claimValue, out var userId) ? userId : null;
-    }
 }

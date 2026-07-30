@@ -1,9 +1,13 @@
 @model FashionHub.Web.Areas.Admin.ViewModels.ProductListAdminViewModel
 @{
     ViewData["Title"] = "Quản lý Sản phẩm";
+    var categories = ViewBag.DanhMucs as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+        ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+    var brands = ViewBag.ThuongHieux as IEnumerable<ThuongHieu>
+        ?? Enumerable.Empty<ThuongHieu>();
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <h4 class="fw-bold text-uppercase">Danh sách Sản phẩm</h4>
     <div>
         <a asp-action="Export" class="btn btn-success me-2">
@@ -28,7 +32,7 @@
             <div class="col-md-2">
                 <select name="categoryId" class="form-select">
                     <option value="">-- Danh mục --</option>
-                    @foreach (var item in ViewBag.DanhMucs as List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)
+                    @foreach (var item in categories)
                     {
                         <option value="@item.Value" selected="@item.Selected">@item.Text</option>
                     }
@@ -37,7 +41,7 @@
             <div class="col-md-2">
                 <select name="brandId" class="form-select">
                     <option value="">-- Thương hiệu --</option>
-                    @foreach (var item in ViewBag.ThuongHieux as List<FashionHub.Web.Models.Generated.ThuongHieu>)
+                    @foreach (var item in brands)
                     {
                         <option value="@item.IdthuongHieu" selected="@(Model.BrandId == item.IdthuongHieu)">@item.TenThuongHieu</option>
                     }
@@ -112,14 +116,16 @@
                                         @item.TenSanPham
                                     </a>
                                     <div class="small text-danger fw-bold mt-1">
-                                        @item.Gia.ToString("N0") đ
+                                        @if (item.GiaKhuyenMai.HasValue)
+                                        {
+                                            <span>@item.GiaKhuyenMai.Value.ToString("N0") đ</span>
+                                            <span class="text-muted text-decoration-line-through ms-1 fw-normal">@item.Gia.ToString("N0") đ</span>
+                                        }
+                                        else
+                                        {
+                                            <span>@item.Gia.ToString("N0") đ</span>
+                                        }
                                     </div>
-                                    @if (item.GiaKhuyenMai.HasValue)
-                                    {
-                                        <div class="small text-muted text-decoration-line-through">
-                                            Sale: @item.GiaKhuyenMai.Value.ToString("N0") đ
-                                        </div>
-                                    }
                                 </td>
                                 <td>
                                     <div class="small"><span class="text-muted">DM:</span> @item.TenDanhMuc</div>
@@ -149,14 +155,16 @@
                                     <a asp-action="Edit" asp-route-id="@item.IDSanPham" class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
                                         <i class="bi bi-pencil-square"></i>
                                     </a>
-                                    <button class="btn btn-sm btn-warning text-dark btn-discount"
+                                    <button type="button" class="btn btn-sm btn-warning text-dark btn-discount"
                                             data-id="@item.IDSanPham"
-                                            data-price="@item.Gia"
-                                            data-km-price="@(item.GiaKhuyenMai ?? 0)"
+                                            data-price="@item.Gia.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                            data-km-price="@((item.GiaKhuyenMai ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture))"
+                                            data-start="@item.NgayBatDauKm?.ToString("yyyy-MM-dd")"
+                                            data-end="@item.NgayKetThucKm?.ToString("yyyy-MM-dd")"
                                             title="Tạo chương trình khuyến mãi">
                                         <i class="bi bi-percent"></i> KM
                                     </button>
-                                    <button class="btn btn-sm btn-outline-danger btn-delete-product" data-id="@item.IDSanPham" title="Xóa">
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-delete-product" data-id="@item.IDSanPham" title="Xóa">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </td>
@@ -170,12 +178,12 @@
 </div>
 
 <!-- MODAL KHUYẾN MÃI -->
-<div class="modal fade" id="discountModal" tabindex="-1">
+<div class="modal fade" id="discountModal" tabindex="-1" aria-labelledby="discountModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-warning">
-                <h5 class="modal-title fw-bold">Thiết lập Khuyến mãi</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title fw-bold" id="discountModalLabel">Thiết lập Khuyến mãi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="discount-product-id">
@@ -225,116 +233,97 @@
 
 @section Scripts {
 <script>
-$(document).ready(function() {
-    // Xử lý discount modal
-    $('.btn-discount').on('click', function() {
-        const productId = $(this).data('id');
-        const price = parseFloat($(this).data('price'));
-        const kmPrice = parseFloat($(this).data('km-price')) || 0;
-        const startDate = $(this).data('start') || '';
-        const endDate = $(this).data('end') || '';
+(function () {
+    const modalElement = document.getElementById('discountModal');
+    const discountModal = bootstrap.Modal.getOrCreateInstance(modalElement);
+    const productIdInput = document.getElementById('discount-product-id');
+    const priceInput = document.getElementById('discount-original-price-hidden');
+    const priceDisplay = document.getElementById('discount-original-price-display');
+    const percentInput = document.getElementById('discount-percent');
+    const newPriceDisplay = document.getElementById('discount-new-price');
+    const startInput = document.getElementById('discount-start-date');
+    const endInput = document.getElementById('discount-end-date');
 
-        $('#discount-product-id').val(productId);
-        $('#discount-original-price-hidden').val(price);
-        $('#discount-original-price-display').val(price.toLocaleString('vi-VN') + ' đ');
-        
-        // Tính % giảm nếu có giá KM
-        let discountPercent = 0;
-        if (kmPrice > 0 && kmPrice < price) {
-            discountPercent = Math.round(((price - kmPrice) / price) * 100);
-        }
-        
-        $('#discount-percent').val(discountPercent);
-        $('#discount-new-price').val(kmPrice > 0 ? kmPrice.toLocaleString('vi-VN') + ' đ' : price.toLocaleString('vi-VN') + ' đ');
-        $('#discount-start-date').val(startDate);
-        $('#discount-end-date').val(endDate);
-
-        $('#discountModal').modal('show');
-    });
-
-    // Tính giá mới khi thay đổi % giảm
-    $('#discount-percent').on('input', function() {
-        const percent = parseFloat($(this).val()) || 0;
-        const originalPrice = parseFloat($('#discount-original-price-hidden').val());
+    function updateDiscountPrice() {
+        const percent = Number.parseInt(percentInput.value, 10) || 0;
+        const originalPrice = Number.parseFloat(priceInput.value) || 0;
         const newPrice = originalPrice - (originalPrice * percent / 100);
-        $('#discount-new-price').val(newPrice.toLocaleString('vi-VN') + ' đ');
-    });
+        newPriceDisplay.value = newPrice.toLocaleString('vi-VN') + ' đ';
+    }
 
-    // Lưu khuyến mãi
-    $('#btn-save-discount').on('click', function() {
-        const productId = $('#discount-product-id').val();
-        const discountPercent = parseInt($('#discount-percent').val()) || 0;
-        const startDate = $('#discount-start-date').val();
-        const endDate = $('#discount-end-date').val();
-
-        $.ajax({
-            url: '@Url.Action("ApplyDiscount")',
-            type: 'POST',
-            data: {
-                id: productId,
-                discountPercent: discountPercent,
-                startDate: startDate,
-                endDate: endDate
-            },
-            success: function(response) {
-                if (response.success) {
-                    showToast('success', response.message || 'Cập nhật khuyến mãi thành công!');
-                    $('#discountModal').modal('hide');
-                    location.reload();
-                } else {
-                    showToast('error', response.message || 'Có lỗi xảy ra!');
-                }
-            },
-            error: function() {
-                showToast('error', 'Lỗi kết nối server!');
-            }
+    document.querySelectorAll('.btn-discount').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const price = Number.parseFloat(button.dataset.price);
+            const salePrice = Number.parseFloat(button.dataset.kmPrice) || 0;
+            productIdInput.value = button.dataset.id;
+            priceInput.value = price;
+            priceDisplay.value = price.toLocaleString('vi-VN') + ' đ';
+            percentInput.value = salePrice > 0 && salePrice < price
+                ? Math.round(((price - salePrice) / price) * 100)
+                : 0;
+            startInput.value = button.dataset.start || '';
+            endInput.value = button.dataset.end || '';
+            updateDiscountPrice();
+            discountModal.show();
         });
     });
 
-    // Xóa sản phẩm
-    $('.btn-delete-product').on('click', function() {
-        const productId = $(this).data('id');
-        
-        if (confirm('Bạn có chắc muốn xóa sản phẩm này? Hành động này không thể hoàn tác!')) {
-            $.ajax({
-                url: '@Url.Action("Delete")',
-                type: 'POST',
-                data: { id: productId },
-                success: function(response) {
-                    if (response.success) {
-                        showToast('success', 'Xóa sản phẩm thành công!');
-                        location.reload();
-                    } else {
-                        showToast('error', response.message || 'Có lỗi xảy ra!');
-                    }
+    percentInput.addEventListener('input', updateDiscountPrice);
+
+    document.getElementById('btn-save-discount').addEventListener('click', async function () {
+        const button = this;
+        const discountPercent = Number.parseInt(percentInput.value, 10) || 0;
+        if (discountPercent < 0 || discountPercent > 100) {
+            AdminUI.showToast('error', 'Phần trăm giảm giá phải từ 0 đến 100.');
+            return;
+        }
+        if (discountPercent > 0 && startInput.value && endInput.value && endInput.value <= startInput.value) {
+            AdminUI.showToast('error', 'Ngày kết thúc phải sau ngày bắt đầu.');
+            return;
+        }
+
+        try {
+            const response = await AdminUI.postForm(
+                '@Url.Action("ApplyDiscount", "Products", new { area = "Admin" })',
+                {
+                    id: productIdInput.value,
+                    discountPercent,
+                    startDate: startInput.value,
+                    endDate: endInput.value
                 },
-                error: function() {
-                    showToast('error', 'Lỗi kết nối server!');
-                }
-            });
+                button);
+            if (!response.success) {
+                throw new Error(response.message || 'Không thể cập nhật khuyến mãi.');
+            }
+            AdminUI.showToast('success', response.message);
+            discountModal.hide();
+            window.location.reload();
+        } catch (error) {
+            AdminUI.showToast('error', error.message || 'Không thể kết nối đến máy chủ.');
         }
     });
 
-    function showToast(type, message) {
-        const toastClass = type === 'success' ? 'bg-success' : 'bg-danger';
-        const toastHtml = `
-            <div class="toast align-items-center text-white ${toastClass} border-0" role="alert">
-                <div class="d-flex">
-                    <div class="toast-body">${message}</div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                </div>
-            </div>
-        `;
-        
-        const toastContainer = $('.toast-container');
-        if (toastContainer.length === 0) {
-            $('body').append('<div class="toast-container position-fixed top-0 end-0 p-3"></div>');
-        }
-        
-        $('.toast-container').append(toastHtml);
-        const toast = new bootstrap.Toast($('.toast:last'));
-        toast.show();
-    }
-});
+    document.querySelectorAll('.btn-delete-product').forEach(function (button) {
+        button.addEventListener('click', async function () {
+            if (!window.confirm('Xóa sản phẩm này? Sản phẩm và các biến thể sẽ ngừng hoạt động.')) {
+                return;
+            }
+
+            try {
+                const response = await AdminUI.postForm(
+                    '@Url.Action("Delete", "Products", new { area = "Admin" })',
+                    { id: button.dataset.id },
+                    button);
+                if (!response.success) {
+                    throw new Error(response.message || 'Không thể xóa sản phẩm.');
+                }
+                AdminUI.showToast('success', response.message);
+                window.location.reload();
+            } catch (error) {
+                AdminUI.showToast('error', error.message || 'Không thể kết nối đến máy chủ.');
+            }
+        });
+    });
+})();
 </script>
 }

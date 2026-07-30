@@ -91,6 +91,8 @@ namespace FashionHub.Web.Areas.Admin.ViewModels
         public string? TenThuongHieu { get; set; }
         public decimal Gia { get; set; }
         public decimal? GiaKhuyenMai { get; set; }
+        public DateTime? NgayBatDauKm { get; set; }
+        public DateTime? NgayKetThucKm { get; set; }
         public bool TrangThai { get; set; }
         public int VariantCount { get; set; }
         public int TotalStock { get; set; }

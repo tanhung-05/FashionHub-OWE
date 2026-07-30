@@ -3,7 +3,7 @@
     ViewData["Title"] = "Quản lý mã giảm giá";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
     <h2>@ViewData["Title"]</h2>
     <a asp-action="Create" class="btn btn-primary">
         <i class="bi bi-plus-circle"></i> Tạo mã mới
@@ -97,12 +97,12 @@
                                         <i class="bi bi-pencil"></i>
                                     </a>
                                     <button type="button" class="btn btn-sm btn-info" 
-                                            onclick="toggleCouponStatus(@coupon.IdmaGiamGia)" 
+                                            data-coupon-toggle="@coupon.IdmaGiamGia"
                                             title="@(coupon.TrangThai ? "Tắt" : "Bật")">
                                         <i class="bi bi-power"></i>
                                     </button>
                                     <button type="button" class="btn btn-sm btn-danger" 
-                                            onclick="deleteCoupon(@coupon.IdmaGiamGia)" 
+                                            data-coupon-delete="@coupon.IdmaGiamGia"
                                             title="Xóa">
                                         <i class="bi bi-trash"></i>
                                     </button>
@@ -118,55 +118,47 @@
 
 @section Scripts {
     <script>
-        function toggleCouponStatus(id) {
-            if (!confirm('Bạn có chắc muốn thay đổi trạng thái mã này?')) return;
-
-            fetch('/Admin/Coupons/ToggleStatus', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
-                },
-                body: JSON.stringify(id)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert(data.message || 'Có lỗi xảy ra');
+        document.querySelectorAll('[data-coupon-toggle]').forEach(function (button) {
+            button.addEventListener('click', async function () {
+                if (!window.confirm('Bạn có chắc muốn thay đổi trạng thái mã này?')) {
+                    return;
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Có lỗi xảy ra khi cập nhật trạng thái');
-            });
-        }
 
-        function deleteCoupon(id) {
-            if (!confirm('Bạn có chắc muốn xóa mã này? Nếu mã đã được sử dụng, nó sẽ chỉ bị tắt.')) return;
-
-            fetch('/Admin/Coupons/Delete', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
-                },
-                body: JSON.stringify(id)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.message);
-                    location.reload();
-                } else {
-                    alert(data.message || 'Có lỗi xảy ra');
+                try {
+                    const response = await AdminUI.postForm(
+                        '@Url.Action("ToggleStatus", "Coupons", new { area = "Admin" })',
+                        { id: button.dataset.couponToggle },
+                        button);
+                    if (!response.success) {
+                        throw new Error(response.message || 'Không thể cập nhật trạng thái.');
+                    }
+                    window.location.reload();
+                } catch (error) {
+                    AdminUI.showToast('error', error.message || 'Không thể kết nối đến máy chủ.');
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Có lỗi xảy ra khi xóa mã giảm giá');
             });
-        }
+        });
+
+        document.querySelectorAll('[data-coupon-delete]').forEach(function (button) {
+            button.addEventListener('click', async function () {
+                if (!window.confirm('Xóa mã này? Mã đã được sử dụng sẽ chỉ bị tắt.')) {
+                    return;
+                }
+
+                try {
+                    const response = await AdminUI.postForm(
+                        '@Url.Action("Delete", "Coupons", new { area = "Admin" })',
+                        { id: button.dataset.couponDelete },
+                        button);
+                    if (!response.success) {
+                        throw new Error(response.message || 'Không thể xóa mã giảm giá.');
+                    }
+                    AdminUI.showToast('success', response.message);
+                    window.location.reload();
+                } catch (error) {
+                    AdminUI.showToast('error', error.message || 'Không thể kết nối đến máy chủ.');
+                }
+            });
+        });
     </script>
 }

@@ -167,6 +167,19 @@ public sealed class AdminService :
         product.DeletedAt = DateTime.Now;
         product.TrangThai = false;
         product.NgayCapNhat = DateTime.Now;
+
+        var activeVariants = await dbContext.BienTheSanPhams
+            .Where(variant =>
+                variant.IdsanPham == productId
+                && variant.DeletedAt == null)
+            .ToListAsync(cancellationToken);
+        foreach (var variant in activeVariants)
+        {
+            variant.DeletedAt = product.DeletedAt;
+            variant.TrangThai = false;
+            variant.NgayCapNhat = product.NgayCapNhat;
+        }
+
         AddAudit("SOFT_DELETE", "SanPham", productId, null, null);
         await dbContext.SaveChangesAsync(cancellationToken);
         return ServiceResult<bool>.Success(true);
@@ -268,7 +281,7 @@ public sealed class AdminService :
             return NotFound<AdminOrderDetailDto>("order-not-found", "Không tìm thấy đơn hàng.");
         }
 
-        if (!IsAllowedTransition(order.IdtrangThai, request.StatusId))
+        if (!OrderStatusTransitions.CanTransition(order.IdtrangThai, request.StatusId))
         {
             return ServiceResult<AdminOrderDetailDto>.Failure(
                 ServiceErrorType.Conflict,
@@ -327,7 +340,12 @@ public sealed class AdminService :
             GhiChu = NormalizeOptional(request.Note) ?? "Admin cập nhật trạng thái",
             NgayTao = DateTime.Now
         });
-        AddAudit("UPDATE_STATUS", "DonHang", orderId, oldStatus, request.StatusId);
+        AddAudit(
+            "UPDATE_STATUS",
+            "DonHang",
+            orderId,
+            new { StatusId = oldStatus },
+            new { StatusId = request.StatusId });
         await dbContext.SaveChangesAsync(cancellationToken);
         logger.LogInformation(
             "Admin {AdminId} changed order {OrderId} status from {OldStatus} to {NewStatus}",
@@ -338,6 +356,52 @@ public sealed class AdminService :
 
         return ServiceResult<AdminOrderDetailDto>.Success(
             MapAdminOrder((await LoadAdminOrderAsync(orderId, cancellationToken))!));
+    }
+
+    public async Task<ServiceResult<int>> ConfirmAllPendingAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var pendingOrders = await dbContext.DonHangs
+            .Where(order => order.IdtrangThai == OrderStatusIds.Pending)
+            .ToListAsync(cancellationToken);
+
+        if (pendingOrders.Count == 0)
+        {
+            return ServiceResult<int>.Failure(
+                ServiceErrorType.Conflict,
+                "no-pending-orders",
+                "Không có đơn hàng nào đang chờ xác nhận.");
+        }
+
+        var now = DateTime.Now;
+        foreach (var order in pendingOrders)
+        {
+            order.IdtrangThai = OrderStatusIds.Confirmed;
+            order.NgayCapNhat = now;
+            dbContext.LichSuDonHangs.Add(new LichSuDonHang
+            {
+                IddonHang = order.IddonHang,
+                IdtrangThaiCu = OrderStatusIds.Pending,
+                IdtrangThaiMoi = OrderStatusIds.Confirmed,
+                IdnguoiThucHien = currentUser.UserId,
+                GhiChu = "Admin xác nhận hàng loạt",
+                NgayTao = now
+            });
+            AddAudit(
+                "UPDATE_STATUS",
+                "DonHang",
+                order.IddonHang,
+                new { StatusId = OrderStatusIds.Pending },
+                new { StatusId = OrderStatusIds.Confirmed });
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        logger.LogInformation(
+            "Admin {AdminId} confirmed {OrderCount} pending orders",
+            currentUser.UserId,
+            pendingOrders.Count);
+
+        return ServiceResult<int>.Success(pendingOrders.Count);
     }
 
     public async Task<ServiceResult<AdminDashboardReportDto>> GetDashboardAsync(
@@ -533,22 +597,25 @@ public sealed class AdminService :
             HanhDong = action,
             TenBang = table,
             IdbanGhi = id.ToString(),
-            DuLieuCu = oldData == null ? null : JsonSerializer.Serialize(oldData),
-            DuLieuMoi = newData == null ? null : JsonSerializer.Serialize(newData),
+            DuLieuCu = SerializeAuditPayload(oldData),
+            DuLieuMoi = SerializeAuditPayload(newData),
             NgayTao = DateTime.Now
         });
     }
 
-    private static bool IsAllowedTransition(int currentStatus, int nextStatus) =>
-        (currentStatus, nextStatus) switch
+    private static string? SerializeAuditPayload(object? data)
+    {
+        if (data == null)
         {
-            (OrderStatusIds.Pending, OrderStatusIds.Confirmed) => true,
-            (OrderStatusIds.Pending, OrderStatusIds.Cancelled) => true,
-            (OrderStatusIds.Confirmed, OrderStatusIds.Shipping) => true,
-            (OrderStatusIds.Confirmed, OrderStatusIds.Cancelled) => true,
-            (OrderStatusIds.Shipping, OrderStatusIds.Completed) => true,
-            _ => false
-        };
+            return null;
+        }
+
+        var json = JsonSerializer.Serialize(data);
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.ValueKind is JsonValueKind.Object or JsonValueKind.Array
+            ? json
+            : JsonSerializer.Serialize(new { Value = data });
+    }
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

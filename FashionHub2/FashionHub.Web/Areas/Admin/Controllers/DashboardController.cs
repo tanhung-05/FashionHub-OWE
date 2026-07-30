@@ -9,6 +9,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
 {
     [Area("Admin")]
     [Authorize(Roles = "Admin")]
+    [AutoValidateAntiforgeryToken]
     public class DashboardController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -36,10 +37,12 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             viewModel.Stats.TotalOrders = await _context.DonHangs.CountAsync();
 
             // Total products
-            viewModel.Stats.TotalProducts = await _context.SanPhams.CountAsync();
+            viewModel.Stats.TotalProducts = await _context.SanPhams
+                .CountAsync(product => product.DeletedAt == null);
 
             // Total users
-            viewModel.Stats.TotalUsers = await _context.NguoiDungs.CountAsync();
+            viewModel.Stats.TotalUsers = await _context.NguoiDungs
+                .CountAsync(user => user.DeletedAt == null);
 
             viewModel.Stats.PendingOrders = await _context.DonHangs
                 .CountAsync(d => d.IdtrangThai == OrderStatusIds.Pending);
@@ -66,6 +69,10 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             {
                 viewModel.Stats.RevenueGrowth = ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100;
             }
+            else if (thisMonthRevenue > 0)
+            {
+                viewModel.Stats.RevenueGrowth = 100;
+            }
 
             // Order growth
             var thisMonthOrders = await _context.DonHangs
@@ -77,6 +84,10 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             if (lastMonthOrders > 0)
             {
                 viewModel.Stats.OrderGrowth = ((thisMonthOrders - lastMonthOrders) * 100) / lastMonthOrders;
+            }
+            else if (thisMonthOrders > 0)
+            {
+                viewModel.Stats.OrderGrowth = 100;
             }
 
             // Recent orders
@@ -100,7 +111,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 .ToListAsync();
 
             // Top products by sales (last 30 days) - simplified without images
-            var thirtyDaysAgo = DateTime.Now.AddDays(-30);
+            var thirtyDaysAgo = now.AddDays(-30);
             viewModel.TopProducts = await _context.ChiTietDonHangs
                 .Include(c => c.IdbienTheNavigation)
                     .ThenInclude(b => b!.IdsanPhamNavigation)
@@ -122,6 +133,39 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 .OrderByDescending(p => p.SoldCount)
                 .Take(5)
                 .ToListAsync();
+
+            var topProductIds = viewModel.TopProducts
+                .Select(product => product.ProductId)
+                .ToList();
+            if (topProductIds.Count > 0)
+            {
+                var imageCandidates = await _context.HinhAnhBienThes
+                    .AsNoTracking()
+                    .Where(link =>
+                        link.LaAnhChinh
+                        && link.IdbienTheNavigation!.DeletedAt == null
+                        && topProductIds.Contains(
+                            link.IdbienTheNavigation.IdsanPham))
+                    .Select(link => new
+                    {
+                        ProductId = link.IdbienTheNavigation!.IdsanPham,
+                        ImageUrl = link.IdhinhAnhNavigation!.DuongDan
+                    })
+                    .ToListAsync();
+                var imageByProduct = imageCandidates
+                    .GroupBy(image => image.ProductId)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => group.Select(image => image.ImageUrl).FirstOrDefault());
+
+                foreach (var product in viewModel.TopProducts)
+                {
+                    if (imageByProduct.TryGetValue(product.ProductId, out var imageUrl))
+                    {
+                        product.ImageUrl = imageUrl;
+                    }
+                }
+            }
 
             // Monthly revenue for last 6 months
             var sixMonthsAgo = startOfMonth.AddMonths(-5);
