@@ -135,6 +135,13 @@ has changed. Login endpoints are rate-limited.
 | POST | `/api/v1/auth/register` | No | CSRF, rate limit | Create customer |
 | POST | `/api/v1/auth/logout` | Yes | CSRF | Sign out |
 | GET | `/api/v1/auth/me` | Yes | Current user | Current user DTO |
+| GET | `/api/v1/account/profile` | Yes | Owner | Current profile |
+| PUT | `/api/v1/account/profile` | Yes | Owner, CSRF | Update profile and refresh cookie |
+| PUT | `/api/v1/account/password` | Yes | Owner, CSRF | Change password and revoke session |
+| GET | `/api/v1/account/addresses` | Yes | Owner | Delivery addresses |
+| POST | `/api/v1/account/addresses` | Yes | Owner, CSRF | Create delivery address |
+| PUT | `/api/v1/account/addresses/{id}` | Yes | Owner, CSRF | Update owned address |
+| DELETE | `/api/v1/account/addresses/{id}` | Yes | Owner, CSRF | Delete owned address |
 | GET | `/api/v1/orders` | Yes | Owner | Current user's orders |
 | GET | `/api/v1/orders/{id}` | Yes | Owner | Owned order detail |
 | POST | `/api/v1/orders` | Yes | CSRF | Create order from server cart |
@@ -147,6 +154,10 @@ has changed. Login endpoints are rate-limited.
 | GET | `/api/v1/admin/orders/{id}` | Yes | Admin | Any order detail |
 | PUT | `/api/v1/admin/orders/{id}/status` | Yes | Admin, CSRF | Valid status transition |
 | GET | `/api/v1/admin/reports/dashboard` | Yes | Admin | Date-range aggregates |
+| GET/POST/PUT/DELETE | `/api/v1/admin/categories` | Yes | Admin, CSRF for writes | Category management |
+| GET/POST/PUT/DELETE | `/api/v1/admin/coupons` | Yes | Admin, CSRF for writes | Coupon management |
+| GET | `/api/v1/admin/customers` | Yes | Admin | Customer search and detail |
+| PUT | `/api/v1/admin/customers/{id}/status` | Yes | Admin, CSRF | Lock/unlock and revoke sessions |
 
 Request and response schemas, validation constraints, and status codes are
 available in Swagger. No endpoint returns an EF Core generated entity.
@@ -213,6 +224,10 @@ production deployment.
 See the curated [`docs`](docs/) directory for deployment, configuration, and
 database maintenance guides.
 
+For a practical explanation of where the application, SQL Server, uploaded
+images, secrets, backups, and monitoring live after deployment, start with
+[`docs/deployment-for-beginners.md`](docs/deployment-for-beginners.md).
+
 ## Next Steps
 
 1. Add SQL Server Testcontainers coverage for transactions and row-version conflicts.
@@ -220,4 +235,5 @@ database maintenance guides.
 3. Harden and centralize image upload validation.
 4. Add checkout idempotency storage to prevent duplicate submissions.
 5. Replace the Razor frontend incrementally with React or Vue against `/api/v1`.
-6. Add CI, deployment smoke tests, structured log shipping, and metrics.
+6. Verify the GitHub Actions CI workflow, then add deployment smoke tests,
+   structured log shipping, and metrics.

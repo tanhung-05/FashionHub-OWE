@@ -1,0 +1,246 @@
+{
+  "info": {
+    "_postman_id": "a0f93925-d76d-4d29-b574-9fb583867db0",
+    "name": "FashionHub API v1",
+    "description": "Versioned FashionHub REST API. Run Setup/Get CSRF Token before mutation requests. Postman keeps the authentication and antiforgery cookies in its cookie jar.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const unsafeMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];",
+          "if (unsafeMethods.includes(pm.request.method)) {",
+          "  const headerName = pm.environment.get('csrfHeader') || 'X-CSRF-TOKEN';",
+          "  const token = pm.environment.get('csrfToken');",
+          "  if (token) pm.request.headers.upsert({ key: headerName, value: token });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Setup",
+      "item": [
+        {
+          "name": "Get CSRF Token",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/security/csrf-token",
+            "description": "Run after login and logout as well, because the authenticated identity changed."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CSRF token returned', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('csrfToken', body.token);",
+                  "pm.environment.set('csrfHeader', body.headerName);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login Customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\",\n  \"rememberMe\": false\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "Login Admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\",\n  \"rememberMe\": false\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "Current User",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/auth/me" }
+        },
+        {
+          "name": "Logout",
+          "request": { "method": "POST", "url": "{{baseUrl}}/api/v1/auth/logout" }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/products?pageNumber=1&pageSize=20&sortBy=price&sortDirection=asc"
+          }
+        },
+        {
+          "name": "Product Detail",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/products/{{productId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        { "name": "Get Cart", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/cart" } },
+        {
+          "name": "Add Item",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"variantId\": {{variantId}},\n  \"quantity\": 1\n}" },
+            "url": "{{baseUrl}}/api/v1/cart/items"
+          }
+        },
+        {
+          "name": "Update Item",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"quantity\": 2\n}" },
+            "url": "{{baseUrl}}/api/v1/cart/items/{{variantId}}"
+          }
+        },
+        { "name": "Remove Item", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/cart/items/{{variantId}}" } },
+        { "name": "Clear Cart", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/cart" } }
+      ]
+    },
+    {
+      "name": "Account",
+      "item": [
+        { "name": "Get Profile", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/account/profile" } },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"API Customer\",\n  \"email\": \"{{customerEmail}}\",\n  \"phoneNumber\": \"0392410917\"\n}" },
+            "url": "{{baseUrl}}/api/v1/account/profile"
+          }
+        },
+        { "name": "List Addresses", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/account/addresses" } },
+        {
+          "name": "Create Address",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"recipientName\": \"Luong Tan Hung\",\n  \"phoneNumber\": \"0392410917\",\n  \"street\": \"123 Nguyen Hue\",\n  \"ward\": \"Ben Nghe\",\n  \"district\": \"Quan 1\",\n  \"province\": \"TP. Ho Chi Minh\",\n  \"isDefault\": true\n}" },
+            "url": "{{baseUrl}}/api/v1/account/addresses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) pm.environment.set('addressId', pm.response.json().id);"] }
+            }
+          ]
+        },
+        { "name": "Get Address", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/account/addresses/{{addressId}}" } },
+        { "name": "Set Default Address", "request": { "method": "PUT", "url": "{{baseUrl}}/api/v1/account/addresses/{{addressId}}/default" } },
+        { "name": "Delete Address", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/account/addresses/{{addressId}}" } }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        { "name": "List My Orders", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/orders?pageNumber=1&pageSize=20" } },
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"addressId\": {{addressId}},\n  \"paymentMethodId\": 1,\n  \"couponCode\": null,\n  \"note\": \"Postman order\"\n}" },
+            "url": "{{baseUrl}}/api/v1/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) pm.environment.set('orderId', pm.response.json().id);"] }
+            }
+          ]
+        },
+        { "name": "Order Detail", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/orders/{{orderId}}" } }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"message\": \"Goi y ao so mi nam duoi 500000 dong\"\n}" },
+            "url": "{{baseUrl}}/api/v1/chat/messages"
+          }
+        },
+        { "name": "Current Conversation", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/chat/conversations/current" } },
+        { "name": "New Conversation", "request": { "method": "POST", "url": "{{baseUrl}}/api/v1/chat/conversations" } },
+        { "name": "Delete Conversation", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/chat/conversations/current" } }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        { "name": "Dashboard Report", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/admin/reports/dashboard" } },
+        { "name": "List Products", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/admin/products?pageNumber=1&pageSize=20" } },
+        { "name": "List Orders", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/admin/orders?pageNumber=1&pageSize=20" } },
+        { "name": "List Categories", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/admin/categories?pageNumber=1&pageSize=20" } },
+        {
+          "name": "Create Category",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Category\",\n  \"parentId\": null,\n  \"isActive\": true\n}" },
+            "url": "{{baseUrl}}/api/v1/admin/categories"
+          }
+        },
+        { "name": "List Coupons", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/admin/coupons?pageNumber=1&pageSize=20" } },
+        {
+          "name": "Create Coupon",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"POSTMAN10\",\n  \"name\": \"Postman 10 percent\",\n  \"discountType\": 2,\n  \"value\": 10,\n  \"minimumOrder\": 100000,\n  \"maximumDiscount\": 50000,\n  \"quantity\": 20,\n  \"startsAt\": \"2026-08-01T00:00:00\",\n  \"endsAt\": \"2026-12-31T23:59:59\",\n  \"isActive\": true\n}" },
+            "url": "{{baseUrl}}/api/v1/admin/coupons"
+          }
+        },
+        { "name": "List Customers", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/admin/customers?pageNumber=1&pageSize=20" } },
+        {
+          "name": "Update Order Status",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"statusId\": 1,\n  \"note\": \"Confirmed from Postman\"\n}" },
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/status"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://localhost:44306" }
+  ]
+}

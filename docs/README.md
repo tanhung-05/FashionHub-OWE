@@ -5,9 +5,11 @@ run, and maintain FashionHub.
 
 ## Deployment and configuration
 
+- [Deployment for beginners](deployment-for-beginners.md)
 - [Docker deployment](docker-deployment.md)
 - [Gemini API key setup](gemini-api-key-setup.md)
 - [Password reset setup](password-reset-setup.md)
+- [Postman API collection](postman/README.md)
 
 ## Database maintenance
 

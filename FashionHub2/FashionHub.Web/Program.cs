@@ -1,4 +1,5 @@
 using FashionHub.Web.Application.Admin;
+using FashionHub.Web.Application.Accounts;
 using FashionHub.Web.Application.Authentication;
 using FashionHub.Web.Application.Chat;
 using FashionHub.Web.Application.Email;
@@ -12,6 +13,7 @@ using FashionHub.Web.Infrastructure.Web;
 using FashionHub.Web.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.RateLimiting;
@@ -194,7 +196,7 @@ builder.Services.AddHealthChecks()
     {
         var apiKey = builder.Configuration["GeminiAI:ApiKey"];
         return string.IsNullOrEmpty(apiKey)
-            ? Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Unhealthy("Gemini API key not configured")
+            ? Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Degraded("Gemini API key not configured")
             : Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy();
     });
 
@@ -207,6 +209,7 @@ builder.Services.AddSingleton<IChatFaqProvider, ChatFaqCatalog>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<ICartSessionStore, HttpCartSessionStore>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IPasswordResetLinkFactory, PasswordResetLinkFactory>();
@@ -229,6 +232,7 @@ builder.Services.AddScoped<IAdminOrderService>(
     provider => provider.GetRequiredService<AdminService>());
 builder.Services.AddScoped<IAdminReportService>(
     provider => provider.GetRequiredService<AdminService>());
+builder.Services.AddScoped<IAdminManagementService, AdminManagementService>();
 
 // Authentication
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -416,7 +420,25 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            status = report.Status.ToString(),
+            duration = report.TotalDuration,
+            checks = report.Entries.Select(entry => new
+            {
+                name = entry.Key,
+                status = entry.Value.Status.ToString(),
+                description = entry.Value.Description,
+                duration = entry.Value.Duration
+            })
+        });
+    }
+});
 
 app.Run();
 

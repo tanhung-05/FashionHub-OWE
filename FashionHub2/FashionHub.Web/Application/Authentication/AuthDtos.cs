@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using FashionHub.Web.Application.Common;
 
 namespace FashionHub.Web.Application.Authentication;
@@ -42,7 +43,7 @@ public sealed record AuthUserDto(
     string FullName,
     string Email,
     string Role,
-    Guid SecurityStamp);
+    [property: JsonIgnore] Guid SecurityStamp);
 
 public interface IAuthService
 {
