@@ -43,7 +43,7 @@ services:
       dockerfile: FashionHub.Web/Dockerfile
     container_name: fashionhub-web
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: Server=sqlserver;Database=QL_SHOPQUANAO_PRO;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;
       GeminiAI__ApiKey: ${GEMINI_API_KEY:-}
@@ -59,6 +59,7 @@ services:
       - "5167:8080"
     volumes:
       - product_images:/app/wwwroot/images/products
+      - data_protection_keys:/root/.aspnet/DataProtection-Keys
     depends_on:
       db-init:
         condition: service_completed_successfully
@@ -69,6 +70,7 @@ services:
 volumes:
   sqlserver_data:
   product_images:
+  data_protection_keys:
 
 networks:
   fashionhub-network:

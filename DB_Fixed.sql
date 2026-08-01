@@ -10,6 +10,19 @@ GO
 USE QL_SHOPQUANAO_PRO;
 GO
 
+SET XACT_ABORT ON;
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET NUMERIC_ROUNDABORT OFF;
+GO
+
+BEGIN TRANSACTION;
+GO
+
 -- =================================================================
 -- PHẦN 1: DỌN DẸP BẢNG CŨ (DROP TABLES THEO THỨ TỰ KHÓA NGOẠI)
 -- =================================================================
@@ -725,6 +738,9 @@ INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDE
 
 INSERT INTO HinhAnh (DuongDan) VALUES ('/images/products/somi1_xanhden_regular.jpg');
 INSERT INTO HinhAnh_BienThe (IDHinhAnh, IDBienThe, LaAnhChinh) VALUES (SCOPE_IDENTITY(), @BT_Somi_XD, 1);
+
+COMMIT TRANSACTION;
+GO
 
 PRINT 'Database schema and seed data completed successfully.';
 GO

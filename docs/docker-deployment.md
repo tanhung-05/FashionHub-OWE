@@ -22,6 +22,9 @@ Replace every placeholder. `PUBLIC_BASE_URL` must be HTTPS in Production. Do
 not commit `.env`; production secrets belong in the host or platform secret
 store.
 
+For local development, set `ASPNETCORE_ENVIRONMENT=Development` and
+`PUBLIC_BASE_URL=http://localhost:5167`. Keep `Production` on a deployed host.
+
 ## Start and verify
 
 ```powershell
@@ -37,19 +40,22 @@ Expected local endpoints:
 
 - Application: `http://localhost:5167`
 - Health: `http://localhost:5167/health`
+- Swagger in Development: `http://localhost:5167/swagger`
 - SQL Server from the same host only: `localhost,1433`
 
 Swagger is intentionally enabled only in Development. The Compose environment
-is Production, so `/swagger` is not exposed by this stack.
+comes from `ASPNETCORE_ENVIRONMENT` in `.env` and defaults to Production when
+that setting is omitted.
 
 ## Database lifecycle
 
 FashionHub is database-first and does not use EF Core migrations to create the
 production schema.
 
-On first startup, `db-init` checks for `QL_SHOPQUANAO_PRO`. If it does not exist,
-the service runs the root `DB_Fixed.sql`. If the database already exists, it
-exits without executing the destructive rebuild script.
+On startup, `db-init` checks that `QL_SHOPQUANAO_PRO` contains the expected
+schema marker, final index, and seed marker. A complete database is left
+untouched. A missing or incomplete first-time database is rebuilt from the root
+`DB_Fixed.sql`; the schema and seed work runs in a transaction.
 
 For future schema changes:
 
@@ -63,10 +69,11 @@ Never use `DB_Fixed.sql` to upgrade a database containing user data.
 
 ## Persistent data
 
-Compose uses two named volumes:
+Compose uses three named volumes:
 
 - `sqlserver_data` for SQL Server files
 - `product_images` for uploaded product images
+- `data_protection_keys` for authentication and antiforgery keys
 
 Normal stop and start commands preserve them:
 
