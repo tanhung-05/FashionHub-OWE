@@ -726,6 +726,18 @@ public class AccountController : Controller
         if (order == null)
             return NotFound();
 
+        var productIds = order.ChiTietDonHangs
+            .Where(item => item.IdbienTheNavigation != null)
+            .Select(item => item.IdbienTheNavigation!.IdsanPham)
+            .Distinct()
+            .ToArray();
+        var existingReviews = await dbContext.DanhGia
+            .AsNoTracking()
+            .Where(review =>
+                review.IdnguoiDung == userId.Value
+                && productIds.Contains(review.IdsanPham))
+            .ToDictionaryAsync(review => review.IdsanPham);
+
         var model = new OrderDetailViewModel
         {
             IddonHang = order.IddonHang,
@@ -740,23 +752,128 @@ public class AccountController : Controller
             TrangThai = order.IdtrangThaiNavigation.TenTrangThai,
             IdtrangThai = order.IdtrangThai,
             PhuongThucThanhToan = order.IdphuongThucThanhToanNavigation?.TenPhuongThuc,
-            Items = order.ChiTietDonHangs.Select(ct => new OrderItemViewModel
+            Items = order.ChiTietDonHangs.Select(ct =>
             {
-                TenSanPham = ct.TenSanPham,
-                HinhAnh = ct.IdbienTheNavigation?.HinhAnhBienThes
-                    .OrderByDescending(image => image.LaAnhChinh)
-                    .ThenBy(image => image.ThuTuHienThi)
-                    .Select(image => image.IdhinhAnhNavigation.DuongDan)
-                    .FirstOrDefault(),
-                MauSac = ct.TenMau,
-                KichThuoc = ct.TenKichThuoc,
-                SoLuong = ct.SoLuong,
-                DonGia = ct.DonGia,
-                ThanhTien = ct.SoLuong * ct.DonGia
+                var productId = ct.IdbienTheNavigation?.IdsanPham;
+                existingReviews.TryGetValue(productId ?? 0, out var review);
+
+                return new OrderItemViewModel
+                {
+                    IdchiTietDonHang = ct.IdchiTietDonHang,
+                    IdsanPham = productId,
+                    TenSanPham = ct.TenSanPham,
+                    HinhAnh = ct.IdbienTheNavigation?.HinhAnhBienThes
+                        .OrderByDescending(image => image.LaAnhChinh)
+                        .ThenBy(image => image.ThuTuHienThi)
+                        .Select(image => image.IdhinhAnhNavigation.DuongDan)
+                        .FirstOrDefault(),
+                    MauSac = ct.TenMau,
+                    KichThuoc = ct.TenKichThuoc,
+                    SoLuong = ct.SoLuong,
+                    DonGia = ct.DonGia,
+                    ThanhTien = ct.SoLuong * ct.DonGia,
+                    CoTheDanhGia = order.IdtrangThai == OrderStatusIds.Completed
+                        && productId.HasValue
+                        && review == null,
+                    DaDanhGia = review != null,
+                    DiemDanhGia = review?.DiemSo,
+                    NoiDungDanhGia = review?.NoiDung,
+                    NgayDanhGia = review?.NgayTao
+                };
             }).ToList()
         };
 
         return View(model);
+    }
+
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateReview(
+        CreateReviewViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null)
+            return RedirectToAction(nameof(Login));
+
+        if (!ModelState.IsValid)
+        {
+            TempData["ErrorMessage"] = ModelState.Values
+                .SelectMany(value => value.Errors)
+                .Select(error => error.ErrorMessage)
+                .FirstOrDefault(message => !string.IsNullOrWhiteSpace(message))
+                ?? "Thông tin đánh giá không hợp lệ.";
+            return RedirectToAction(nameof(OrderDetail), new { id = model.IddonHang });
+        }
+
+        var orderItem = await dbContext.ChiTietDonHangs
+            .Include(item => item.IddonHangNavigation)
+            .Include(item => item.IdbienTheNavigation)
+            .FirstOrDefaultAsync(
+                item =>
+                    item.IdchiTietDonHang == model.IdchiTietDonHang
+                    && item.IddonHang == model.IddonHang
+                    && item.IddonHangNavigation.IdnguoiDung == userId.Value,
+                cancellationToken);
+
+        if (orderItem == null)
+            return NotFound();
+
+        if (orderItem.IddonHangNavigation.IdtrangThai != OrderStatusIds.Completed)
+        {
+            TempData["ErrorMessage"] = "Chỉ có thể đánh giá sản phẩm trong đơn hàng đã hoàn thành.";
+            return RedirectToAction(nameof(OrderDetail), new { id = model.IddonHang });
+        }
+
+        var productId = orderItem.IdbienTheNavigation?.IdsanPham;
+        if (!productId.HasValue)
+        {
+            TempData["ErrorMessage"] = "Sản phẩm này hiện không thể đánh giá.";
+            return RedirectToAction(nameof(OrderDetail), new { id = model.IddonHang });
+        }
+
+        var hasExistingReview = await dbContext.DanhGia.AnyAsync(
+            review =>
+                review.IdnguoiDung == userId.Value
+                && review.IdsanPham == productId.Value,
+            cancellationToken);
+        if (hasExistingReview)
+        {
+            TempData["ErrorMessage"] = "Bạn đã đánh giá sản phẩm này.";
+            return RedirectToAction(nameof(OrderDetail), new { id = model.IddonHang });
+        }
+
+        dbContext.DanhGia.Add(new DanhGia
+        {
+            IdnguoiDung = userId.Value,
+            IdsanPham = productId.Value,
+            IdchiTietDonHang = orderItem.IdchiTietDonHang,
+            DiemSo = (byte)model.DiemSo,
+            NoiDung = string.IsNullOrWhiteSpace(model.NoiDung)
+                ? null
+                : model.NoiDung.Trim(),
+            TrangThai = true,
+            NgayTao = DateTime.Now
+        });
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception)
+        {
+            logger.LogError(
+                exception,
+                "Unable to create review for user {UserId} and product {ProductId}",
+                userId.Value,
+                productId.Value);
+            TempData["ErrorMessage"] = "Không thể lưu đánh giá. Vui lòng thử lại.";
+            return RedirectToAction(nameof(OrderDetail), new { id = model.IddonHang });
+        }
+
+        TempData["SuccessMessage"] = "Cảm ơn bạn đã đánh giá sản phẩm.";
+        return RedirectToAction(nameof(OrderDetail), new { id = model.IddonHang });
     }
 
     [HttpPost]

@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace FashionHub.Web.ViewModels.Account
 {
     public class OrderHistoryViewModel
@@ -29,6 +31,8 @@ namespace FashionHub.Web.ViewModels.Account
 
     public class OrderItemViewModel
     {
+        public int IdchiTietDonHang { get; set; }
+        public int? IdsanPham { get; set; }
         public string TenSanPham { get; set; } = string.Empty;
         public string? HinhAnh { get; set; }
         public string? MauSac { get; set; }
@@ -36,5 +40,25 @@ namespace FashionHub.Web.ViewModels.Account
         public int SoLuong { get; set; }
         public decimal DonGia { get; set; }
         public decimal ThanhTien { get; set; }
+        public bool CoTheDanhGia { get; set; }
+        public bool DaDanhGia { get; set; }
+        public byte? DiemDanhGia { get; set; }
+        public string? NoiDungDanhGia { get; set; }
+        public DateTime? NgayDanhGia { get; set; }
+    }
+
+    public class CreateReviewViewModel
+    {
+        [Range(1, int.MaxValue)]
+        public int IddonHang { get; set; }
+
+        [Range(1, int.MaxValue)]
+        public int IdchiTietDonHang { get; set; }
+
+        [Range(1, 5, ErrorMessage = "Điểm đánh giá phải từ 1 đến 5 sao.")]
+        public int DiemSo { get; set; }
+
+        [StringLength(2000, ErrorMessage = "Nội dung đánh giá không được vượt quá 2000 ký tự.")]
+        public string? NoiDung { get; set; }
     }
 }

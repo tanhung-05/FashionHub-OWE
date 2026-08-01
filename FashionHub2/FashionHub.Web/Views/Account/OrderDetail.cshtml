@@ -21,6 +21,13 @@
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             }
+            @if (TempData["ErrorMessage"] != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    @TempData["ErrorMessage"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
 
             <div class="row">
                 <!-- Order Info -->
@@ -70,7 +77,8 @@
                         <div class="card-body">
                             @foreach (var item in Model.Items)
                             {
-                                <div class="row align-items-center mb-3 pb-3 border-bottom">
+                                <div class="row align-items-center mb-3 pb-3 border-bottom"
+                                     id="order-item-@item.IdchiTietDonHang">
                                     <div class="col-md-2">
                                         @if (!string.IsNullOrEmpty(item.HinhAnh))
                                         {
@@ -115,6 +123,88 @@
                                         <small class="text-muted d-block">Thành tiền</small>
                                         <strong class="text-danger">@item.ThanhTien.ToString("N0") ₫</strong>
                                     </div>
+
+                                    @if (item.DaDanhGia)
+                                    {
+                                        <div class="col-12 mt-3">
+                                            <div class="rounded border bg-light p-3">
+                                                <div class="d-flex flex-wrap justify-content-between gap-2">
+                                                    <strong>Đánh giá của bạn</strong>
+                                                    @if (item.NgayDanhGia.HasValue)
+                                                    {
+                                                        <small class="text-muted">
+                                                            @item.NgayDanhGia.Value.ToString("dd/MM/yyyy HH:mm")
+                                                        </small>
+                                                    }
+                                                </div>
+                                                <div class="text-warning my-1"
+                                                     aria-label="@item.DiemDanhGia trên 5 sao">
+                                                    @for (var star = 1; star <= 5; star++)
+                                                    {
+                                                        <i class="bi @(star <= item.DiemDanhGia ? "bi-star-fill" : "bi-star")"
+                                                           aria-hidden="true"></i>
+                                                    }
+                                                </div>
+                                                @if (!string.IsNullOrWhiteSpace(item.NoiDungDanhGia))
+                                                {
+                                                    <p class="mb-0">@item.NoiDungDanhGia</p>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                    else if (item.CoTheDanhGia)
+                                    {
+                                        <div class="col-12 mt-3">
+                                            <form asp-action="CreateReview"
+                                                  asp-controller="Account"
+                                                  method="post"
+                                                  class="rounded border p-3">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="IddonHang" value="@Model.IddonHang" />
+                                                <input type="hidden"
+                                                       name="IdchiTietDonHang"
+                                                       value="@item.IdchiTietDonHang" />
+
+                                                <h6 class="mb-3">Đánh giá sản phẩm</h6>
+                                                <div class="row g-3">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label"
+                                                               for="rating-@item.IdchiTietDonHang">
+                                                            Số sao
+                                                        </label>
+                                                        <select class="form-select"
+                                                                id="rating-@item.IdchiTietDonHang"
+                                                                name="DiemSo"
+                                                                required>
+                                                            <option value="">Chọn số sao</option>
+                                                            <option value="5">5 sao - Tuyệt vời</option>
+                                                            <option value="4">4 sao - Tốt</option>
+                                                            <option value="3">3 sao - Bình thường</option>
+                                                            <option value="2">2 sao - Chưa tốt</option>
+                                                            <option value="1">1 sao - Rất tệ</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-7">
+                                                        <label class="form-label"
+                                                               for="review-content-@item.IdchiTietDonHang">
+                                                            Nhận xét
+                                                        </label>
+                                                        <textarea class="form-control"
+                                                                  id="review-content-@item.IdchiTietDonHang"
+                                                                  name="NoiDung"
+                                                                  rows="2"
+                                                                  maxlength="2000"
+                                                                  placeholder="Chia sẻ trải nghiệm của bạn (không bắt buộc)"></textarea>
+                                                    </div>
+                                                    <div class="col-md-2 d-flex align-items-end">
+                                                        <button type="submit" class="btn btn-primary w-100">
+                                                            <i class="bi bi-send"></i> Gửi
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    }
                                 </div>
                             }
                         </div>
