@@ -37,7 +37,12 @@ namespace FashionHub.Web.Areas.Admin.Controllers
         }
 
         // GET: Admin/Products
-        public async Task<IActionResult> Index(string? searchString, int? categoryId, int? brandId, int? status)
+        public async Task<IActionResult> Index(
+            string? searchString,
+            int? categoryId,
+            int? brandId,
+            int? status,
+            bool showDeleted = false)
         {
             var query = _context.SanPhams
                 .Include(p => p.IddanhMucNavigation)
@@ -45,7 +50,9 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 .Include(p => p.BienTheSanPhams)
                     .ThenInclude(variant => variant.HinhAnhBienThes)
                         .ThenInclude(link => link.IdhinhAnhNavigation)
-                .Where(p => p.DeletedAt == null)
+                .Where(p => showDeleted
+                    ? p.DeletedAt != null
+                    : p.DeletedAt == null)
                 .AsQueryable();
 
             // Filter
@@ -64,7 +71,7 @@ namespace FashionHub.Web.Areas.Admin.Controllers
                 query = query.Where(p => p.IdthuongHieu == brandId.Value);
             }
 
-            if (status.HasValue)
+            if (!showDeleted && status.HasValue)
             {
                 query = query.Where(p => p.TrangThai == (status.Value == 1));
             }
@@ -75,32 +82,41 @@ namespace FashionHub.Web.Areas.Admin.Controllers
 
             var viewModel = new ProductListAdminViewModel
             {
-                Products = products.Select(p => new ProductItemAdminViewModel
+                Products = products.Select(p =>
                 {
-                    IDSanPham = p.IdsanPham,
-                    TenSanPham = p.TenSanPham ?? "",
-                    TenDanhMuc = p.IddanhMucNavigation?.TenDanhMuc,
-                    TenThuongHieu = p.IdthuongHieuNavigation?.TenThuongHieu,
-                    Gia = p.Gia,
-                    GiaKhuyenMai = p.GiaKhuyenMai,
-                    NgayBatDauKm = p.NgayBatDauKm,
-                    NgayKetThucKm = p.NgayKetThucKm,
-                    TrangThai = p.TrangThai,
-                    VariantCount = p.BienTheSanPhams.Count(v => v.DeletedAt == null),
-                    TotalStock = p.BienTheSanPhams
-                        .Where(v => v.DeletedAt == null)
-                        .Sum(v => v.SoLuongTon),
-                    MainImageUrl = p.BienTheSanPhams
-                        .Where(v => v.DeletedAt == null)
+                    var visibleVariants = showDeleted
+                        ? p.BienTheSanPhams
+                        : p.BienTheSanPhams
+                            .Where(variant => variant.DeletedAt == null)
+                            .ToList();
+
+                    return new ProductItemAdminViewModel
+                    {
+                        IDSanPham = p.IdsanPham,
+                        TenSanPham = p.TenSanPham ?? "",
+                        TenDanhMuc = p.IddanhMucNavigation?.TenDanhMuc,
+                        TenThuongHieu = p.IdthuongHieuNavigation?.TenThuongHieu,
+                        Gia = p.Gia,
+                        GiaKhuyenMai = p.GiaKhuyenMai,
+                        NgayBatDauKm = p.NgayBatDauKm,
+                        NgayKetThucKm = p.NgayKetThucKm,
+                        TrangThai = p.TrangThai,
+                        IsDeleted = p.DeletedAt != null,
+                        DeletedAt = p.DeletedAt,
+                        VariantCount = visibleVariants.Count,
+                        TotalStock = visibleVariants.Sum(variant => variant.SoLuongTon),
+                        MainImageUrl = visibleVariants
                         .SelectMany(v => v.HinhAnhBienThes)
                         .Where(h => h.LaAnhChinh == true)
                         .Select(h => h.IdhinhAnhNavigation?.DuongDan)
                         .FirstOrDefault()
+                    };
                 }).ToList(),
                 SearchString = searchString,
                 CategoryId = categoryId,
                 BrandId = brandId,
-                Status = status
+                Status = status,
+                ShowDeleted = showDeleted
             };
 
             // Load dropdowns
@@ -545,13 +561,39 @@ namespace FashionHub.Web.Areas.Admin.Controllers
             {
                 var result = await _productService.DeleteProductAsync(id);
                 return result.IsSuccess
-                    ? Json(new { success = true, message = "Xóa sản phẩm thành công." })
+                    ? Json(new { success = true, message = "Đã ngừng kinh doanh sản phẩm. Bạn có thể khôi phục trong mục Đã ẩn." })
                     : Json(new { success = false, message = result.Error!.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting product");
-                return Json(new { success = false, message = "Không thể xóa sản phẩm. Vui lòng thử lại." });
+                return Json(new { success = false, message = "Không thể ngừng kinh doanh sản phẩm. Vui lòng thử lại." });
+            }
+        }
+
+        // POST: Admin/Products/Restore (AJAX)
+        [HttpPost]
+        public async Task<IActionResult> Restore(int id)
+        {
+            try
+            {
+                var result = await _productService.RestoreProductAsync(id);
+                return result.IsSuccess
+                    ? Json(new
+                    {
+                        success = true,
+                        message = "Đã khôi phục sản phẩm về trạng thái Ngừng bán."
+                    })
+                    : Json(new { success = false, message = result.Error!.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error restoring product");
+                return Json(new
+                {
+                    success = false,
+                    message = "Không thể khôi phục sản phẩm. Vui lòng thử lại."
+                });
             }
         }
 

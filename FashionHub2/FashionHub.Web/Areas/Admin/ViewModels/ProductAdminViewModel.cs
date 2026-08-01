@@ -78,6 +78,7 @@ namespace FashionHub.Web.Areas.Admin.ViewModels
         public int? CategoryId { get; set; }
         public int? BrandId { get; set; }
         public int? Status { get; set; }
+        public bool ShowDeleted { get; set; }
     }
 
     /// <summary>
@@ -94,6 +95,8 @@ namespace FashionHub.Web.Areas.Admin.ViewModels
         public DateTime? NgayBatDauKm { get; set; }
         public DateTime? NgayKetThucKm { get; set; }
         public bool TrangThai { get; set; }
+        public bool IsDeleted { get; set; }
+        public DateTime? DeletedAt { get; set; }
         public int VariantCount { get; set; }
         public int TotalStock { get; set; }
         public string? MainImageUrl { get; set; }

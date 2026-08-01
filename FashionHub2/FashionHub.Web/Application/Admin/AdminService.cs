@@ -185,6 +185,47 @@ public sealed class AdminService :
         return ServiceResult<bool>.Success(true);
     }
 
+    public async Task<ServiceResult<bool>> RestoreProductAsync(
+        int productId,
+        CancellationToken cancellationToken = default)
+    {
+        var product = await dbContext.SanPhams
+            .FirstOrDefaultAsync(item => item.IdsanPham == productId, cancellationToken);
+        if (product == null)
+        {
+            return NotFound<bool>("product-not-found", "Không tìm thấy sản phẩm.");
+        }
+
+        if (product.DeletedAt == null)
+        {
+            return ServiceResult<bool>.Failure(
+                ServiceErrorType.Conflict,
+                "product-not-deleted",
+                "Sản phẩm chưa bị ngừng kinh doanh.");
+        }
+
+        var deletedAt = product.DeletedAt.Value;
+        product.DeletedAt = null;
+        product.TrangThai = false;
+        product.NgayCapNhat = DateTime.Now;
+
+        var variantsDeletedWithProduct = await dbContext.BienTheSanPhams
+            .Where(variant =>
+                variant.IdsanPham == productId
+                && variant.DeletedAt == deletedAt)
+            .ToListAsync(cancellationToken);
+        foreach (var variant in variantsDeletedWithProduct)
+        {
+            variant.DeletedAt = null;
+            variant.TrangThai = true;
+            variant.NgayCapNhat = product.NgayCapNhat;
+        }
+
+        AddAudit("RESTORE", "SanPham", productId, null, null);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return ServiceResult<bool>.Success(true);
+    }
+
     public async Task<ServiceResult<PagedResult<AdminOrderSummaryDto>>> GetOrdersAsync(
         AdminOrderQueryParameters query,
         CancellationToken cancellationToken = default)

@@ -163,6 +163,10 @@ public interface IAdminProductService
     Task<ServiceResult<bool>> DeleteProductAsync(
         int productId,
         CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<bool>> RestoreProductAsync(
+        int productId,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IAdminOrderService

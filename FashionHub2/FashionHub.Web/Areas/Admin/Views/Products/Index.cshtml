@@ -8,8 +8,24 @@
 }
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <h4 class="fw-bold text-uppercase">Danh sách Sản phẩm</h4>
     <div>
+        <h4 class="fw-bold text-uppercase mb-1">
+            @(Model.ShowDeleted ? "Sản phẩm đã ngừng kinh doanh" : "Danh sách Sản phẩm")
+        </h4>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Phạm vi sản phẩm">
+            <a asp-action="Index"
+               asp-route-showDeleted="false"
+               class="btn @(Model.ShowDeleted ? "btn-outline-secondary" : "btn-secondary")">
+                <i class="bi bi-box-seam"></i> Đang quản lý
+            </a>
+            <a asp-action="Index"
+               asp-route-showDeleted="true"
+               class="btn @(Model.ShowDeleted ? "btn-secondary" : "btn-outline-secondary")">
+                <i class="bi bi-archive"></i> Đã ẩn
+            </a>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
         <a asp-action="Export" class="btn btn-success me-2">
             <i class="bi bi-file-earmark-spreadsheet"></i> Xuất Excel
         </a>
@@ -23,6 +39,9 @@
 <div class="card mb-4 shadow-sm border-0">
     <div class="card-body bg-light rounded">
         <form asp-action="Index" method="get" class="row g-2 align-items-center">
+            <input type="hidden"
+                   name="showDeleted"
+                   value="@(Model.ShowDeleted ? "true" : "false")">
             <div class="col-md-3">
                 <div class="input-group">
                     <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
@@ -48,7 +67,7 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <select name="status" class="form-select">
+                <select name="status" class="form-select" disabled="@Model.ShowDeleted">
                     <option value="">-- Trạng thái --</option>
                     <option value="1" selected="@(Model.Status == 1)">Đang bán</option>
                     <option value="0" selected="@(Model.Status == 0)">Ngừng bán</option>
@@ -91,7 +110,7 @@
                     {
                         foreach (var item in Model.Products)
                         {
-                            <tr>
+                            <tr class="@(item.IsDeleted ? "table-secondary" : null)">
                                 <td class="ps-4 fw-bold text-secondary">#@item.IDSanPham</td>
                                 <td>
                                     <div class="position-relative" style="width: 60px; height: 60px;">
@@ -112,9 +131,22 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <a asp-action="Edit" asp-route-id="@item.IDSanPham" class="text-decoration-none fw-bold text-dark">
-                                        @item.TenSanPham
-                                    </a>
+                                    @if (item.IsDeleted)
+                                    {
+                                        <strong class="text-dark">@item.TenSanPham</strong>
+                                        @if (item.DeletedAt.HasValue)
+                                        {
+                                            <div class="small text-muted mt-1">
+                                                Ẩn lúc @item.DeletedAt.Value.ToString("dd/MM/yyyy HH:mm")
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <a asp-action="Edit" asp-route-id="@item.IDSanPham" class="text-decoration-none fw-bold text-dark">
+                                            @item.TenSanPham
+                                        </a>
+                                    }
                                     <div class="small text-danger fw-bold mt-1">
                                         @if (item.GiaKhuyenMai.HasValue)
                                         {
@@ -142,7 +174,13 @@
                                     }
                                 </td>
                                 <td>
-                                    @if (item.TrangThai)
+                                    @if (item.IsDeleted)
+                                    {
+                                        <span class="badge bg-dark-subtle text-dark border">
+                                            Đã ngừng kinh doanh
+                                        </span>
+                                    }
+                                    else if (item.TrangThai)
                                     {
                                         <span class="badge bg-success-subtle text-success border border-success-subtle">Đang bán</span>
                                     }
@@ -152,21 +190,36 @@
                                     }
                                 </td>
                                 <td class="text-end pe-4">
-                                    <a asp-action="Edit" asp-route-id="@item.IDSanPham" class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
-                                        <i class="bi bi-pencil-square"></i>
-                                    </a>
-                                    <button type="button" class="btn btn-sm btn-warning text-dark btn-discount"
-                                            data-id="@item.IDSanPham"
-                                            data-price="@item.Gia.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                            data-km-price="@((item.GiaKhuyenMai ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture))"
-                                            data-start="@item.NgayBatDauKm?.ToString("yyyy-MM-dd")"
-                                            data-end="@item.NgayKetThucKm?.ToString("yyyy-MM-dd")"
-                                            title="Tạo chương trình khuyến mãi">
-                                        <i class="bi bi-percent"></i> KM
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger btn-delete-product" data-id="@item.IDSanPham" title="Xóa">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                                    @if (item.IsDeleted)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-success btn-restore-product"
+                                                data-id="@item.IDSanPham"
+                                                title="Khôi phục sản phẩm">
+                                            <i class="bi bi-arrow-counterclockwise"></i> Khôi phục
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <a asp-action="Edit" asp-route-id="@item.IDSanPham" class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-warning text-dark btn-discount"
+                                                data-id="@item.IDSanPham"
+                                                data-price="@item.Gia.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                data-km-price="@((item.GiaKhuyenMai ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture))"
+                                                data-start="@item.NgayBatDauKm?.ToString("yyyy-MM-dd")"
+                                                data-end="@item.NgayKetThucKm?.ToString("yyyy-MM-dd")"
+                                                title="Tạo chương trình khuyến mãi">
+                                            <i class="bi bi-percent"></i> KM
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger btn-delete-product"
+                                                data-id="@item.IDSanPham"
+                                                title="Ngừng kinh doanh">
+                                            <i class="bi bi-eye-slash"></i>
+                                        </button>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -305,7 +358,9 @@
 
     document.querySelectorAll('.btn-delete-product').forEach(function (button) {
         button.addEventListener('click', async function () {
-            if (!window.confirm('Xóa sản phẩm này? Sản phẩm và các biến thể sẽ ngừng hoạt động.')) {
+            if (!window.confirm(
+                'Ngừng kinh doanh sản phẩm này? Sản phẩm sẽ được ẩn khỏi cửa hàng, ' +
+                'nhưng dữ liệu và đơn hàng cũ vẫn được giữ lại.')) {
                 return;
             }
 
@@ -315,7 +370,31 @@
                     { id: button.dataset.id },
                     button);
                 if (!response.success) {
-                    throw new Error(response.message || 'Không thể xóa sản phẩm.');
+                    throw new Error(response.message || 'Không thể ngừng kinh doanh sản phẩm.');
+                }
+                AdminUI.showToast('success', response.message);
+                window.location.reload();
+            } catch (error) {
+                AdminUI.showToast('error', error.message || 'Không thể kết nối đến máy chủ.');
+            }
+        });
+    });
+
+    document.querySelectorAll('.btn-restore-product').forEach(function (button) {
+        button.addEventListener('click', async function () {
+            if (!window.confirm(
+                'Khôi phục sản phẩm này? Sản phẩm sẽ trở lại danh sách quản lý ' +
+                'ở trạng thái Ngừng bán để bạn kiểm tra trước khi mở bán.')) {
+                return;
+            }
+
+            try {
+                const response = await AdminUI.postForm(
+                    '@Url.Action("Restore", "Products", new { area = "Admin" })',
+                    { id: button.dataset.id },
+                    button);
+                if (!response.success) {
+                    throw new Error(response.message || 'Không thể khôi phục sản phẩm.');
                 }
                 AdminUI.showToast('success', response.message);
                 window.location.reload();
