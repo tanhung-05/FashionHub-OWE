@@ -24,6 +24,11 @@ fi
 
 mkdir -p "${backup_dir}"
 
+# Docker creates a new named volume as root. SQL Server runs as the mssql user
+# and cannot write backups until the mounted directory ownership is corrected.
+"${compose[@]}" exec -T --user root sqlserver \
+    chown mssql:root /var/opt/mssql/backup
+
 backup_sql="BACKUP DATABASE [QL_SHOPQUANAO_PRO] TO DISK = N'${container_path}' WITH COPY_ONLY, INIT, CHECKSUM, STATS = 10;"
 verify_sql="RESTORE VERIFYONLY FROM DISK = N'${container_path}' WITH CHECKSUM;"
 
