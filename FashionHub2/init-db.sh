@@ -44,6 +44,27 @@ else
   echo "Database ${DATABASE} initialized successfully."
 fi
 
+if [[ "${DISABLE_DEMO_ACCOUNTS:-false}" == "true" ]]; then
+  echo "Disabling seeded demo accounts for production..."
+  ${SQLCMD} \
+    -S "${SERVER}" \
+    -U sa \
+    -P "${MSSQL_SA_PASSWORD}" \
+    -No \
+    -b \
+    -Q "
+      USE [${DATABASE}];
+      UPDATE dbo.NguoiDung
+      SET TrangThai = 0,
+          SecurityStamp = NEWID(),
+          NgayCapNhat = SYSDATETIME()
+      WHERE Email IN (
+        'admin@fashionhub.local',
+        'lan.nguyen@fashionhub.local',
+        'binh.tran@fashionhub.local'
+      );"
+fi
+
 if [[ -n "${APP_DB_PASSWORD:-}" ]]; then
   sqlcmd_variable_marker="$(printf '\044\050')"
   if (( ${#APP_DB_PASSWORD} < 20 )) \

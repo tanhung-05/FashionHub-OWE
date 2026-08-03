@@ -34,6 +34,7 @@ services:
     environment:
       MSSQL_SA_PASSWORD: ${SA_PASSWORD:?Set SA_PASSWORD in .env.production}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env.production}
+      DISABLE_DEMO_ACCOUNTS: "true"
       SQL_SERVER: sqlserver
       TZ: Asia/Ho_Chi_Minh
     volumes:
