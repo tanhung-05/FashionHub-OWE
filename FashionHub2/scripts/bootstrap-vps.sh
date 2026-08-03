@@ -41,7 +41,7 @@ curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
     -o /etc/apt/keyrings/docker.asc
 chmod a+r /etc/apt/keyrings/docker.asc
 
-# shellcheck source=/etc/os-release
+# shellcheck disable=SC1091
 . /etc/os-release
 cat > /etc/apt/sources.list.d/docker.sources <<EOF
 Types: deb
