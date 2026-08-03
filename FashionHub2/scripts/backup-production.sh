@@ -7,12 +7,18 @@ cd "${root_dir}"
 env_file="${ENV_FILE:-.env.production}"
 compose=(docker compose --env-file "${env_file}" -f compose.production.yml)
 backup_dir="${BACKUP_DIR:-backups/sqlserver}"
+retention_days="${BACKUP_RETENTION_DAYS:-14}"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 backup_file="FashionHub_${timestamp}.bak"
 container_path="/var/opt/mssql/backup/${backup_file}"
 
 if [[ ! -f "${env_file}" ]]; then
     echo "Missing ${env_file}." >&2
+    exit 1
+fi
+
+if [[ ! "${retention_days}" =~ ^[0-9]+$ ]]; then
+    echo "BACKUP_RETENTION_DAYS must be a non-negative integer." >&2
     exit 1
 fi
 
@@ -48,4 +54,9 @@ echo "Verifying SQL Server backup..."
 
 docker cp "${container_id}:${container_path}" "${backup_dir}/${backup_file}"
 echo "Backup copied to ${backup_dir}/${backup_file}"
+
+echo "Removing local SQL backups older than ${retention_days} days..."
+find "${backup_dir}" -maxdepth 1 -type f -name 'FashionHub_*.bak' \
+    -mtime "+${retention_days}" -print -delete
+
 echo "Copy this file to storage outside the VPS; a same-server copy is not disaster recovery."
