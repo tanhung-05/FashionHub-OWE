@@ -37,21 +37,16 @@ public class PublicPagesControllerTests
     }
 
     [Fact]
-    public async Task Home_UsesAvailableLocalCoreClientAssets()
+    public async Task Home_UsesVersionedCoreClientAssetsAllowedByProductionCsp()
     {
         var response = await client.GetAsync("/");
 
         response.EnsureSuccessStatusCode();
         var content = await response.Content.ReadAsStringAsync();
-        content.Should().Contain("/lib/jquery/dist/jquery.min.js");
-        content.Should().Contain("/lib/bootstrap/dist/js/bootstrap.bundle.min.js");
-        content.Should().Contain("/lib/bootstrap/dist/css/bootstrap.min.css");
-        content.Should().NotContain("https://code.jquery.com");
-
-        var jqueryResponse = await client.GetAsync("/lib/jquery/dist/jquery.min.js");
-        var bootstrapResponse = await client.GetAsync("/lib/bootstrap/dist/js/bootstrap.bundle.min.js");
-
-        jqueryResponse.EnsureSuccessStatusCode();
-        bootstrapResponse.EnsureSuccessStatusCode();
+        content.Should().Contain("https://code.jquery.com/jquery-3.7.1.min.js");
+        content.Should().Contain("sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=");
+        content.Should().Contain("https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js");
+        content.Should().Contain("https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css");
+        content.Should().NotContain("/lib/jquery/dist/jquery.min.js");
     }
 }

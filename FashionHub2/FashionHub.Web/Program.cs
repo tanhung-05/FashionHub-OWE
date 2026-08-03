@@ -377,7 +377,7 @@ app.Use(async (context, next) =>
     {
         context.Response.Headers.Append("Content-Security-Policy", 
             "default-src 'self'; " +
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://generativelanguage.googleapis.com; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdn.jsdelivr.net https://generativelanguage.googleapis.com; " +
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; " +
             "img-src 'self' data: https:; " +
             "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; " +
