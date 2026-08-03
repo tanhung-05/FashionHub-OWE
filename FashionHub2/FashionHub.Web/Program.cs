@@ -323,7 +323,12 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             if (context.Request.Path.StartsWithSegments("/api"))
             {
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                return Task.CompletedTask;
+                return Results.Problem(
+                    statusCode: StatusCodes.Status401Unauthorized,
+                    title: "Authentication required",
+                    type: "https://httpstatuses.com/401",
+                    instance: context.Request.Path)
+                    .ExecuteAsync(context.HttpContext);
             }
 
             context.Response.Redirect(context.RedirectUri);
@@ -334,7 +339,12 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             if (context.Request.Path.StartsWithSegments("/api"))
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                return Task.CompletedTask;
+                return Results.Problem(
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Access denied",
+                    type: "https://httpstatuses.com/403",
+                    instance: context.Request.Path)
+                    .ExecuteAsync(context.HttpContext);
             }
 
             context.Response.Redirect(context.RedirectUri);
@@ -358,7 +368,9 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseExceptionHandler("/Home/Error");
-    app.UseStatusCodePagesWithReExecute("/Home/Error/{0}");
+    app.UseWhen(
+        context => !context.Request.Path.StartsWithSegments("/api"),
+        webPipeline => webPipeline.UseStatusCodePagesWithReExecute("/Home/Error/{0}"));
     app.UseHsts();
     
     // Response compression for production only
@@ -368,20 +380,20 @@ else
 // Security headers
 app.Use(async (context, next) =>
 {
-    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-    context.Response.Headers.Append("X-Frame-Options", "SAMEORIGIN");
-    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
-    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
+    context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     
     if (!app.Environment.IsDevelopment())
     {
-        context.Response.Headers.Append("Content-Security-Policy", 
+        context.Response.Headers["Content-Security-Policy"] =
             "default-src 'self'; " +
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdn.jsdelivr.net https://generativelanguage.googleapis.com; " +
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; " +
             "img-src 'self' data: https:; " +
             "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; " +
-            "connect-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com https://generativelanguage.googleapis.com;");
+            "connect-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com https://provinces.open-api.vn https://generativelanguage.googleapis.com;";
     }
     
     await next();

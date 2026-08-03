@@ -24,6 +24,26 @@ public class AccountApiTests : IClassFixture<CustomWebApplicationFactory<Program
         var response = await client.GetAsync("/api/v1/account/profile");
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.Content.Headers.ContentType!.MediaType
+            .Should().Be("application/problem+json");
+        var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        problem.RootElement.GetProperty("title").GetString()
+            .Should().Be("Authentication required");
+        problem.RootElement.GetProperty("status").GetInt32()
+            .Should().Be((int)HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Home_ContentSecurityPolicy_AllowsVietnamAddressApi()
+    {
+        using var client = CreateClient();
+
+        var response = await client.GetAsync("/");
+
+        response.EnsureSuccessStatusCode();
+        response.Headers.GetValues("Content-Security-Policy")
+            .Should().ContainSingle()
+            .Which.Should().Contain("https://provinces.open-api.vn");
     }
 
     [Fact]
