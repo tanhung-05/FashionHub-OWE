@@ -36,6 +36,51 @@
                         @await Component.InvokeAsync("Menu")
                     </ul>
 
+                    <div class="mobile-menu-account d-lg-none">
+                        @if (isAuthenticated)
+                        {
+                            <div class="mobile-account-summary">
+                                <span class="mobile-account-avatar" aria-hidden="true">
+                                    <i class="bi bi-person"></i>
+                                </span>
+                                <span>
+                                    <strong>@User.FindFirstValue(ClaimTypes.Name)</strong>
+                                    <small>@User.FindFirstValue(ClaimTypes.Email)</small>
+                                </span>
+                            </div>
+                            <nav class="mobile-account-links" aria-label="Tài khoản">
+                                <a asp-controller="Account" asp-action="Profile">
+                                    <i class="bi bi-person-vcard" aria-hidden="true"></i>Hồ sơ
+                                </a>
+                                <a asp-controller="Account" asp-action="Addresses">
+                                    <i class="bi bi-geo-alt" aria-hidden="true"></i>Địa chỉ
+                                </a>
+                                <a asp-controller="Account" asp-action="OrderHistory">
+                                    <i class="bi bi-bag-check" aria-hidden="true"></i>Đơn hàng của tôi
+                                </a>
+                                @if (User.IsInRole("Admin"))
+                                {
+                                    <a asp-area="Admin" asp-controller="Dashboard" asp-action="Index">
+                                        <i class="bi bi-speedometer2" aria-hidden="true"></i>Trang quản trị
+                                    </a>
+                                }
+                                <form asp-controller="Account" asp-action="Logout" method="post">
+                                    <button type="submit">
+                                        <i class="bi bi-box-arrow-right" aria-hidden="true"></i>Đăng xuất
+                                    </button>
+                                </form>
+                            </nav>
+                        }
+                        else
+                        {
+                            <p class="mobile-account-label">Tài khoản</p>
+                            <div class="mobile-auth-actions">
+                                <a asp-controller="Account" asp-action="Login" class="btn btn-dark">Đăng nhập</a>
+                                <a asp-controller="Account" asp-action="Register" class="btn btn-outline-dark">Đăng ký</a>
+                            </div>
+                        }
+                    </div>
+
                     <div class="header-tools">
                         <form asp-controller="Products" asp-action="Index" method="get"
                               class="header-search" role="search">
@@ -49,9 +94,10 @@
                             </button>
                         </form>
 
-                        @if (isAuthenticated)
-                        {
-                            <div class="dropdown">
+                        <div class="header-account-desktop">
+                            @if (isAuthenticated)
+                            {
+                                <div class="dropdown">
                                 <button type="button" class="header-icon-button dropdown-toggle hide-arrow"
                                         id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false"
                                         aria-label="Mở menu tài khoản">
@@ -79,14 +125,15 @@
                                         </form>
                                     </li>
                                 </ul>
-                            </div>
-                        }
-                        else
-                        {
-                            <a asp-controller="Account" asp-action="Login" class="header-login-link">
-                                Đăng nhập
-                            </a>
-                        }
+                                </div>
+                            }
+                            else
+                            {
+                                <a asp-controller="Account" asp-action="Login" class="header-login-link">
+                                    Đăng nhập
+                                </a>
+                            }
+                        </div>
 
                         <div class="header-cart-desktop">
                             @await Component.InvokeAsync("CartIcon")

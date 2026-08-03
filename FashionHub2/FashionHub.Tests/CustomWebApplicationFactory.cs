@@ -220,6 +220,7 @@ public class CustomWebApplicationFactory<TProgram>
             db.PhuongThucThanhToans.Add(new PhuongThucThanhToan
             {
                 IdphuongThucThanhToan = 1,
+                MaPhuongThuc = "COD",
                 TenPhuongThuc = "Thanh toán khi nhận hàng (COD)",
                 TrangThai = true
             });

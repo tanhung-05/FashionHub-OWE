@@ -46,6 +46,22 @@ public static class ShippingFees
     public const decimal Standard = 30000m;
 }
 
+public static class PaymentMethodCodes
+{
+    public const string CashOnDelivery = "COD";
+    public const string VnPay = "VNPAY";
+    public const string Momo = "MOMO";
+}
+
+public static class PaymentStatusIds
+{
+    public const byte Unpaid = 0;
+    public const byte Pending = 1;
+    public const byte Paid = 2;
+    public const byte Failed = 3;
+    public const byte Refunded = 4;
+}
+
 public static class InventoryChangeTypes
 {
     public const string OrderPlaced = "ORDER_PLACED";

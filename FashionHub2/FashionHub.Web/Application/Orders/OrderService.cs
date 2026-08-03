@@ -139,13 +139,13 @@ public sealed class OrderService : IOrderService
                     "Địa chỉ giao hàng không hợp lệ.");
             }
 
-            var paymentMethodIsActive = await dbContext.PhuongThucThanhToans
+            var paymentMethod = await dbContext.PhuongThucThanhToans
                 .AsNoTracking()
-                .AnyAsync(method =>
+                .FirstOrDefaultAsync(method =>
                     method.IdphuongThucThanhToan == request.PaymentMethodId
                     && method.TrangThai,
                     cancellationToken);
-            if (!paymentMethodIsActive)
+            if (paymentMethod == null)
             {
                 return Failure(
                     ServiceErrorType.NotFound,
@@ -229,6 +229,12 @@ public sealed class OrderService : IOrderService
                     TienGiamGia = discount,
                     TongThanhToan = subtotal + ShippingFees.Standard - discount,
                     IdphuongThucThanhToan = request.PaymentMethodId,
+                    TrangThaiThanhToan = string.Equals(
+                        paymentMethod.MaPhuongThuc,
+                        PaymentMethodCodes.VnPay,
+                        StringComparison.OrdinalIgnoreCase)
+                        ? PaymentStatusIds.Pending
+                        : PaymentStatusIds.Unpaid,
                     IdtrangThai = OrderStatusIds.Pending,
                     GhiChu = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
                     NgayTao = now
@@ -390,6 +396,9 @@ public sealed class OrderService : IOrderService
             order.IdtrangThai,
             order.IdtrangThaiNavigation.TenTrangThai,
             order.IdphuongThucThanhToanNavigation?.TenPhuongThuc,
+            order.IdphuongThucThanhToanNavigation?.MaPhuongThuc,
+            order.TrangThaiThanhToan,
+            order.NgayThanhToan,
             order.GhiChu,
             order.ChiTietDonHangs
                 .OrderBy(item => item.IdchiTietDonHang)

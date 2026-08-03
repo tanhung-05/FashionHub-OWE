@@ -47,6 +47,11 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: Server=sqlserver;Database=QL_SHOPQUANAO_PRO;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;
       GeminiAI__ApiKey: ${GEMINI_API_KEY:-}
+      VnPay__PaymentUrl: ${VNPAY_PAYMENT_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      VnPay__TmnCode: ${VNPAY_TMN_CODE:-}
+      VnPay__HashSecret: ${VNPAY_HASH_SECRET:-}
+      VnPay__ReturnUrl: ${VNPAY_RETURN_URL:-http://localhost:5167/payment/vnpay-return}
+      VnPay__TransactionApiUrl: ${VNPAY_TRANSACTION_API_URL:-https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
       PasswordReset__PublicBaseUrl: ${PUBLIC_BASE_URL}
       Email__Host: ${SMTP_HOST:-}
       Email__Port: ${SMTP_PORT:-587}

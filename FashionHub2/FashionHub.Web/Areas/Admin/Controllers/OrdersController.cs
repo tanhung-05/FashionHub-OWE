@@ -108,7 +108,18 @@ public class OrdersController : Controller
         var allowedStatusIds = OrderStatusTransitions
             .GetAllowedNextStatusIds(order.IdtrangThai)
             .Append(order.IdtrangThai)
-            .ToArray();
+            .ToList();
+        var isUnpaidVnPayOrder = order.IdphuongThucThanhToanNavigation?.MaPhuongThuc
+                == PaymentMethodCodes.VnPay
+            && order.TrangThaiThanhToan != PaymentStatusIds.Paid;
+        if (isUnpaidVnPayOrder)
+        {
+            allowedStatusIds.Remove(OrderStatusIds.Confirmed);
+        }
+        if (order.TrangThaiThanhToan == PaymentStatusIds.Paid)
+        {
+            allowedStatusIds.Remove(OrderStatusIds.Cancelled);
+        }
 
         var allowedStatuses = await _context.TrangThaiDonHangs
             .Where(status => allowedStatusIds.Contains(status.IdtrangThai))

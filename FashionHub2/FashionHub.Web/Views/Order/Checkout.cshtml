@@ -109,12 +109,17 @@
                             <label class="checkout-choice-card payment">
                                 <input type="radio" name="paymentMethodId"
                                        value="@method.IdphuongThucThanhToan" required
-                                       checked="@(method.IdphuongThucThanhToan == 1)" />
+                                       checked="@(method.MaPhuongThuc == FashionHub.Web.Domain.PaymentMethodCodes.CashOnDelivery)" />
                                 <span class="checkout-choice-indicator" aria-hidden="true"></span>
-                                <i class="bi bi-cash-coin" aria-hidden="true"></i>
+                                <i class="bi @(method.MaPhuongThuc == FashionHub.Web.Domain.PaymentMethodCodes.VnPay ? "bi-bank" : "bi-cash-coin")"
+                                   aria-hidden="true"></i>
                                 <span>
                                     <strong>@method.TenPhuongThuc</strong>
-                                    <small>Thông tin thanh toán được xác nhận khi đặt hàng.</small>
+                                    <small>
+                                        @(method.MaPhuongThuc == FashionHub.Web.Domain.PaymentMethodCodes.VnPay
+                                            ? "Chuyển sang cổng VNPAY bảo mật sau khi tạo đơn."
+                                            : "Thanh toán trực tiếp khi nhận hàng.")
+                                    </small>
                                 </span>
                             </label>
                         }

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using FashionHub.Web.Application.Authentication;
 using FashionHub.Web.Application.Email;
+using FashionHub.Web.Application.Orders;
 using FashionHub.Web.Data;
 using FashionHub.Web.Domain;
 using FashionHub.Web.Models.Generated;
@@ -22,6 +23,7 @@ public class AccountController : Controller
     private readonly IPasswordResetService passwordResetService;
     private readonly IPasswordResetLinkFactory passwordResetLinkFactory;
     private readonly IEmailSender emailSender;
+    private readonly IOrderCancellationService orderCancellationService;
     private readonly ILogger<AccountController> logger;
 
     public AccountController(
@@ -32,6 +34,7 @@ public class AccountController : Controller
         IPasswordResetService passwordResetService,
         IPasswordResetLinkFactory passwordResetLinkFactory,
         IEmailSender emailSender,
+        IOrderCancellationService orderCancellationService,
         ILogger<AccountController> logger)
     {
         this.dbContext = dbContext;
@@ -41,6 +44,7 @@ public class AccountController : Controller
         this.passwordResetService = passwordResetService;
         this.passwordResetLinkFactory = passwordResetLinkFactory;
         this.emailSender = emailSender;
+        this.orderCancellationService = orderCancellationService;
         this.logger = logger;
     }
 
@@ -752,6 +756,9 @@ public class AccountController : Controller
             TrangThai = order.IdtrangThaiNavigation.TenTrangThai,
             IdtrangThai = order.IdtrangThai,
             PhuongThucThanhToan = order.IdphuongThucThanhToanNavigation?.TenPhuongThuc,
+            MaPhuongThucThanhToan = order.IdphuongThucThanhToanNavigation?.MaPhuongThuc,
+            TrangThaiThanhToan = order.TrangThaiThanhToan,
+            NgayThanhToan = order.NgayThanhToan,
             Items = order.ChiTietDonHangs.Select(ct =>
             {
                 var productId = ct.IdbienTheNavigation?.IdsanPham;
@@ -895,51 +902,23 @@ public class AccountController : Controller
         if (order.IdtrangThai != OrderStatusIds.Pending)
             return Json(new { success = false, message = "Không thể hủy đơn hàng ở trạng thái hiện tại" });
 
-        foreach (var item in order.ChiTietDonHangs)
-        {
-            if (!item.IdbienThe.HasValue)
+        if (order.TrangThaiThanhToan == PaymentStatusIds.Paid)
+            return Json(new
             {
-                continue;
-            }
-
-            var variant = await dbContext.BienTheSanPhams.FindAsync(item.IdbienThe.Value);
-            if (variant == null)
-            {
-                continue;
-            }
-
-            var previousStock = variant.SoLuongTon;
-            variant.SoLuongTon += item.SoLuong;
-            variant.TongDaBan = Math.Max(0, variant.TongDaBan - item.SoLuong);
-            variant.NgayCapNhat = DateTime.Now;
-
-            dbContext.LichSuTonKhos.Add(new LichSuTonKho
-            {
-                IdbienThe = variant.IdbienThe,
-                IdnguoiThucHien = userId,
-                IddonHang = order.IddonHang,
-                LoaiThayDoi = InventoryChangeTypes.OrderCancelled,
-                SoLuongThayDoi = item.SoLuong,
-                TonTruoc = previousStock,
-                TonSau = variant.SoLuongTon,
-                GhiChu = $"Khách hàng hủy đơn #{order.IddonHang}",
-                NgayTao = DateTime.Now
+                success = false,
+                message = "Đơn đã thanh toán trực tuyến. Vui lòng liên hệ hỗ trợ để được xử lý hoàn tiền."
             });
-        }
 
-        order.IdtrangThai = OrderStatusIds.Cancelled;
+        var cancellationReason = string.IsNullOrWhiteSpace(reason)
+            ? $"Khách hàng hủy đơn #{order.IddonHang}"
+            : reason.Trim();
         order.GhiChu = string.IsNullOrWhiteSpace(reason) ? order.GhiChu : reason.Trim();
-        order.NgayCapNhat = DateTime.Now;
-        dbContext.LichSuDonHangs.Add(new LichSuDonHang
-        {
-            IddonHang = order.IddonHang,
-            IdtrangThaiCu = OrderStatusIds.Pending,
-            IdtrangThaiMoi = OrderStatusIds.Cancelled,
-            IdnguoiThucHien = userId,
-            GhiChu = string.IsNullOrWhiteSpace(reason) ? "Khách hàng hủy đơn" : reason.Trim(),
-            NgayTao = DateTime.Now
-        });
-        await dbContext.SaveChangesAsync();
+        await orderCancellationService.ApplyAsync(
+            order,
+            userId.Value,
+            cancellationReason,
+            HttpContext.RequestAborted);
+        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
         TempData["SuccessMessage"] = "Hủy đơn hàng thành công.";
         return Json(new { success = true, message = "Hủy đơn hàng thành công" });

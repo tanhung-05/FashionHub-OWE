@@ -818,6 +818,99 @@ a:hover {
     }
 }
 
+.payment-result-page {
+    display: grid;
+    min-height: 64vh;
+    place-items: center;
+    padding: 64px 20px;
+    background: var(--owe-surface-soft);
+}
+
+.payment-result {
+    width: min(620px, 100%);
+    text-align: center;
+}
+
+.payment-result-icon {
+    display: inline-grid;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 20px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    place-items: center;
+    font-size: 28px;
+}
+
+.payment-result-icon.is-success {
+    color: #16794b;
+}
+
+.payment-result-icon.is-failed {
+    color: var(--owe-sale);
+}
+
+.payment-result h1 {
+    margin-bottom: 12px;
+    font-size: 46px;
+    letter-spacing: 0;
+}
+
+.payment-result > p:not(.section-kicker) {
+    color: var(--owe-text-muted);
+}
+
+.payment-result-details {
+    margin: 32px 0;
+    border-top: 1px solid var(--owe-border);
+    border-bottom: 1px solid var(--owe-border);
+}
+
+.payment-result-details > div {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 20px;
+    padding: 14px 0;
+    text-align: left;
+}
+
+.payment-result-details > div + div {
+    border-top: 1px solid var(--owe-border);
+}
+
+.payment-result-details dt {
+    color: var(--owe-text-muted);
+    font-weight: 500;
+}
+
+.payment-result-details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-weight: 600;
+}
+
+.payment-result-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+@media (max-width: 575px) {
+    .payment-result h1 {
+        font-size: 32px;
+    }
+
+    .payment-result-details > div {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+
+    .payment-result-actions .btn {
+        width: 100%;
+    }
+}
+
 /* ========================================================================== */
 /* FashionHub customer storefront refresh                                    */
 /* ========================================================================== */
@@ -1078,6 +1171,10 @@ img {
 .header-mobile-actions {
     display: none;
     align-items: center;
+}
+
+.mobile-menu-account {
+    display: none;
 }
 
 .main-navbar .dropdown-menu {
@@ -2934,6 +3031,11 @@ img {
 }
 
 @media (max-width: 991px) {
+    #mainHeader,
+    #mainHeader.scrolled {
+        backdrop-filter: none;
+    }
+
     .header-mobile-actions {
         display: flex;
     }
@@ -2948,7 +3050,11 @@ img {
     }
 
     .main-navbar .offcanvas {
+        top: 0;
+        bottom: 0;
+        height: 100dvh;
         max-width: min(390px, 92vw);
+        background: #fff;
     }
 
     .main-navbar .offcanvas-header {
@@ -2968,6 +3074,9 @@ img {
         padding: 20px;
         flex-direction: column;
         align-items: stretch;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
     }
 
     .main-navbar .navbar-nav {
@@ -3008,11 +3117,28 @@ img {
         padding-left: 12px;
     }
 
+    .main-navbar .nav-products > .dropdown-menu.show .dropdown-submenu > .dropdown-menu {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 0 8px 24px;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+
+    .main-navbar .nav-products > .dropdown-menu.show .dropdown-submenu > .dropdown-item {
+        font-weight: 800;
+    }
+
+    .main-navbar .nav-products > .dropdown-menu.show .dropdown-submenu > .dropdown-item i {
+        display: none;
+    }
+
     .header-tools {
         display: grid;
         width: 100%;
-        margin-top: auto;
+        margin-top: 20px;
         padding-top: 24px;
+        border-top: 1px solid var(--owe-border);
         grid-template-columns: 1fr auto;
     }
 
@@ -3023,6 +3149,105 @@ img {
 
     .header-login-link {
         justify-self: start;
+    }
+
+    .header-account-desktop {
+        display: none;
+    }
+
+    .mobile-menu-account {
+        display: block;
+        padding-top: 22px;
+    }
+
+    .mobile-account-summary {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr);
+        align-items: center;
+        gap: 12px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--owe-border);
+    }
+
+    .mobile-account-avatar {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border: 1px solid var(--owe-border-strong);
+        border-radius: 50%;
+    }
+
+    .mobile-account-summary strong,
+    .mobile-account-summary small {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .mobile-account-summary strong {
+        font-size: 0.9rem;
+    }
+
+    .mobile-account-summary small {
+        margin-top: 2px;
+        color: var(--owe-muted);
+        font-size: 0.74rem;
+    }
+
+    .mobile-account-links {
+        display: grid;
+    }
+
+    .mobile-account-links a,
+    .mobile-account-links button {
+        display: flex;
+        width: 100%;
+        min-height: 46px;
+        padding: 12px 0;
+        align-items: center;
+        gap: 12px;
+        border: 0;
+        border-bottom: 1px solid var(--owe-border);
+        color: var(--owe-ink);
+        background: transparent;
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-align: left;
+    }
+
+    .mobile-account-links button {
+        color: var(--owe-sale);
+    }
+
+    .mobile-account-links i {
+        width: 18px;
+        font-size: 1rem;
+        text-align: center;
+    }
+
+    .mobile-account-label {
+        margin: 0 0 12px;
+        color: var(--owe-muted);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    .mobile-auth-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .mobile-auth-actions .btn {
+        min-width: 0;
+        padding: 11px 8px;
+        border-radius: 2px;
+        font-size: 0.78rem;
+        font-weight: 800;
     }
 
     .home-page {

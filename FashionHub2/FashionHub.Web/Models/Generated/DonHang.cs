@@ -27,6 +27,10 @@ public partial class DonHang
 
     public int? IdphuongThucThanhToan { get; set; }
 
+    public byte TrangThaiThanhToan { get; set; }
+
+    public DateTime? NgayThanhToan { get; set; }
+
     public int IdtrangThai { get; set; }
 
     public string? GhiChu { get; set; }
@@ -36,6 +40,8 @@ public partial class DonHang
     public DateTime? NgayCapNhat { get; set; }
 
     public virtual ICollection<ChiTietDonHang> ChiTietDonHangs { get; set; } = new List<ChiTietDonHang>();
+
+    public virtual ICollection<GiaoDichThanhToan> GiaoDichThanhToans { get; set; } = new List<GiaoDichThanhToan>();
 
     public virtual ICollection<LichSuDonHang> LichSuDonHangs { get; set; } = new List<LichSuDonHang>();
 

@@ -26,6 +26,9 @@ namespace FashionHub.Web.ViewModels.Account
         public string TrangThai { get; set; } = string.Empty;
         public int IdtrangThai { get; set; }
         public string? PhuongThucThanhToan { get; set; }
+        public string? MaPhuongThucThanhToan { get; set; }
+        public byte TrangThaiThanhToan { get; set; }
+        public DateTime? NgayThanhToan { get; set; }
         public List<OrderItemViewModel> Items { get; set; } = new();
     }
 

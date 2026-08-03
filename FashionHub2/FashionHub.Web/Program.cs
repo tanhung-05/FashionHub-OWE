@@ -5,6 +5,7 @@ using FashionHub.Web.Application.Chat;
 using FashionHub.Web.Application.Email;
 using FashionHub.Web.Application.Products;
 using FashionHub.Web.Application.Orders;
+using FashionHub.Web.Application.Payments;
 using FashionHub.Web.Data;
 using FashionHub.Web.Infrastructure.Authentication;
 using FashionHub.Web.Infrastructure.Cart;
@@ -198,6 +199,17 @@ builder.Services.AddHealthChecks()
         return string.IsNullOrEmpty(apiKey)
             ? Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Degraded("Gemini API key not configured")
             : Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy();
+    })
+    .AddCheck("VnPay", () =>
+    {
+        var tmnCode = builder.Configuration["VnPay:TmnCode"];
+        var hashSecret = builder.Configuration["VnPay:HashSecret"];
+        var returnUrl = builder.Configuration["VnPay:ReturnUrl"];
+        return string.IsNullOrWhiteSpace(tmnCode)
+            || string.IsNullOrWhiteSpace(hashSecret)
+            || string.IsNullOrWhiteSpace(returnUrl)
+            ? Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Degraded("VNPAY is not configured")
+            : Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy();
     });
 
 // Application services
@@ -217,14 +229,28 @@ builder.Services.AddScoped<IAuthenticationSessionService, CookieAuthenticationSe
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddHttpClient(VnPayService.HttpClientName, client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 builder.Services.Configure<PasswordResetOptions>(
     builder.Configuration.GetSection(PasswordResetOptions.SectionName));
 builder.Services.Configure<SmtpOptions>(
     builder.Configuration.GetSection(SmtpOptions.SectionName));
 builder.Services.Configure<GeminiAiOptions>(
     builder.Configuration.GetSection(GeminiAiOptions.SectionName));
+builder.Services.Configure<VnPayOptions>(
+    builder.Configuration.GetSection(VnPayOptions.SectionName));
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IOrderCancellationService, OrderCancellationService>();
+builder.Services.AddScoped<IVnPayService, VnPayService>();
+builder.Services.AddScoped<IPendingPaymentReconciliationService,
+    PendingPaymentReconciliationService>();
+if (!builder.Environment.IsEnvironment("Test"))
+{
+    builder.Services.AddHostedService<PendingPaymentReconciliationWorker>();
+}
 builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<IAdminProductService>(
     provider => provider.GetRequiredService<AdminService>());

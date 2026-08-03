@@ -7,6 +7,8 @@ public partial class PhuongThucThanhToan
 {
     public int IdphuongThucThanhToan { get; set; }
 
+    public string MaPhuongThuc { get; set; } = null!;
+
     public string TenPhuongThuc { get; set; } = null!;
 
     public bool TrangThai { get; set; }

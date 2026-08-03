@@ -161,6 +161,22 @@
                     @(Model.IdphuongThucThanhToanNavigation?.TenPhuongThuc ?? "N/A")
                 </p>
 
+                <p class="mb-2">
+                    <strong>Trạng thái thanh toán:</strong><br />
+                    @(Model.TrangThaiThanhToan switch
+                    {
+                        FashionHub.Web.Domain.PaymentStatusIds.Pending => "Đang chờ thanh toán",
+                        FashionHub.Web.Domain.PaymentStatusIds.Paid => "Đã thanh toán",
+                        FashionHub.Web.Domain.PaymentStatusIds.Failed => "Thanh toán thất bại",
+                        FashionHub.Web.Domain.PaymentStatusIds.Refunded => "Đã hoàn tiền",
+                        _ => "Chưa thanh toán"
+                    })
+                    @if (Model.NgayThanhToan.HasValue)
+                    {
+                        <small class="d-block text-muted">@Model.NgayThanhToan.Value.ToString("dd/MM/yyyy HH:mm")</small>
+                    }
+                </p>
+
                 @if (Model.IdmaGiamGiaNavigation is not null)
                 {
                     <p class="mb-0">

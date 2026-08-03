@@ -43,6 +43,7 @@ paths and are documented in the migration notes.
 - xUnit, `WebApplicationFactory`, and EF Core InMemory for automated tests
 - Swashbuckle/OpenAPI
 - Gemini API for chat
+- VNPAY 2.1.0 sandbox integration with HMAC-SHA512, Return URL, and IPN
 
 ## Local Setup
 
@@ -63,6 +64,9 @@ dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost;Database=FashionHub;Trusted_Connection=True;TrustServerCertificate=True"
 dotnet user-secrets set "GeminiAI:ApiKey" "your-key"
 ```
+
+VNPAY sandbox is optional for COD-only local development. See
+[`docs/vnpay-setup.md`](docs/vnpay-setup.md) before enabling online payments.
 
 Restore, build, test, and run:
 
@@ -161,6 +165,10 @@ has changed. Login endpoints are rate-limited.
 
 Request and response schemas, validation constraints, and status codes are
 available in Swagger. No endpoint returns an EF Core generated entity.
+
+The Razor checkout redirects configured VNPAY orders to the signed sandbox URL.
+VNPAY returns customers to `/payment/vnpay-return` and sends server payment
+notifications to `/payment/vnpay-ipn`.
 
 Example product request:
 

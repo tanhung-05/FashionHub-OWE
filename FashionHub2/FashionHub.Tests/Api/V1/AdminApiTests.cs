@@ -4,7 +4,12 @@ using FashionHub.Web.Application.Admin;
 using FashionHub.Web.Application.Cart;
 using FashionHub.Web.Application.Common;
 using FashionHub.Web.Application.Orders;
+using FashionHub.Web.Data;
+using FashionHub.Web.Domain;
+using FashionHub.Web.Models.Generated;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FashionHub.Tests.Api.V1;
 
@@ -101,6 +106,62 @@ public class AdminApiTests : IClassFixture<CustomWebApplicationFactory<Program>>
         updateResponse.EnsureSuccessStatusCode();
         var updated = await updateResponse.Content.ReadFromJsonAsync<AdminOrderDetailDto>();
         updated!.Order.StatusId.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Orders_AdminCannotConfirmUnpaidVnPayOrder()
+    {
+        using var isolatedFactory = new CustomWebApplicationFactory<Program>();
+        int orderId;
+        using (var scope = isolatedFactory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.PhuongThucThanhToans.Add(new PhuongThucThanhToan
+            {
+                IdphuongThucThanhToan = 2,
+                MaPhuongThuc = PaymentMethodCodes.VnPay,
+                TenPhuongThuc = "VNPAY",
+                TrangThai = true
+            });
+            var order = new DonHang
+            {
+                IdnguoiDung = 1,
+                TenNguoiNhan = "VNPAY Test User",
+                DiaChiGiao = "123 Test Street",
+                SoDienThoai = "0123456789",
+                TongTienHang = 100000,
+                PhiVanChuyen = 30000,
+                TongThanhToan = 130000,
+                IdphuongThucThanhToan = 2,
+                IdtrangThai = OrderStatusIds.Pending,
+                TrangThaiThanhToan = PaymentStatusIds.Pending,
+                NgayTao = DateTime.Now
+            };
+            db.DonHangs.Add(order);
+            await db.SaveChangesAsync();
+            orderId = order.IddonHang;
+        }
+
+        using var client = isolatedFactory.CreateClient(
+            new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+            {
+                HandleCookies = true,
+                AllowAutoRedirect = false
+            });
+        await client.LoginAsAdminAsync();
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/v1/admin/orders/{orderId}/status",
+            new UpdateOrderStatusRequest { StatusId = OrderStatusIds.Confirmed });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        using var verificationScope = isolatedFactory.Services.CreateScope();
+        var verificationDb = verificationScope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+        (await verificationDb.DonHangs
+            .Where(order => order.IddonHang == orderId)
+            .Select(order => order.IdtrangThai)
+            .SingleAsync()).Should().Be(OrderStatusIds.Pending);
     }
 
     [Fact]

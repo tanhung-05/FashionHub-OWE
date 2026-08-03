@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using FashionHub.Web.Data;
 using FashionHub.Web.Application.Orders;
+using FashionHub.Web.Application.Payments;
 using FashionHub.Web.Domain;
 using FashionHub.Web.Models.Generated;
 using FashionHub.Web.Services;
@@ -20,17 +21,20 @@ public class OrderController : Controller
     private readonly ApplicationDbContext dbContext;
     private readonly ICartService cartService;
     private readonly IOrderService orderService;
+    private readonly IVnPayService vnPayService;
     private readonly ILogger<OrderController> logger;
 
     public OrderController(
         ApplicationDbContext dbContext,
         ICartService cartService,
         IOrderService orderService,
+        IVnPayService vnPayService,
         ILogger<OrderController> logger)
     {
         this.dbContext = dbContext;
         this.cartService = cartService;
         this.orderService = orderService;
+        this.vnPayService = vnPayService;
         this.logger = logger;
     }
 
@@ -97,10 +101,14 @@ public class OrderController : Controller
         // Lấy phương thức thanh toán
         var paymentMethods = await dbContext.PhuongThucThanhToans
             .AsNoTracking()
-            .Where(method => method.TrangThai)
+            .Where(method =>
+                method.TrangThai
+                && (method.MaPhuongThuc != PaymentMethodCodes.VnPay
+                    || vnPayService.IsConfigured))
             .Select(method => new PaymentMethodViewModel
             {
                 IdphuongThucThanhToan = method.IdphuongThucThanhToan,
+                MaPhuongThuc = method.MaPhuongThuc,
                 TenPhuongThuc = method.TenPhuongThuc ?? string.Empty
             })
             .ToListAsync();
@@ -163,6 +171,23 @@ public class OrderController : Controller
             });
         }
 
+        var selectedPaymentMethod = await dbContext.PhuongThucThanhToans
+            .AsNoTracking()
+            .FirstOrDefaultAsync(method =>
+                method.IdphuongThucThanhToan == paymentMethodId
+                && method.TrangThai);
+        if (selectedPaymentMethod == null
+            || (selectedPaymentMethod.MaPhuongThuc == PaymentMethodCodes.VnPay
+                && !vnPayService.IsConfigured))
+        {
+            TempData["Error"] = "Phương thức thanh toán chưa sẵn sàng. Vui lòng chọn phương thức khác.";
+            return RedirectToAction("Checkout", new
+            {
+                cartType = normalizedCartType,
+                validationError = "payment"
+            });
+        }
+
         if (normalizedCartType == "Normal")
         {
             try
@@ -182,7 +207,25 @@ public class OrderController : Controller
                 HttpContext.Session.Remove("DiscountAmount");
                 HttpContext.Session.Remove("CouponId");
                 HttpContext.Session.Remove("CouponCode");
-                return RedirectToAction("OrderSuccess", new { id = result.Value!.Id });
+                if (result.Value!.PaymentMethodCode == PaymentMethodCodes.VnPay)
+                {
+                    var paymentResult = await vnPayService.CreatePaymentUrlAsync(
+                        result.Value.Id,
+                        userId.Value,
+                        GetClientIpAddress());
+                    if (paymentResult.IsSuccess)
+                    {
+                        return Redirect(paymentResult.Value!);
+                    }
+
+                    TempData["Error"] = paymentResult.Error!.Message;
+                    return RedirectToAction(
+                        "OrderDetail",
+                        "Account",
+                        new { id = result.Value.Id });
+                }
+
+                return RedirectToAction("OrderSuccess", new { id = result.Value.Id });
             }
             catch (Exception exception)
             {
@@ -197,7 +240,7 @@ public class OrderController : Controller
         }
 
         var executionStrategy = dbContext.Database.CreateExecutionStrategy();
-        return await executionStrategy.ExecuteAsync(async () =>
+        return await executionStrategy.ExecuteAsync<IActionResult>(async () =>
         {
             dbContext.ChangeTracker.Clear();
             await using var transaction =
@@ -312,6 +355,9 @@ public class OrderController : Controller
                     TongThanhToan = totalAmount + ShippingFees.Standard - discount,
                     IdmaGiamGia = couponId,
                     IdphuongThucThanhToan = paymentMethodId,
+                    TrangThaiThanhToan = selectedPaymentMethod.MaPhuongThuc == PaymentMethodCodes.VnPay
+                        ? PaymentStatusIds.Pending
+                        : PaymentStatusIds.Unpaid,
                     IdtrangThai = OrderStatusIds.Pending,
                     NgayTao = DateTime.Now
                 };
@@ -379,6 +425,24 @@ public class OrderController : Controller
                 HttpContext.Session.Remove("DiscountAmount");
                 HttpContext.Session.Remove("CouponId");
                 HttpContext.Session.Remove("CouponCode");
+
+                if (selectedPaymentMethod.MaPhuongThuc == PaymentMethodCodes.VnPay)
+                {
+                    var paymentResult = await vnPayService.CreatePaymentUrlAsync(
+                        order.IddonHang,
+                        userId.Value,
+                        GetClientIpAddress());
+                    if (paymentResult.IsSuccess)
+                    {
+                        return Redirect(paymentResult.Value!);
+                    }
+
+                    TempData["Error"] = paymentResult.Error!.Message;
+                    return RedirectToAction(
+                        "OrderDetail",
+                        "Account",
+                        new { id = order.IddonHang });
+                }
 
                 return RedirectToAction("OrderSuccess", new { id = order.IddonHang });
             }
@@ -494,6 +558,9 @@ public class OrderController : Controller
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return int.TryParse(userIdClaim, out var userId) ? userId : null;
     }
+
+    private string GetClientIpAddress() =>
+        HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
 
     private static decimal CalculateDiscount(MaGiamGium coupon, decimal orderTotal)
     {

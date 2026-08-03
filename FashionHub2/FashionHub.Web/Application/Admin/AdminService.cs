@@ -16,15 +16,18 @@ public sealed class AdminService :
 {
     private readonly ApplicationDbContext dbContext;
     private readonly ICurrentUserService currentUser;
+    private readonly IOrderCancellationService orderCancellationService;
     private readonly ILogger<AdminService> logger;
 
     public AdminService(
         ApplicationDbContext dbContext,
         ICurrentUserService currentUser,
+        IOrderCancellationService orderCancellationService,
         ILogger<AdminService> logger)
     {
         this.dbContext = dbContext;
         this.currentUser = currentUser;
+        this.orderCancellationService = orderCancellationService;
         this.logger = logger;
     }
 
@@ -316,6 +319,7 @@ public sealed class AdminService :
     {
         var order = await dbContext.DonHangs
             .Include(item => item.ChiTietDonHangs)
+            .Include(item => item.IdphuongThucThanhToanNavigation)
             .FirstOrDefaultAsync(item => item.IddonHang == orderId, cancellationToken);
         if (order == null)
         {
@@ -330,6 +334,29 @@ public sealed class AdminService :
                 "Không thể chuyển đơn hàng sang trạng thái này.");
         }
 
+        var isVnPayOrder = string.Equals(
+            order.IdphuongThucThanhToanNavigation?.MaPhuongThuc,
+            PaymentMethodCodes.VnPay,
+            StringComparison.OrdinalIgnoreCase);
+        if (isVnPayOrder
+            && request.StatusId == OrderStatusIds.Confirmed
+            && order.TrangThaiThanhToan != PaymentStatusIds.Paid)
+        {
+            return ServiceResult<AdminOrderDetailDto>.Failure(
+                ServiceErrorType.Conflict,
+                "online-payment-required",
+                "Đơn VNPAY phải thanh toán thành công trước khi xác nhận.");
+        }
+
+        if (request.StatusId == OrderStatusIds.Cancelled
+            && order.TrangThaiThanhToan == PaymentStatusIds.Paid)
+        {
+            return ServiceResult<AdminOrderDetailDto>.Failure(
+                ServiceErrorType.Conflict,
+                "refund-required-before-cancellation",
+                "Đơn đã thanh toán cần được hoàn tiền trước khi hủy.");
+        }
+
         var statusExists = await dbContext.TrangThaiDonHangs
             .AnyAsync(status => status.IdtrangThai == request.StatusId, cancellationToken);
         if (!statusExists)
@@ -342,45 +369,27 @@ public sealed class AdminService :
         var oldStatus = order.IdtrangThai;
         if (request.StatusId == OrderStatusIds.Cancelled)
         {
-            foreach (var item in order.ChiTietDonHangs.Where(item => item.IdbienThe.HasValue))
-            {
-                var variant = await dbContext.BienTheSanPhams.FindAsync(
-                    new object[] { item.IdbienThe!.Value },
-                    cancellationToken);
-                if (variant == null)
-                {
-                    continue;
-                }
-
-                var oldStock = variant.SoLuongTon;
-                variant.SoLuongTon += item.SoLuong;
-                variant.TongDaBan = Math.Max(0, variant.TongDaBan - item.SoLuong);
-                dbContext.LichSuTonKhos.Add(new LichSuTonKho
-                {
-                    IdbienThe = variant.IdbienThe,
-                    IdnguoiThucHien = currentUser.UserId,
-                    IddonHang = orderId,
-                    LoaiThayDoi = InventoryChangeTypes.OrderCancelled,
-                    SoLuongThayDoi = item.SoLuong,
-                    TonTruoc = oldStock,
-                    TonSau = variant.SoLuongTon,
-                    GhiChu = $"Admin hủy đơn #{orderId}",
-                    NgayTao = DateTime.Now
-                });
-            }
+            await orderCancellationService.ApplyAsync(
+                order,
+                currentUser.UserId,
+                NormalizeOptional(request.Note) ?? $"Admin hủy đơn #{orderId}",
+                cancellationToken);
         }
 
-        order.IdtrangThai = request.StatusId;
-        order.NgayCapNhat = DateTime.Now;
-        dbContext.LichSuDonHangs.Add(new LichSuDonHang
+        if (request.StatusId != OrderStatusIds.Cancelled)
         {
-            IddonHang = orderId,
-            IdtrangThaiCu = oldStatus,
-            IdtrangThaiMoi = request.StatusId,
-            IdnguoiThucHien = currentUser.UserId,
-            GhiChu = NormalizeOptional(request.Note) ?? "Admin cập nhật trạng thái",
-            NgayTao = DateTime.Now
-        });
+            order.IdtrangThai = request.StatusId;
+            order.NgayCapNhat = DateTime.Now;
+            dbContext.LichSuDonHangs.Add(new LichSuDonHang
+            {
+                IddonHang = orderId,
+                IdtrangThaiCu = oldStatus,
+                IdtrangThaiMoi = request.StatusId,
+                IdnguoiThucHien = currentUser.UserId,
+                GhiChu = NormalizeOptional(request.Note) ?? "Admin cập nhật trạng thái",
+                NgayTao = DateTime.Now
+            });
+        }
         AddAudit(
             "UPDATE_STATUS",
             "DonHang",
@@ -403,7 +412,11 @@ public sealed class AdminService :
         CancellationToken cancellationToken = default)
     {
         var pendingOrders = await dbContext.DonHangs
-            .Where(order => order.IdtrangThai == OrderStatusIds.Pending)
+            .Where(order =>
+                order.IdtrangThai == OrderStatusIds.Pending
+                && (order.IdphuongThucThanhToanNavigation == null
+                    || order.IdphuongThucThanhToanNavigation.MaPhuongThuc != PaymentMethodCodes.VnPay
+                    || order.TrangThaiThanhToan == PaymentStatusIds.Paid))
             .ToListAsync(cancellationToken);
 
         if (pendingOrders.Count == 0)
@@ -613,6 +626,9 @@ public sealed class AdminService :
                 order.IdtrangThai,
                 order.IdtrangThaiNavigation.TenTrangThai,
                 order.IdphuongThucThanhToanNavigation?.TenPhuongThuc,
+                order.IdphuongThucThanhToanNavigation?.MaPhuongThuc,
+                order.TrangThaiThanhToan,
+                order.NgayThanhToan,
                 order.GhiChu,
                 order.ChiTietDonHangs.Select(item => new OrderItemDto(
                     item.IdchiTietDonHang,

@@ -30,6 +30,8 @@ public partial class ApplicationDbContext : DbContext
 
     public virtual DbSet<DonHang> DonHangs { get; set; }
 
+    public virtual DbSet<GiaoDichThanhToan> GiaoDichThanhToans { get; set; }
+
     public virtual DbSet<GioHang> GioHangs { get; set; }
 
     public virtual DbSet<HinhAnh> HinhAnhs { get; set; }
@@ -351,6 +353,7 @@ public partial class ApplicationDbContext : DbContext
                 .HasDefaultValueSql("(sysdatetime())")
                 .HasColumnType("datetime2(0)");
             entity.Property(e => e.NgayCapNhat).HasColumnType("datetime2(0)");
+            entity.Property(e => e.NgayThanhToan).HasColumnType("datetime2(0)");
             entity.Property(e => e.PhiVanChuyen)
                 .HasDefaultValue(0m)
                 .HasColumnType("decimal(18, 0)");
@@ -382,6 +385,52 @@ public partial class ApplicationDbContext : DbContext
                 .HasForeignKey(d => d.IdtrangThai)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_DonHang_TrangThaiDonHang");
+        });
+
+        modelBuilder.Entity<GiaoDichThanhToan>(entity =>
+        {
+            entity.HasKey(e => e.IdgiaoDich).HasName("PK_GiaoDichThanhToan");
+
+            entity.ToTable("GiaoDichThanhToan");
+
+            entity.HasIndex(e => new { e.IddonHang, e.NgayTao }, "IX_GiaoDichThanhToan_DonHang_NgayTao");
+
+            entity.HasIndex(e => new { e.TrangThai, e.NgayTao }, "IX_GiaoDichThanhToan_TrangThai_NgayTao");
+
+            entity.HasIndex(e => e.MaThamChieu, "UQ_GiaoDichThanhToan_MaThamChieu").IsUnique();
+
+            entity.Property(e => e.IdgiaoDich).HasColumnName("IDGiaoDich");
+            entity.Property(e => e.IddonHang).HasColumnName("IDDonHang");
+            entity.Property(e => e.CongThanhToan)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.MaGiaoDichCong)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.MaNganHang)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.MaPhanHoi)
+                .HasMaxLength(10)
+                .IsUnicode(false);
+            entity.Property(e => e.MaThamChieu)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.NgayCapNhat).HasColumnType("datetime2(0)");
+            entity.Property(e => e.NgayTao)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnType("datetime2(0)");
+            entity.Property(e => e.NgayThanhToan).HasColumnType("datetime2(0)");
+            entity.Property(e => e.NoiDung).HasMaxLength(255);
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+            entity.Property(e => e.SoTien).HasColumnType("decimal(18, 0)");
+            entity.Property(e => e.TrangThai).HasDefaultValue((byte)1);
+
+            entity.HasOne(d => d.IddonHangNavigation).WithMany(p => p.GiaoDichThanhToans)
+                .HasForeignKey(d => d.IddonHang)
+                .HasConstraintName("FK_GiaoDichThanhToan_DonHang");
         });
 
         modelBuilder.Entity<GioHang>(entity =>
@@ -621,7 +670,12 @@ public partial class ApplicationDbContext : DbContext
 
             entity.HasIndex(e => e.TenPhuongThuc, "UQ_PhuongThucThanhToan_TenPhuongThuc").IsUnique();
 
+            entity.HasIndex(e => e.MaPhuongThuc, "UQ_PhuongThucThanhToan_MaPhuongThuc").IsUnique();
+
             entity.Property(e => e.IdphuongThucThanhToan).HasColumnName("IDPhuongThucThanhToan");
+            entity.Property(e => e.MaPhuongThuc)
+                .HasMaxLength(30)
+                .IsUnicode(false);
             entity.Property(e => e.TenPhuongThuc).HasMaxLength(100);
             entity.Property(e => e.TrangThai).HasDefaultValue(true);
         });

@@ -74,6 +74,9 @@ public sealed record OrderDetailDto(
     int StatusId,
     string Status,
     string? PaymentMethod,
+    string? PaymentMethodCode,
+    byte PaymentStatusId,
+    DateTime? PaidAt,
     string? Note,
     IReadOnlyList<OrderItemDto> Items);
 

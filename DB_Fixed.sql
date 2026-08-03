@@ -37,6 +37,7 @@ IF OBJECT_ID('LichSuTonKho', 'U') IS NOT NULL DROP TABLE LichSuTonKho;
 IF OBJECT_ID('DanhGia', 'U') IS NOT NULL DROP TABLE DanhGia;
 IF OBJECT_ID('YeuThich', 'U') IS NOT NULL DROP TABLE YeuThich;
 IF OBJECT_ID('ChiTietDonHang', 'U') IS NOT NULL DROP TABLE ChiTietDonHang;
+IF OBJECT_ID('GiaoDichThanhToan', 'U') IS NOT NULL DROP TABLE GiaoDichThanhToan;
 IF OBJECT_ID('DonHang', 'U') IS NOT NULL DROP TABLE DonHang;
 IF OBJECT_ID('GioHang', 'U') IS NOT NULL DROP TABLE GioHang;
 IF OBJECT_ID('HinhAnh_BienThe', 'U') IS NOT NULL DROP TABLE HinhAnh_BienThe;
@@ -76,8 +77,10 @@ CREATE TABLE TrangThaiDonHang (
 
 CREATE TABLE PhuongThucThanhToan (
     IDPhuongThucThanhToan INT PRIMARY KEY IDENTITY(1,1),
+    MaPhuongThuc VARCHAR(30) NOT NULL,
     TenPhuongThuc NVARCHAR(100) NOT NULL,
     TrangThai BIT NOT NULL CONSTRAINT DF_PhuongThucThanhToan_TrangThai DEFAULT 1,
+    CONSTRAINT UQ_PhuongThucThanhToan_MaPhuongThuc UNIQUE (MaPhuongThuc),
     CONSTRAINT UQ_PhuongThucThanhToan_TenPhuongThuc UNIQUE (TenPhuongThuc)
 );
 
@@ -289,6 +292,9 @@ CREATE TABLE DonHang (
     TienGiamGia DECIMAL(18, 0) NOT NULL CONSTRAINT DF_DonHang_TienGiamGia DEFAULT 0,
     TongThanhToan DECIMAL(18, 0) NOT NULL,
     IDPhuongThucThanhToan INT NULL,
+    TrangThaiThanhToan TINYINT NOT NULL
+        CONSTRAINT DF_DonHang_TrangThaiThanhToan DEFAULT 0,
+    NgayThanhToan DATETIME2(0) NULL,
     IDTrangThai INT NOT NULL,
     GhiChu NVARCHAR(500) NULL,
     NgayTao DATETIME2(0) NOT NULL CONSTRAINT DF_DonHang_NgayTao DEFAULT SYSDATETIME(),
@@ -304,7 +310,33 @@ CREATE TABLE DonHang (
         TongTienHang >= 0 AND PhiVanChuyen >= 0 AND TienGiamGia >= 0
         AND TongThanhToan >= 0
         AND TongThanhToan = TongTienHang + PhiVanChuyen - TienGiamGia
-    )
+    ),
+    CONSTRAINT CK_DonHang_TrangThaiThanhToan CHECK (TrangThaiThanhToan BETWEEN 0 AND 4)
+);
+
+CREATE TABLE GiaoDichThanhToan (
+    IDGiaoDich BIGINT NOT NULL IDENTITY(1,1)
+        CONSTRAINT PK_GiaoDichThanhToan PRIMARY KEY,
+    IDDonHang INT NOT NULL,
+    MaThamChieu VARCHAR(100) NOT NULL,
+    CongThanhToan VARCHAR(30) NOT NULL,
+    SoTien DECIMAL(18, 0) NOT NULL,
+    TrangThai TINYINT NOT NULL
+        CONSTRAINT DF_GiaoDichThanhToan_TrangThai DEFAULT 1,
+    MaGiaoDichCong VARCHAR(50) NULL,
+    MaPhanHoi VARCHAR(10) NULL,
+    MaNganHang VARCHAR(20) NULL,
+    NoiDung NVARCHAR(255) NULL,
+    NgayTao DATETIME2(0) NOT NULL
+        CONSTRAINT DF_GiaoDichThanhToan_NgayTao DEFAULT SYSUTCDATETIME(),
+    NgayCapNhat DATETIME2(0) NULL,
+    NgayThanhToan DATETIME2(0) NULL,
+    RowVersion ROWVERSION NOT NULL,
+    CONSTRAINT UQ_GiaoDichThanhToan_MaThamChieu UNIQUE (MaThamChieu),
+    CONSTRAINT FK_GiaoDichThanhToan_DonHang FOREIGN KEY (IDDonHang)
+        REFERENCES DonHang(IDDonHang) ON DELETE CASCADE,
+    CONSTRAINT CK_GiaoDichThanhToan_SoTien CHECK (SoTien > 0),
+    CONSTRAINT CK_GiaoDichThanhToan_TrangThai CHECK (TrangThai BETWEEN 1 AND 4)
 );
 
 CREATE TABLE ChiTietDonHang (
@@ -490,6 +522,12 @@ ON DonHang(IDNguoiDung, NgayTao DESC);
 CREATE INDEX IX_DonHang_TrangThai_NgayTao
 ON DonHang(IDTrangThai, NgayTao DESC);
 
+CREATE INDEX IX_GiaoDichThanhToan_DonHang_NgayTao
+ON GiaoDichThanhToan(IDDonHang, NgayTao DESC);
+
+CREATE INDEX IX_GiaoDichThanhToan_TrangThai_NgayTao
+ON GiaoDichThanhToan(TrangThai, NgayTao DESC);
+
 CREATE INDEX IX_ChiTietDonHang_BienThe
 ON ChiTietDonHang(IDBienThe);
 
@@ -532,10 +570,10 @@ INSERT INTO TrangThaiDonHang (IDTrangThai, TenTrangThai) VALUES
 (3, N'Hoàn thành'), 
 (4, N'Đã hủy');
 
-INSERT INTO PhuongThucThanhToan (TenPhuongThuc) VALUES 
-(N'Thanh toán khi nhận hàng (COD)'), 
-(N'Chuyển khoản ngân hàng'), 
-(N'Ví điện tử Momo');
+INSERT INTO PhuongThucThanhToan (MaPhuongThuc, TenPhuongThuc, TrangThai) VALUES
+('COD', N'Thanh toán khi nhận hàng (COD)', 1),
+('VNPAY', N'Thanh toán ngân hàng qua VNPAY', 1),
+('MOMO', N'Ví điện tử Momo', 0);
 
 -- 4.2. Danh mục & Thương hiệu & Màu sắc & Kích thước
 INSERT INTO DanhMuc (TenDanhMuc, Slug, IDDanhMucCha, ThuTuHienThi) VALUES

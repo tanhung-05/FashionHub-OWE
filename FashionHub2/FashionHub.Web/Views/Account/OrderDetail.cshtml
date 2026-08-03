@@ -1,7 +1,20 @@
 @model FashionHub.Web.ViewModels.Account.OrderDetailViewModel
 @{
     ViewData["Title"] = $"Chi tiết đơn hàng #{Model.IddonHang}";
-    var canCancel = Model.IdtrangThai == 0;
+    var canCancel = Model.IdtrangThai == 0
+        && Model.TrangThaiThanhToan != FashionHub.Web.Domain.PaymentStatusIds.Paid;
+    var canRetryVnPay = Model.MaPhuongThucThanhToan == FashionHub.Web.Domain.PaymentMethodCodes.VnPay
+        && Model.TrangThaiThanhToan != FashionHub.Web.Domain.PaymentStatusIds.Paid
+        && Model.TrangThaiThanhToan != FashionHub.Web.Domain.PaymentStatusIds.Refunded
+        && Model.IdtrangThai != FashionHub.Web.Domain.OrderStatusIds.Cancelled;
+    var paymentStatus = Model.TrangThaiThanhToan switch
+    {
+        FashionHub.Web.Domain.PaymentStatusIds.Pending => "Đang chờ thanh toán",
+        FashionHub.Web.Domain.PaymentStatusIds.Paid => "Đã thanh toán",
+        FashionHub.Web.Domain.PaymentStatusIds.Failed => "Thanh toán thất bại",
+        FashionHub.Web.Domain.PaymentStatusIds.Refunded => "Đã hoàn tiền",
+        _ => "Chưa thanh toán"
+    };
 }
 
 <div class="container py-4">
@@ -62,10 +75,30 @@
                                 <div class="col-sm-4 text-muted">Địa chỉ giao hàng</div>
                                 <div class="col-sm-8">@Model.DiaChiGiao</div>
                             </div>
-                            <div class="row">
+                            <div class="row mb-3">
                                 <div class="col-sm-4 text-muted">Phương thức thanh toán</div>
                                 <div class="col-sm-8">@(Model.PhuongThucThanhToan ?? "N/A")</div>
                             </div>
+                            <div class="row">
+                                <div class="col-sm-4 text-muted">Trạng thái thanh toán</div>
+                                <div class="col-sm-8">
+                                    <strong>@paymentStatus</strong>
+                                    @if (Model.NgayThanhToan.HasValue)
+                                    {
+                                        <small class="text-muted ms-2">@Model.NgayThanhToan.Value.ToString("dd/MM/yyyy HH:mm")</small>
+                                    }
+                                </div>
+                            </div>
+                            @if (canRetryVnPay)
+                            {
+                                <form asp-controller="Payment" asp-action="RetryVnPay" method="post" class="mt-3">
+                                    <input type="hidden" name="orderId" value="@Model.IddonHang" />
+                                    <button type="submit" class="btn btn-dark">
+                                        <i class="bi bi-bank" aria-hidden="true"></i>
+                                        Thanh toán lại qua VNPAY
+                                    </button>
+                                </form>
+                            }
                         </div>
                     </div>
 

@@ -1,0 +1,44 @@
+@model FashionHub.Web.ViewModels.Payment.PaymentResultViewModel
+@{
+    ViewData["Title"] = Model.IsSuccessful ? "Thanh toán thành công" : "Kết quả thanh toán";
+}
+
+<main class="payment-result-page">
+    <section class="payment-result" aria-labelledby="payment-result-title">
+        <div class="payment-result-icon @(Model.IsSuccessful ? "is-success" : "is-failed")">
+            <i class="bi @(Model.IsSuccessful ? "bi-check-lg" : "bi-x-lg")" aria-hidden="true"></i>
+        </div>
+
+        <p class="section-kicker">VNPAY</p>
+        <h1 id="payment-result-title">
+            @(Model.IsSuccessful ? "Thanh toán thành công" : "Thanh toán chưa hoàn tất")
+        </h1>
+        <p>@Model.Message</p>
+
+        <dl class="payment-result-details">
+            @if (Model.OrderId.HasValue)
+            {
+                <div><dt>Đơn hàng</dt><dd>#@Model.OrderId</dd></div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.TransactionReference))
+            {
+                <div><dt>Mã tham chiếu</dt><dd>@Model.TransactionReference</dd></div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.ResponseCode))
+            {
+                <div><dt>Mã phản hồi</dt><dd>@Model.ResponseCode</dd></div>
+            }
+        </dl>
+
+        <div class="payment-result-actions">
+            @if (Model.OrderId.HasValue && User.Identity?.IsAuthenticated == true)
+            {
+                <a asp-controller="Account" asp-action="OrderDetail" asp-route-id="@Model.OrderId"
+                   class="btn btn-dark">Xem đơn hàng</a>
+            }
+            <a asp-controller="Products" asp-action="Index" class="btn btn-outline-dark">
+                Tiếp tục mua sắm
+            </a>
+        </div>
+    </section>
+</main>

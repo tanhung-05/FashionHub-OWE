@@ -255,6 +255,39 @@
             window.addEventListener('scroll', updateHeader, { passive: true });
         }
 
+        const navigation = document.getElementById('offcanvasNavbar');
+        const productsItem = navigation?.querySelector('.nav-products');
+        const productsLink = productsItem?.querySelector('.nav-products-trigger > .nav-link');
+        const categoryToggle = productsItem?.querySelector('.nav-category-toggle');
+        const categoryMenu = productsItem?.querySelector(':scope > .dropdown-menu');
+        const mobileNavigation = window.matchMedia('(max-width: 991px)');
+
+        const setCategoryMenuState = open => {
+            productsItem?.classList.toggle('show', open);
+            categoryMenu?.classList.toggle('show', open);
+            categoryToggle?.setAttribute('aria-expanded', String(open));
+        };
+
+        const toggleMobileCategoryMenu = event => {
+            if (!mobileNavigation.matches || !categoryMenu) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            setCategoryMenuState(!categoryMenu.classList.contains('show'));
+        };
+
+        productsLink?.addEventListener('click', toggleMobileCategoryMenu);
+        categoryToggle?.addEventListener('click', toggleMobileCategoryMenu);
+        navigation?.addEventListener('hidden.bs.offcanvas', () => setCategoryMenuState(false));
+
+        mobileNavigation.addEventListener('change', event => {
+            if (!event.matches) {
+                setCategoryMenuState(false);
+            }
+        });
+
         window.addEventListener('pageshow', event => {
             if (event.persisted) {
                 updateCartCount();
