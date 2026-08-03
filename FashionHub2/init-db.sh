@@ -53,6 +53,13 @@ if [[ "${DISABLE_DEMO_ACCOUNTS:-false}" == "true" ]]; then
     -No \
     -b \
     -Q "
+      SET ANSI_NULLS ON;
+      SET ANSI_PADDING ON;
+      SET ANSI_WARNINGS ON;
+      SET ARITHABORT ON;
+      SET CONCAT_NULL_YIELDS_NULL ON;
+      SET QUOTED_IDENTIFIER ON;
+      SET NUMERIC_ROUNDABORT OFF;
       USE [${DATABASE}];
       UPDATE dbo.NguoiDung
       SET TrangThai = 0,
