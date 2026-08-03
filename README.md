@@ -68,6 +68,18 @@ dotnet user-secrets set "GeminiAI:ApiKey" "your-key"
 VNPAY sandbox is optional for COD-only local development. See
 [`docs/vnpay-setup.md`](docs/vnpay-setup.md) before enabling online payments.
 
+## Production Deployment
+
+The repository includes a separate single-VPS production stack with Caddy
+automatic HTTPS, SQL Server Express, private backend networking, persistent
+volumes, log rotation, database backup verification, and admin bootstrapping.
+It is intended for a portfolio/demo or small user trial, not high-availability
+commerce.
+
+Start with [`docs/production-vps-deployment.md`](docs/production-vps-deployment.md).
+The production stack uses `FashionHub2/compose.production.yml`; the existing
+`docker-compose.yml` remains the local development stack.
+
 Restore, build, test, and run:
 
 ```powershell

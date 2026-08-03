@@ -92,6 +92,10 @@ trừ khi bạn chủ động muốn xóa toàn bộ database và ảnh upload.
 
 ## 5. Đưa lên Internet
 
+FashionHub đã có bộ cấu hình VPS production với Caddy, HTTPS, SQL Server Express,
+backup và script triển khai. Làm lần lượt theo
+[`production-vps-deployment.md`](production-vps-deployment.md).
+
 Một lần triển khai VPS cơ bản gồm:
 
 1. Thuê VPS Linux có IP công khai và cài Docker Engine.
@@ -101,6 +105,9 @@ Một lần triển khai VPS cơ bản gồm:
 5. Trỏ domain về IP của VPS.
 6. Đặt Caddy, nginx hoặc dịch vụ proxy phía trước để cấp HTTPS.
 7. Chạy smoke test: trang chủ, đăng nhập, giỏ hàng, đặt hàng và `/health`.
+
+Không dùng `MSSQL_PID=Developer` cho website có người dùng thật. Developer edition
+chỉ dành cho phát triển/test; cấu hình production riêng dùng Express.
 
 Máy cá nhân có thể tắt sau đó. VPS tiếp tục phục vụ người dùng.
 

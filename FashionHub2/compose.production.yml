@@ -1,0 +1,123 @@
+name: fashionhub-production
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD:?Set SA_PASSWORD in .env.production}
+      MSSQL_PID: Express
+      MSSQL_MEMORY_LIMIT_MB: ${MSSQL_MEMORY_LIMIT_MB:-2048}
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - sqlserver_backups:/var/opt/mssql/backup
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -No -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+    logging: *default-logging
+
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD:?Set SA_PASSWORD in .env.production}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env.production}
+      SQL_SERVER: sqlserver
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - ../DB_Fixed.sql:/scripts/DB_Fixed.sql:ro
+      - ./init-db.sh:/scripts/init-db.sh:ro
+    entrypoint: ["/bin/bash", "/scripts/init-db.sh"]
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: "no"
+    logging: *default-logging
+
+  web:
+    build:
+      context: .
+      dockerfile: FashionHub.Web/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      AllowedHosts: ${DOMAIN:?Set DOMAIN in .env.production}
+      TZ: Asia/Ho_Chi_Minh
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=QL_SHOPQUANAO_PRO;User Id=fashionhub_app;Password=${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env.production};TrustServerCertificate=True;
+      GeminiAI__ApiKey: ${GEMINI_API_KEY:-}
+      VnPay__PaymentUrl: ${VNPAY_PAYMENT_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      VnPay__TmnCode: ${VNPAY_TMN_CODE:-}
+      VnPay__HashSecret: ${VNPAY_HASH_SECRET:-}
+      VnPay__ReturnUrl: ${VNPAY_RETURN_URL:?Set VNPAY_RETURN_URL in .env.production}
+      VnPay__TransactionApiUrl: ${VNPAY_TRANSACTION_API_URL:-https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
+      PasswordReset__PublicBaseUrl: ${PUBLIC_BASE_URL:?Set PUBLIC_BASE_URL in .env.production}
+      Email__Host: ${SMTP_HOST:-}
+      Email__Port: ${SMTP_PORT:-587}
+      Email__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      Email__UserName: ${SMTP_USERNAME:-}
+      Email__Password: ${SMTP_PASSWORD:-}
+      Email__FromEmail: ${SMTP_FROM_EMAIL:-}
+      Email__FromName: ${SMTP_FROM_NAME:-OWE}
+    expose:
+      - "8080"
+    volumes:
+      - product_images:/app/wwwroot/images/products
+      - data_protection_keys:/root/.aspnet/DataProtection-Keys
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    networks:
+      - backend
+      - edge
+    restart: unless-stopped
+    logging: *default-logging
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env.production}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env.production}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_started
+    networks:
+      - edge
+    restart: unless-stopped
+    logging: *default-logging
+
+volumes:
+  sqlserver_data:
+  sqlserver_backups:
+  product_images:
+  data_protection_keys:
+  caddy_data:
+  caddy_config:
+
+networks:
+  backend:
+    internal: true
+  edge:
+    driver: bridge

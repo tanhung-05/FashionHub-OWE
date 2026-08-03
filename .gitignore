@@ -66,6 +66,10 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.production.example
+
+# Production backups are created locally and must not enter Git
+**/backups/
 
 # OS generated files
 .DS_Store
