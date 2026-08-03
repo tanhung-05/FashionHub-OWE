@@ -29,7 +29,7 @@ public sealed class AccountController : ControllerBase
     [HttpGet("profile")]
     [ProducesResponseType<AccountProfileDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<AccountProfileDto>> GetProfile(
+    public async Task<ActionResult<AccountProfileDto>> GetProfileApi(
         CancellationToken cancellationToken)
     {
         var result = await accountService.GetProfileAsync(cancellationToken);
@@ -42,7 +42,7 @@ public sealed class AccountController : ControllerBase
     [ProducesResponseType<AccountProfileDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<AccountProfileDto>> UpdateProfile(
+    public async Task<ActionResult<AccountProfileDto>> UpdateProfileApi(
         [FromBody] UpdateAccountProfileRequest request,
         CancellationToken cancellationToken)
     {
@@ -70,7 +70,7 @@ public sealed class AccountController : ControllerBase
     [ValidateAntiForgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> ChangePassword(
+    public async Task<IActionResult> ChangePasswordApi(
         [FromBody] ChangeAccountPasswordRequest request,
         CancellationToken cancellationToken)
     {
@@ -89,7 +89,7 @@ public sealed class AccountController : ControllerBase
     /// <summary>Returns all addresses owned by the current customer.</summary>
     [HttpGet("addresses")]
     [ProducesResponseType<IReadOnlyList<AddressDto>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<AddressDto>>> GetAddresses(
+    public async Task<ActionResult<IReadOnlyList<AddressDto>>> GetAddressesApi(
         CancellationToken cancellationToken)
     {
         var result = await accountService.GetAddressesAsync(cancellationToken);
@@ -100,7 +100,7 @@ public sealed class AccountController : ControllerBase
     [HttpGet("addresses/{id:int}")]
     [ProducesResponseType<AddressDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AddressDto>> GetAddress(
+    public async Task<ActionResult<AddressDto>> GetAddressApi(
         int id,
         CancellationToken cancellationToken)
     {
@@ -113,7 +113,7 @@ public sealed class AccountController : ControllerBase
     [ValidateAntiForgeryToken]
     [ProducesResponseType<AddressDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<AddressDto>> CreateAddress(
+    public async Task<ActionResult<AddressDto>> CreateAddressApi(
         [FromBody] SaveAddressRequest request,
         CancellationToken cancellationToken)
     {
@@ -126,7 +126,7 @@ public sealed class AccountController : ControllerBase
         }
 
         return CreatedAtAction(
-            nameof(GetAddress),
+            nameof(GetAddressApi),
             new { id = result.Value!.Id },
             result.Value);
     }
@@ -136,7 +136,7 @@ public sealed class AccountController : ControllerBase
     [ValidateAntiForgeryToken]
     [ProducesResponseType<AddressDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AddressDto>> UpdateAddress(
+    public async Task<ActionResult<AddressDto>> UpdateAddressApi(
         int id,
         [FromBody] SaveAddressRequest request,
         CancellationToken cancellationToken)
@@ -153,7 +153,7 @@ public sealed class AccountController : ControllerBase
     [ValidateAntiForgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DeleteAddress(
+    public async Task<IActionResult> DeleteAddressApi(
         int id,
         CancellationToken cancellationToken)
     {
@@ -168,7 +168,7 @@ public sealed class AccountController : ControllerBase
     [ValidateAntiForgeryToken]
     [ProducesResponseType<AddressDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AddressDto>> SetDefaultAddress(
+    public async Task<ActionResult<AddressDto>> SetDefaultAddressApi(
         int id,
         CancellationToken cancellationToken)
     {

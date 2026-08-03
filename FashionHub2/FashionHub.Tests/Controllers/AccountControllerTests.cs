@@ -122,6 +122,24 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory<
     }
 
     [Fact]
+    public async Task Addresses_AfterLogin_RendersMvcAddressRoutes()
+    {
+        await _client.LoginAsCustomerAsync();
+
+        var addressesResponse = await _client.GetAsync("/Account/Addresses");
+        var createResponse = await _client.GetAsync("/Account/CreateAddress");
+
+        addressesResponse.EnsureSuccessStatusCode();
+        createResponse.EnsureSuccessStatusCode();
+        var addressesHtml = await addressesResponse.Content.ReadAsStringAsync();
+        var createHtml = await createResponse.Content.ReadAsStringAsync();
+        addressesHtml.Should().Contain("href=\"/Account/CreateAddress\"");
+        addressesHtml.Should().Contain("action=\"/Account/DeleteAddress/1\"");
+        addressesHtml.Should().NotContain("href=\"/api/v1/account/addresses\"");
+        createHtml.Should().Contain("action=\"/Account/CreateAddress\"");
+    }
+
+    [Fact]
     public async Task AddAddressAjax_WithValidData_SavesAddress()
     {
         await _client.LoginAsCustomerAsync();
